@@ -1,0 +1,9 @@
+# Ignore the virtual environment directory
+venv/
+
+# Ignore the assets directory
+assets/
+
+# Ignore compressed archives
+*.zip
+*.7z

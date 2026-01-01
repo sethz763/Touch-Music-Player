@@ -1,0 +1,186 @@
+ARCHITECTURE SPEC — Touch Music Player (AudioService Isolation)
+
+Status: LOCKED (Process boundaries + IPC contracts)
+Last updated: 2025-12-26
+
+========================
+GOALS / NON-NEGOTIABLES
+========================
+1. Audio must NEVER stop or glitch due to GUI activity (dialogs, repaints, stalls).
+2. GUI may block; audio must continue indefinitely until an explicit user stop/shutdown.
+3. Decode/output remain real-time safe: no blocking operations in the sounddevice callback.
+4. Cue metadata (CueInfo) must survive the full cue lifecycle and be available at cue finish.
+
+========================
+IMPORT RULES
+========================
+- Absolute imports only.
+- Do NOT include the top-level package/folder name (folder may be renamed).
+
+========================
+TOP-LEVEL PROCESS MODEL
+========================
+
++-------------------------+             +-------------------------+
+|        GUI Process      |             |   AudioService Process  |
+| (Qt main thread only)   |             | (no Qt imports allowed) |
+|                         |   cmd_q --->|                         |
+| - Displays UI           |             | - Owns AudioEngine       |
+| - File dialogs, layout  |<--- evt_q   | - Owns pump/tick loop    |
+| - Converts events->Qt   |             | - Spawns decode/output   
++-------------------------+             +-------------------------+
+                                                |
+                                                | (internal)
+                                                v
+                                     +-------------------------+
+                                     |      Decode Process     |
+                                     | (PyAV; PCM production)  |
+                                     +-------------------------+
+                                                |
+                                                v
+                                     +-------------------------+
+                                     |      Output Process     |
+                                     | (sounddevice callback)  |
+                                     +-------------------------+
+
+Key property:
+- The GUI process MUST NOT directly own or call AudioEngine.
+- AudioService continues running even if GUI thread blocks.
+
+========================
+AUDIO SERVICE
+========================
+The AudioService process is the authoritative audio controller.
+
+Responsibilities:
+- Construct and own AudioEngine.
+- Spawn and manage decode/output subprocesses.
+- Run an independent pump/tick loop:
+    - drain cmd_q (UI -> engine commands)
+    - route commands via AudioEngine.handle_command(cmd)
+    - call AudioEngine.pump() to process output/decode events
+    - forward resulting high-level events to evt_q (engine -> UI)
+- Only stop audio on explicit commands (TransportStop / StopCue / Shutdown).
+
+Constraints:
+- No Qt imports, no QWidget/QObject usage.
+- Avoid stdout prints during playback; prefer file logging if needed.
+
+========================
+GUI PROCESS
+========================
+The GUI process is a thin client.
+
+Responsibilities:
+- Create cmd_q and evt_q.
+- Spawn AudioService (daemon=False recommended on Windows).
+- Send user intent to AudioService by placing commands on cmd_q.
+- Poll evt_q using a QTimer (or similar) and convert events into Qt signals for widgets.
+- GUI must tolerate backlog; during modal dialogs, polling pauses, but audio continues.
+
+========================
+ENGINE API (UI -> AudioService)
+========================
+The UI communicates ONLY by sending command dataclasses to cmd_q.
+
+Typical commands include:
+- TransportPlay / TransportPause / TransportStop / TransportNext / TransportPrev
+- PlayCueCommand (track_id, in/out, gain, fades, layered vs primary)
+- StopCueCommand (cue_id, optional fade)
+- FadeCueCommand
+- SetMasterGainCommand
+- SetCueGainCommand
+
+The AudioService routes these to AudioEngine.handle_command().
+
+========================
+EVENT API (AudioService -> UI)
+========================
+AudioService sends events to evt_q for the GUI to consume.
+
+Event categories:
+A) Lifecycle (MUST be reliable)
+- CueStartedEvent
+- CueFinishedEvent (MUST include CueInfo + reason)
+
+B) Telemetry (best-effort; may drop / coalesce)
+- MasterLevelsEvent
+- CueLevelsEvent
+- CueTimeEvent / TransportTimeEvent
+- Status/diagnostic events
+
+Rule:
+- Telemetry can be lossy; lifecycle must not be lossy.
+
+========================
+CUE IDENTITY + METADATA
+========================
+- track_id identifies the media source (file/track).
+- cue_id identifies one playback instance.
+
+Rule:
+- Every play action generates a new cue_id, even for the same track.
+
+CueInfo:
+- Immutable snapshot created at cue start.
+- Includes at minimum: cue_id, track_id, file_path, in/out, gain_db, started_at/tod_start, metadata dict.
+- Must be accessible when CueFinishedEvent is emitted.
+
+CueFinishedEvent:
+- Must carry CueInfo and reason ("eof", "stopped", "error").
+- Emitted before cue cleanup is finalized (or cleanup retains CueInfo until emission).
+
+========================
+DECODE PROCESS
+========================
+Responsibilities:
+- Decode audio via PyAV to float32 PCM.
+- Seek + bounded discard for accuracy if using in/out points.
+- Pull-based decoding (BufferRequest -> DecodedChunk) to match output demand.
+
+Constraints:
+- No gain or fades.
+- No timing ownership.
+- No Qt.
+
+========================
+OUTPUT PROCESS
+========================
+Responsibilities:
+- Own sounddevice OutputStream and callback timing.
+- Maintain per-cue ring buffers.
+- Mix all active cues; apply per-cue gain and fades; apply master gain.
+- Emit cue-finished lifecycle events reliably (NOT from callback if reliability is required).
+- Emit meters/time telemetry best-effort (may drop).
+
+REAL-TIME CALLBACK RULES (LOCKED):
+- Must NOT block on IPC (no Queue.put inside callback).
+- Must NOT print/log inside callback.
+- Telemetry events inside callback must be put_nowait and may be dropped.
+- Lifecycle events should be emitted from the non-callback thread/loop if reliability is required.
+
+========================
+TRANSITIONS / FADES
+========================
+- Output process owns fade envelopes and gain ramps.
+- Fade-in must start silent to avoid first-frame full-level pops.
+- Fade curves supported: linear and equal-power.
+- Primary mode: new cue fades in while previous fades out.
+- Layered mode: multiple cues play; fades are manual per cue.
+
+========================
+LOCKED / DO NOT CHANGE (WITHOUT A SPEC UPDATE)
+========================
+- GUI is a client; AudioService owns audio.
+- Process boundaries and queue-based IPC (cmd_q, evt_q).
+- Output callback RT-safety rules.
+- Cue identity semantics (unique cue_id per playback).
+- CueFinishedEvent must carry CueInfo.
+
+========================
+NEXT STEPS (NOT LOCKED)
+========================
+- Implement full transport semantics (pause/play/next/prev) at engine level.
+- Per-cue meters/time wiring to SoundFileButton widgets.
+- Spreadsheet logger as an event subscriber (CueFinishedEvent -> Excel row).
+- UI restoration work: reuse SoundFileButton, meters, button bank, main window layout.

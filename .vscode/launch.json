@@ -1,0 +1,13 @@
+{
+  "version": "0.2.0",
+  "configurations": [
+    {
+      "name": "Touch Music Player",
+      "type": "python",
+      "request": "launch",
+      "module": "app.music_player",
+      "console": "integratedTerminal",
+      "justMyCode": false
+    }
+  ]
+}
