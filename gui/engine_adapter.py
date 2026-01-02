@@ -53,6 +53,7 @@ from typing import Optional, TYPE_CHECKING
 import multiprocessing as mp
 import traceback
 import uuid
+import time
 
 from PySide6.QtCore import QObject, Signal, QTimer
 from PySide6.QtWidgets import QWidget
@@ -72,6 +73,7 @@ from engine.commands import (
     OutputSetDevice,
     OutputSetConfig,
     OutputListDevices,
+    BatchCommandsCommand,
 )
 from engine.cue import Cue
 from engine.messages.events import (
@@ -211,7 +213,7 @@ class EngineAdapter(QObject):
         cmd_q: mp.Queue,
         evt_q: mp.Queue,
         parent: Optional[QWidget] = None,
-        poll_interval_ms: int = 30,
+        poll_interval_ms: int = 16,
     ) -> None:
         """
         Initialize the engine adapter.
@@ -220,12 +222,24 @@ class EngineAdapter(QObject):
             cmd_q: multiprocessing.Queue for sending commands to AudioService.
             evt_q: multiprocessing.Queue for receiving events from AudioService.
             parent: Optional Qt parent widget (for signal/slot ownership).
-            poll_interval_ms: Event polling interval in milliseconds (default 30 ≈ 33 Hz).
-                            Lower = more responsive but higher CPU. 30-50 Hz recommended.
+            poll_interval_ms: Event polling interval in milliseconds (default 16 ≈ 60 Hz).
+                            Lower = more responsive but higher CPU. 16-33 Hz recommended.
         """
         super().__init__(parent=parent)
         self._cmd_q = cmd_q
         self._evt_q = evt_q
+        
+        # Timing instrumentation
+        self._slow_threshold_ms = 5.0
+        self._poll_event_times = []
+        self._dispatch_event_times = []
+        self._poll_debug_logging = True  # Temporary verbose logging for queue analysis
+
+        # Poll jitter / backlog diagnostics
+        self._poll_interval_ms = int(poll_interval_ms)
+        self._poll_seq = 0
+        self._last_poll_perf = time.perf_counter()
+        self._last_poll_wall = time.time()
 
         # Set up polling timer
         self._poll_timer = QTimer(self)
@@ -279,6 +293,7 @@ class EngineAdapter(QObject):
             layered (bool): If True, don't auto-fade existing cues (stack playback).
             total_seconds (float or None): Pre-computed duration in seconds (optional).
         """
+        start = time.perf_counter()
         try:
             cmd = PlayCueCommand(
                 cue_id=cue_id or uuid.uuid4().hex,
@@ -292,7 +307,13 @@ class EngineAdapter(QObject):
                 layered=layered,
                 total_seconds=total_seconds,
             )
+            q_start = time.perf_counter()
             self._cmd_q.put(cmd)
+            q_time = (time.perf_counter() - q_start) * 1000
+            
+            elapsed = (time.perf_counter() - start) * 1000
+            if elapsed > self._slow_threshold_ms:
+                print(f"[PERF] play_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cmd.cue_id}")
         except Exception as e:
             print(f"[EngineAdapter.play_cue] Error: {e}")
             traceback.print_exc()
@@ -305,9 +326,16 @@ class EngineAdapter(QObject):
             cue_id (str): Unique identifier of the cue to stop.
             fade_out_ms (int): Fade-out duration in milliseconds (default 0 = immediate).
         """
+        start = time.perf_counter()
         try:
             cmd = StopCueCommand(cue_id=cue_id, fade_out_ms=fade_out_ms)
+            q_start = time.perf_counter()
             self._cmd_q.put(cmd)
+            q_time = (time.perf_counter() - q_start) * 1000
+            
+            elapsed = (time.perf_counter() - start) * 1000
+            if elapsed > self._slow_threshold_ms:
+                print(f"[PERF] stop_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cue_id}")
         except Exception as e:
             print(f"[EngineAdapter.stop_cue] Error: {e}")
 
@@ -327,6 +355,7 @@ class EngineAdapter(QObject):
             duration_ms (int): Fade duration in milliseconds (must be > 0).
             curve (str): Curve shape ("equal_power" or "linear", default "equal_power").
         """
+        start = time.perf_counter()
         try:
             cmd = FadeCueCommand(
                 cue_id=cue_id,
@@ -334,7 +363,13 @@ class EngineAdapter(QObject):
                 duration_ms=duration_ms,
                 curve=curve,
             )
+            q_start = time.perf_counter()
             self._cmd_q.put(cmd)
+            q_time = (time.perf_counter() - q_start) * 1000
+            
+            elapsed = (time.perf_counter() - start) * 1000
+            if elapsed > self._slow_threshold_ms:
+                print(f"[PERF] fade_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cue_id} target={target_db}dB")
         except Exception as e:
             print(f"[EngineAdapter.fade_cue] Error: {e}")
 
@@ -450,6 +485,47 @@ class EngineAdapter(QObject):
         except Exception as e:
             print(f"[EngineAdapter.list_output_devices] Error: {e}")
 
+    def batch_commands(self, commands: list) -> None:
+        """
+        Send multiple cue commands in a single atomic operation.
+        
+        This method batches multiple command objects (PlayCueCommand, StopCueCommand,
+        FadeCueCommand, UpdateCueCommand) into a single BatchCommandsCommand and
+        sends them as a single queue operation. This significantly reduces overhead
+        when controlling many cues simultaneously.
+        
+        Usage:
+            commands = [
+                PlayCueCommand(...),
+                FadeCueCommand(...),
+                StopCueCommand(...),
+            ]
+            adapter.batch_commands(commands)
+        
+        Benefits:
+        - Single queue.put() instead of N puts
+        - Single Qt signal poll instead of N events
+        - Engine processes all commands in one atomic operation
+        - Improved responsiveness with many concurrent cues
+        
+        Args:
+            commands (list): List of command objects to batch.
+                            Valid types: PlayCueCommand, StopCueCommand, FadeCueCommand, UpdateCueCommand
+        
+        Raises:
+            ValueError: If commands list is empty
+        """
+        if not commands:
+            return  # Silently ignore empty batches
+        
+        try:
+            from engine.commands import BatchCommandsCommand
+            cmd = BatchCommandsCommand(commands=commands)
+            self._cmd_q.put(cmd)
+        except Exception as e:
+            print(f"[EngineAdapter.batch_commands] Error: {e}")
+            traceback.print_exc()
+
     def shutdown(self) -> None:
         """Request graceful shutdown of the AudioService process."""
         try:
@@ -477,27 +553,227 @@ class EngineAdapter(QObject):
         Telemetry throttling: Multiple rapid telemetry events are coalesced and
         emitted at reduced frequency to prevent UI thrashing when many cues are active.
         """
-        import time
+        poll_start = time.perf_counter()
         current_time = time.time()
+
+        # Timer jitter (how late this poll fired). Large values indicate GUI thread blockage.
+        now_perf = poll_start
+        dt_ms = (now_perf - self._last_poll_perf) * 1000.0
+        slip_ms = dt_ms - float(self._poll_interval_ms)
+        self._last_poll_perf = now_perf
+        self._last_poll_wall = current_time
+        self._poll_seq += 1
         
-        event_count = 0
+        # First pass: drain all pending events from queue
+        pending_events = []
+        drain_start = time.perf_counter()
         while True:
             try:
-                # Non-blocking get: raises Empty exception if no events
-                event = self._evt_q.get_nowait()
-                event_count += 1
-            except Exception as e:
-                # Queue empty or other error; stop polling for now
+                pending_events.append(self._evt_q.get_nowait())
+            except Exception:
                 break
+        drain_time = (time.perf_counter() - drain_start) * 1000
+        stage_times = {
+            "drain": drain_time,
+            "lifecycle": 0.0,
+            "telemetry": 0.0,
+            "diag": 0.0,
+            "emit_pending": 0.0,
+        }
+        
+        # Second pass: separate lifecycle from telemetry
+        # CRITICAL: Never drop lifecycle events (CueStartedEvent, CueFinishedEvent)
+        # They control button state - dropping them breaks UI
+        lifecycle_events = []
+        telemetry_events = []
+        other_events = []
+        
+        for event in pending_events:
+            is_lifecycle = isinstance(event, (CueStartedEvent, CueFinishedEvent))
+            is_telemetry = isinstance(event, (BatchCueLevelsEvent, BatchCueTimeEvent, CueLevelsEvent, CueTimeEvent, MasterLevelsEvent))
             
+            if is_lifecycle:
+                lifecycle_events.append(event)
+            elif is_telemetry:
+                telemetry_events.append(event)
+            else:
+                other_events.append(event)
+
+        if self._poll_debug_logging and pending_events:
+            print(
+                f"[POLL-DEBUG] drained={len(pending_events)} drain={drain_time:.2f}ms"
+                f" lifecycle={len(lifecycle_events)} telemetry={len(telemetry_events)} diag={len(other_events)}"
+            )
+        
+        # Process lifecycle events with limit (critical events but process only few per poll)
+        # When many cues finish simultaneously (9+), spread across multiple polls to avoid frame blocking
+        lifecycle_count = 0
+        max_event_time = 0.0
+        max_lifecycle_per_poll = 10  # Allow larger lifecycle bursts before requeueing
+
+        # Per-poll event timing aggregation (captures slot execution time too)
+        # {event_type: {"count": int, "total_ms": float, "max_ms": float, "max_detail": str}}
+        per_poll_stats = {}
+
+        def _detail_for_event(evt: object) -> str:
             try:
+                if isinstance(evt, CueFinishedEvent):
+                    cue_id = evt.cue_info.cue_id[:8] if getattr(evt, "cue_info", None) else "unknown"
+                    return f"cue={cue_id} reason={getattr(evt, 'reason', '')}"
+                if isinstance(evt, CueStartedEvent):
+                    return f"cue={evt.cue_id[:8]}"
+                if isinstance(evt, BatchCueLevelsEvent):
+                    n = len(evt.cue_levels) if getattr(evt, "cue_levels", None) else 0
+                    return f"levels={n} per_ch={bool(getattr(evt, 'cue_levels_per_channel', None))}"
+                if isinstance(evt, BatchCueTimeEvent):
+                    n = len(evt.cue_times) if getattr(evt, "cue_times", None) else 0
+                    return f"cues={n}"
+                if isinstance(evt, MasterLevelsEvent):
+                    n = len(evt.rms) if getattr(evt, "rms", None) else 0
+                    return f"channels={n}"
+            except Exception:
+                pass
+            return ""
+
+        def _accum(evt_type: str, elapsed_ms: float, detail: str) -> None:
+            rec = per_poll_stats.get(evt_type)
+            if rec is None:
+                per_poll_stats[evt_type] = {"count": 1, "total_ms": float(elapsed_ms), "max_ms": float(elapsed_ms), "max_detail": detail}
+                return
+            rec["count"] += 1
+            rec["total_ms"] += float(elapsed_ms)
+            if elapsed_ms > rec["max_ms"]:
+                rec["max_ms"] = float(elapsed_ms)
+                rec["max_detail"] = detail
+        
+        for event in lifecycle_events[:max_lifecycle_per_poll]:
+            try:
+                event_type = type(event).__name__
+                detail = _detail_for_event(event)
+                dispatch_start = time.perf_counter()
                 self._dispatch_event(event, current_time)
-            except Exception as e:
-                # Tolerate errors in event dispatch; log and continue
+                dispatch_time = (time.perf_counter() - dispatch_start) * 1000
+                max_event_time = max(max_event_time, dispatch_time)
+                stage_times["lifecycle"] += dispatch_time
+                _accum(event_type, dispatch_time, detail)
+            except Exception:
+                pass
+            lifecycle_count += 1
+        
+        # Re-queue remaining lifecycle events for next poll (preserve order, ensure delivery)
+        lifecycle_dropped = len(lifecycle_events) - lifecycle_count
+        for event in lifecycle_events[max_lifecycle_per_poll:]:
+            try:
+                self._evt_q.put(event)  # Put back at front of queue
+            except Exception:
+                pass
+        
+        max_telemetry_per_poll = 40  # Drain more telemetry per tick to avoid backlog
+
+        if self._poll_debug_logging and lifecycle_dropped > 0:
+            print(
+                f"[POLL-DEBUG] lifecycle backlog total={len(lifecycle_events)} processed={lifecycle_count}"
+                f" requeued={lifecycle_dropped}"
+            )
+        if self._poll_debug_logging and len(telemetry_events) > max_telemetry_per_poll:
+            print(
+                f"[POLL-DEBUG] telemetry backlog total={len(telemetry_events)} limit={max_telemetry_per_poll}"
+            )
+        
+        # Process telemetry events up to limit (can be dropped, best-effort)
+        telemetry_count = 0
+        
+        for event in telemetry_events[:max_telemetry_per_poll]:
+            try:
+                event_type = type(event).__name__
+                detail = _detail_for_event(event)
+                dispatch_start = time.perf_counter()
+                self._dispatch_event(event, current_time)
+                dispatch_time = (time.perf_counter() - dispatch_start) * 1000
+                max_event_time = max(max_event_time, dispatch_time)
+                stage_times["telemetry"] += dispatch_time
+                _accum(event_type, dispatch_time, detail)
+            except Exception:
+                pass
+            telemetry_count += 1
+        
+        # Process all diagnostic events
+        for event in other_events:
+            try:
+                event_type = type(event).__name__
+                detail = _detail_for_event(event)
+                dispatch_start = time.perf_counter()
+                self._dispatch_event(event, current_time)
+                dispatch_time = (time.perf_counter() - dispatch_start) * 1000
+                max_event_time = max(max_event_time, dispatch_time)
+                stage_times["diag"] += dispatch_time
+                _accum(event_type, dispatch_time, detail)
+            except Exception:
                 pass
         
         # Emit any pending throttled telemetry
+        telemetry_start = time.perf_counter()
         self._emit_pending_telemetry(current_time)
+        telemetry_time = (time.perf_counter() - telemetry_start) * 1000
+        stage_times["emit_pending"] = telemetry_time
+        
+        # Record and report timing
+        total_time = (time.perf_counter() - poll_start) * 1000
+        self._poll_event_times.append(total_time)
+        if len(self._poll_event_times) > 100:
+            self._poll_event_times.pop(0)
+        
+        total_events = len(pending_events)
+        telemetry_dropped = max(0, len(telemetry_events) - telemetry_count)
+        
+        if self._poll_debug_logging and pending_events:
+            print(
+                f"[POLL-DEBUG] total={total_time:.2f}ms lifecycle={lifecycle_count}/{len(lifecycle_events)}"
+                f" telemetry={telemetry_count}/{len(telemetry_events)} other={len(other_events)}"
+                f" emit_pending={telemetry_time:.2f}ms max_event={max_event_time:.2f}ms"
+            )
+            print(
+                f"[POLL-DEBUG] stages drain={stage_times['drain']:.2f}ms lifecycle={stage_times['lifecycle']:.2f}ms"
+                f" telemetry={stage_times['telemetry']:.2f}ms diag={stage_times['diag']:.2f}ms"
+                f" emit_pending={stage_times['emit_pending']:.2f}ms"
+            )
+        if self._poll_debug_logging and telemetry_dropped > 0:
+            print(
+                f"[POLL-DEBUG] telemetry dropped={telemetry_dropped} processed={telemetry_count}"
+            )
+        
+        if total_events > 0 and total_time > self._slow_threshold_ms:
+            avg_time = sum(self._poll_event_times[-10:]) / min(10, len(self._poll_event_times))
+            stage_msg = (
+                f"drain={stage_times['drain']:.2f}ms lifecycle={stage_times['lifecycle']:.2f}ms "
+                f"telemetry={stage_times['telemetry']:.2f}ms diag={stage_times['diag']:.2f}ms "
+                f"emit={stage_times['emit_pending']:.2f}ms"
+            )
+            # Summarize where time went inside this poll (top event types by total_ms)
+            try:
+                top = sorted(
+                    ((k, v) for k, v in per_poll_stats.items()),
+                    key=lambda kv: kv[1]["total_ms"],
+                    reverse=True,
+                )[:4]
+                top_msg = "; ".join(
+                    f"{k}={v['total_ms']:.1f}ms/{v['count']} max={v['max_ms']:.1f}ms {v['max_detail']}".strip()
+                    for k, v in top
+                    if v["total_ms"] >= 0.5
+                )
+            except Exception:
+                top_msg = ""
+
+            jitter_msg = f"dt={dt_ms:.1f}ms slip={slip_ms:+.1f}ms"
+            if lifecycle_dropped > 0:
+                print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count}/{lifecycle_count+lifecycle_dropped} lifecycle, {telemetry_count}/{telemetry_count+telemetry_dropped} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
+            elif telemetry_dropped > 0:
+                print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count} lifecycle, {telemetry_count}/{telemetry_count+telemetry_dropped} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
+            elif total_time > 10.0:  # Only show really slow polls
+                print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count} lifecycle, {telemetry_count} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
+
+            if top_msg:
+                print(f"[PERF] _poll_events breakdown: {top_msg}")
 
     def _dispatch_event(self, event: object, current_time: float) -> None:
         """
@@ -511,6 +787,9 @@ class EngineAdapter(QObject):
             event: An event object from the AudioService.
             current_time: Current time in seconds (from time.time()).
         """
+        dispatch_start = time.perf_counter()
+        event_type = type(event).__name__
+        
         if isinstance(event, CueStartedEvent):
             # Lifecycle: guaranteed delivery
             self.cue_started.emit(event.cue_id, None)  # cue_info not available yet
@@ -580,6 +859,27 @@ class EngineAdapter(QObject):
         else:
             # Unknown event type; silently ignore
             pass
+        
+        dispatch_time = (time.perf_counter() - dispatch_start) * 1000
+        self._dispatch_event_times.append((event_type, dispatch_time))
+        if len(self._dispatch_event_times) > 100:
+            self._dispatch_event_times.pop(0)
+        
+        if dispatch_time > self._slow_threshold_ms:
+            detail = ""
+            if isinstance(event, BatchCueLevelsEvent):
+                level_count = len(event.cue_levels) if event.cue_levels else 0
+                detail = f" levels={level_count} per_ch={bool(event.cue_levels_per_channel)}"
+            elif isinstance(event, BatchCueTimeEvent):
+                detail = f" cues={len(event.cue_times)}"
+            elif isinstance(event, MasterLevelsEvent):
+                detail = f" channels={len(event.rms)}"
+            elif isinstance(event, CueFinishedEvent):
+                cue_id = event.cue_info.cue_id[:8] if getattr(event, "cue_info", None) else "unknown"
+                detail = f" cue={cue_id}"
+            elif isinstance(event, CueStartedEvent):
+                detail = f" cue={event.cue_id[:8]}"
+            print(f"[PERF] _dispatch_event {event_type}: {dispatch_time:.2f}ms{detail}")
 
     def _emit_pending_telemetry(self, current_time: float) -> None:
         """

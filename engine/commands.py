@@ -302,3 +302,35 @@ class OutputListDevices:
     """
     pass
 
+
+# ==============================================================================
+# BATCH COMMANDS (Performance Optimization)
+# ==============================================================================
+
+@dataclass(frozen=True, slots=True)
+class BatchCommandsCommand:
+    """Batch multiple cue commands into a single queue operation.
+    
+    This command encapsulates multiple cue operations (play, stop, fade, update)
+    to be sent as a single atomic operation to the audio engine. This reduces
+    queue congestion and Qt signal overhead when many cues need to be controlled
+    simultaneously (e.g., when clicking multiple buttons rapidly or during
+    synchronized playback changes).
+    
+    Benefits:
+    - Reduces queue.put() calls from N to 1 for N commands
+    - Reduces Qt signal processing overhead
+    - Improves responsiveness when controlling many cues simultaneously
+    - Engine processes all commands in the same audio frame boundary
+    
+    Invariants:
+    - All commands in the batch will be processed atomically (in order).
+    - If any command fails, others in the batch still execute.
+    - Commands are typed (PlayCueCommand, StopCueCommand, FadeCueCommand, UpdateCueCommand).
+    - Maximum batch size should be enforced by caller (typically < 100 commands).
+    
+    Fields:
+        commands (list): List of cue command objects (PlayCueCommand, StopCueCommand, etc).
+    """
+    commands: list  # Type: List[Union[PlayCueCommand, StopCueCommand, FadeCueCommand, UpdateCueCommand]]
+

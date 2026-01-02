@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 from datetime import datetime
+import time
 from typing import Optional
 
 from engine.cue import CueInfo
@@ -35,6 +36,7 @@ class CueLogger:
         This method extracts fields from the immutable CueInfo snapshot
         and creates a CueLogRecord for logging.
         """
+        start = time.perf_counter()
         cue_info: CueInfo = evt.cue_info
 
         # Defensive: should never happen, but don't crash logging
@@ -59,11 +61,24 @@ class CueLogger:
         )
 
         # Emit via LogManager so all listeners handle it
+        t0 = time.perf_counter()
         self._log_manager.log_cue_finished(cue_log_record)
+        log_mgr_ms = (time.perf_counter() - t0) * 1000
         
         # Write to Excel if available
         if self._save_to_excel is not None:
+            t1 = time.perf_counter()
             self._log_cue_to_excel(cue_log_record)
+            excel_ms = (time.perf_counter() - t1) * 1000
+        else:
+            excel_ms = 0.0
+
+        total_ms = (time.perf_counter() - start) * 1000
+        if total_ms > 2.0 or log_mgr_ms > 2.0 or excel_ms > 2.0:
+            print(
+                f"[PERF] CueLogger.on_cue_finished: {total_ms:.2f}ms cue={cue_info.cue_id[:8]}"
+                f" log_mgr={log_mgr_ms:.2f}ms excel={excel_ms:.2f}ms"
+            )
 
     def _log_cue_to_excel(self, cue_log_record: CueLogRecord) -> None:
         """

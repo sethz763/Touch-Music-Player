@@ -1,4 +1,5 @@
 import datetime
+import time
 from openpyxl import Workbook
 from openpyxl import load_workbook
 from openpyxl.styles import  Border, Side, Alignment, Font
@@ -69,12 +70,29 @@ class Save_To_Excel(QObject):
             # self.auto_save_timer.setInterval(self.auto_save_duration)
             # self.auto_save_timer.timeout.connect(self.save)
             # self.auto_save_timer.start()
+
+            # Perf instrumentation
+            self._perf_threshold_ms = 5.0
+            # Save debounce/coalescing: avoid doing a full workbook save per cue finish.
+            self._save_debounce_ms = 250
+            self._save_timer = QTimer(self)
+            self._save_timer.setSingleShot(True)
+            self._save_timer.timeout.connect(self._run_debounced_save)
+
+            self._save_in_progress = False
+            self._save_dirty = False
+            self._save_requested_at = None  # perf_counter timestamp
+            self._save_request_count = 0
+
+            # Backup I/O can be expensive; rate-limit backups during bursts.
+            self._last_backup_ts = 0.0
             
         except Exception as e:
             info = getframeinfo(currentframe())
             print(f'{e}:{info.filename}:{info.lineno}')  
        
     def update_log(self, log_data={}):
+        start = time.perf_counter()
         try:
             # Warn if no filename is set
             if not self.filename or self.filename == '':
@@ -100,21 +118,82 @@ class Save_To_Excel(QObject):
                 cell[0].border = self.thin_borders
                 cell[0].font = Font(name='Arial', size=10, bold=False)
 
-            # Schedule save on background thread to avoid blocking GUI
+            # Debounced save to avoid blocking GUI repeatedly during bursts
             self._queue_save_async()
             
             # Emit signal so listeners (e.g., logging dialog) can refresh
             self.log_entry_added.emit(log_data)
+
+            elapsed_ms = (time.perf_counter() - start) * 1000
+            if elapsed_ms > self._perf_threshold_ms:
+                try:
+                    rows = self.music_log_sheet.max_row if self.music_log_sheet is not None else -1
+                except Exception:
+                    rows = -1
+                print(f"[PERF] Save_To_Excel.update_log: {elapsed_ms:.2f}ms rows={rows} save_requests_pending={self._save_request_count}")
 
         except Exception as e:
             info = getframeinfo(currentframe())
             print(f'{e}:{info.filename}:{info.lineno}')
     
     def _queue_save_async(self):
-        """Queue a non-blocking save operation via QTimer to defer it."""
-        from PySide6.QtCore import QTimer
-        # Defer the actual save to avoid blocking during fade events
-        QTimer.singleShot(0, self.save)  
+        """Debounce saves via a single QTimer to coalesce bursts into one save."""
+        try:
+            self._save_request_count += 1
+            if self._save_requested_at is None:
+                self._save_requested_at = time.perf_counter()
+            self._save_dirty = True
+        except Exception:
+            pass
+
+        # If a save is currently running, just mark dirty; completion will reschedule.
+        if getattr(self, "_save_in_progress", False):
+            return
+
+        # Restart debounce timer: last update wins.
+        try:
+            self._save_timer.start(self._save_debounce_ms)
+        except Exception:
+            # Fallback: if timer can't start, do an immediate save.
+            self.save()
+
+    def _run_debounced_save(self):
+        if getattr(self, "_save_in_progress", False):
+            self._save_dirty = True
+            return
+
+        self._save_in_progress = True
+
+        requested_at = self._save_requested_at
+        req_count = self._save_request_count
+        # Clear request tracking for this save run. New requests during save will re-mark dirty.
+        self._save_requested_at = None
+        self._save_request_count = 0
+        self._save_dirty = False
+
+        delay_ms = 0.0
+        if requested_at is not None:
+            delay_ms = (time.perf_counter() - requested_at) * 1000
+
+        t0 = time.perf_counter()
+        try:
+            self.save()
+        finally:
+            save_ms = (time.perf_counter() - t0) * 1000
+            self._save_in_progress = False
+            if save_ms > 10.0 or delay_ms > 10.0 or req_count > 1:
+                print(
+                    f"[PERF] Save_To_Excel.save(debounced): save={save_ms:.2f}ms delay={delay_ms:.2f}ms coalesced={req_count}"
+                )
+
+            # If more updates came in while saving, schedule another debounced save.
+            if self._save_dirty or self._save_request_count > 0:
+                if self._save_requested_at is None:
+                    self._save_requested_at = time.perf_counter()
+                try:
+                    self._save_timer.start(self._save_debounce_ms)
+                except Exception:
+                    pass
 
     def set_filename(self, filename):
         self.filename = filename
@@ -198,14 +277,17 @@ class Save_To_Excel(QObject):
                 print(f"Warning: Cannot save log file - no filename set")
                 return
             
-            #save_backup first
+            # save_backup first (rate-limited during bursts)
             backup_dir = "backup_logs"
             if not os.path.exists(backup_dir):
-                os.mkdir(backup_dir) 
-            
-            if os.path.exists(self.filename):
-                backup_path = backup_dir + "/"+ os.path.basename(self.filename)
+                os.mkdir(backup_dir)
+
+            now = time.perf_counter()
+            do_backup = (now - getattr(self, "_last_backup_ts", 0.0)) > 2.0
+            if do_backup and os.path.exists(self.filename):
+                backup_path = backup_dir + "/" + os.path.basename(self.filename)
                 shutil.copy(self.filename, backup_path)
+                self._last_backup_ts = now
             
             self.music_log_excel_file.save(self.filename)
             # self.music_log_excel_file = load_workbook(filename=self.filename)

@@ -38,13 +38,14 @@ from __future__ import annotations
 import statistics
 import time
 import uuid
-from typing import Optional, TYPE_CHECKING
+from typing import Optional, TYPE_CHECKING, Callable
+import threading
 
 import numpy as np
 
 from PySide6.QtCore import QMimeData
 from PySide6.QtWidgets import QPushButton, QFileDialog, QMenu, QDialog, QVBoxLayout, QLabel, QSlider, QSpinBox, QColorDialog, QHBoxLayout, QSizePolicy, QWidget, QMessageBox
-from PySide6.QtCore import Signal, QTimer, Qt, QTime, QPoint, QRect, QPointF, QEvent, QPropertyAnimation, QEasingCurve
+from PySide6.QtCore import Signal, QTimer, Qt, QTime, QPoint, QRect, QPointF, QEvent, QPropertyAnimation, QEasingCurve, QThread, QVariantAnimation
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QRadialGradient, QBrush, QPolygon, QResizeEvent, QDrag
 from PySide6.QtCore import QMimeData
 
@@ -215,6 +216,7 @@ class SoundFileButton(QPushButton):
         self.loop_enabled: bool = False
         self.gain_db: float = 0.0
         self.auto_fade_enabled: bool = False  # If True: fade old cue before new one. If False: layered playback
+        self._cleanup_dispatcher: Optional[Callable[["SoundFileButton"], None]] = None
         
         # Fade durations (configurable, will come from settings window)
         self.fade_in_ms: int = 100  # Fade-in duration in milliseconds
@@ -227,9 +229,9 @@ class SoundFileButton(QPushButton):
         self.peak_level: float = 0.0
         self.light_level: float = 1.0  # For playing indicator gradient (0-255 scale)
         
-        # Flashing effect during playback
-        self.flash_timer: Optional[QTimer] = None
-        self.flash_state: bool = False  # Toggles between on/off for flashing
+        # Flashing effect during playback (subtle pulse animation)
+        self.flash_anim: Optional[QVariantAnimation] = None
+        self._flash_base_color: QColor = QColor("#70CC70")
         
         # Custom colors
         self.bg_color: Optional[QColor] = None  # Custom background color (overrides flash)
@@ -409,7 +411,7 @@ class SoundFileButton(QPushButton):
         """
         Automatically wrap text with newline characters based on button width and font metrics.
         Also optimizes font size to use the largest size that fits within the button.
-        Breaks at word boundaries to fit within the button.
+        Breaks at word boundaries when possible, and at character level for long text without spaces.
         """
         if not text or self.width() < 50 or self.height() < 50:
             return text
@@ -436,22 +438,48 @@ class SoundFileButton(QPushButton):
             current_line = []
             
             for word in words:
-                # Check if adding this word fits on current line
-                test_line = " ".join(current_line + [word])
-                line_width = metrics.horizontalAdvance(test_line)
-                
-                if line_width <= available_width:
-                    # Word fits, add it to current line
-                    current_line.append(word)
-                else:
-                    # Word doesn't fit
-                    if current_line:
-                        # Save current line and start new one with this word
-                        lines.append(" ".join(current_line))
-                        current_line = [word]
+                # Check if word has spaces or is a single long word
+                if ' ' not in word:
+                    # Word without spaces - may need character-level wrapping
+                    wrapped_word = self._wrap_long_word(word, metrics, available_width)
+                    
+                    # If wrapping was needed, add current line first
+                    if '\n' in wrapped_word:
+                        if current_line:
+                            lines.append(" ".join(current_line))
+                            current_line = []
+                        lines.extend(wrapped_word.split('\n'))
                     else:
-                        # Word is too long for a line by itself, just put it on its own line
-                        lines.append(word)
+                        # Check if this word fits on current line
+                        test_line = " ".join(current_line + [wrapped_word])
+                        line_width = metrics.horizontalAdvance(test_line)
+                        
+                        if line_width <= available_width:
+                            current_line.append(wrapped_word)
+                        else:
+                            # Word doesn't fit on current line
+                            if current_line:
+                                lines.append(" ".join(current_line))
+                                current_line = [wrapped_word]
+                            else:
+                                lines.append(wrapped_word)
+                else:
+                    # Word with spaces - use original logic
+                    test_line = " ".join(current_line + [word])
+                    line_width = metrics.horizontalAdvance(test_line)
+                    
+                    if line_width <= available_width:
+                        # Word fits, add it to current line
+                        current_line.append(word)
+                    else:
+                        # Word doesn't fit
+                        if current_line:
+                            # Save current line and start new one with this word
+                            lines.append(" ".join(current_line))
+                            current_line = [word]
+                        else:
+                            # Word is too long for a line by itself, just put it on its own line
+                            lines.append(word)
             
             # Add any remaining words
             if current_line:
@@ -476,30 +504,44 @@ class SoundFileButton(QPushButton):
         
         return "\n".join(optimal_lines)
 
-    
-    def _update_label_text(self) -> None:
+    def _wrap_long_word(self, word: str, metrics: QFontMetrics, available_width: int) -> str:
         """
-        Update button text for EVENT-DRIVEN CHANGES (play/finished, colors already applied).
+        Wrap a long word without spaces by breaking it into multiple lines.
+        Returns the word with newline characters inserted at appropriate positions.
         
-        This method updates only the text and styling effects (flashing) WITHOUT resizing.
-        Used for cue_started and cue_finished events to avoid button resize on play/stop.
+        Args:
+            word (str): The long word without spaces
+            metrics (QFontMetrics): Font metrics for width calculation
+            available_width (int): Maximum width for a single line
+            
+        Returns:
+            str: The word with newline characters inserted, or original word if it fits
         """
-        if not self.file_path:
-            return
+        if metrics.horizontalAdvance(word) <= available_width:
+            # Word fits on a single line
+            return word
         
-        # Build display text: prefer song title from metadata, fall back to filename
-        display_name = self.song_title or self.file_path.split("/")[-1].split("\\")[-1]
+        # Word is too long - break it into multiple lines
+        lines = []
+        current_line = ""
         
-        # Add playing indicator if active
-        if self.is_playing:
-            self._start_flash()
-        else:
-            display_text = display_name
-            # Stop flashing if it was running
-            self._stop_flash()
+        for char in word:
+            test_line = current_line + char
+            if metrics.horizontalAdvance(test_line) <= available_width:
+                # Character fits on current line
+                current_line = test_line
+            else:
+                # Character doesn't fit, start new line
+                if current_line:
+                    lines.append(current_line)
+                current_line = char
         
-        # # Update text WITHOUT auto-fitting font (keeps button size stable)
-        # self.setText(display_text)
+        # Add any remaining characters
+        if current_line:
+            lines.append(current_line)
+        
+        return "\n".join(lines)
+
     
     def _auto_fit_font(self, text: str) -> None:
         """
@@ -515,47 +557,37 @@ class SoundFileButton(QPushButton):
         self.setFont(font)
     
     def _start_flash(self) -> None:
-        """Start the background color flashing effect."""
-        if self.flash_timer is None:
-            self.flash_timer = QTimer()
-            self.flash_timer.timeout.connect(self._update_flash)
-            self.flash_timer.start(300)  # Flash every 300ms
-            self.flash_state = False  # Start with "off" state
+        """Start a subtle pulse animation between lighter/darker shades."""
+        if self.flash_anim is not None:
+            return
+        base_color = self.bg_color or QColor("#70CC70")
+        self._flash_base_color = base_color
+        darker = base_color.darker(115)
+        lighter = base_color.lighter(120)
+        anim = QVariantAnimation(self)
+        anim.setDuration(1200)
+        anim.setLoopCount(-1)
+        anim.setEasingCurve(QEasingCurve.InOutSine)
+        anim.setStartValue(darker)
+        anim.setKeyValueAt(0.5, lighter)
+        anim.setEndValue(darker)
+        anim.valueChanged.connect(self._apply_flash_color)
+        anim.start()
+        self.flash_anim = anim
     
     def _stop_flash(self) -> None:
-        """Stop the background color flashing effect and restore original color."""
-        if self.flash_timer is not None:
-            self.flash_timer.stop()
-            self.flash_timer = None
-        self.flash_state = False
-        
+        """Stop the flash animation and restore base color."""
+        if self.flash_anim is not None:
+            self.flash_anim.stop()
+            self.flash_anim.deleteLater()
+            self.flash_anim = None
         # Restore original color (not flashing variation)
-        if self.bg_color or self.text_color:
-            self._apply_stylesheet()
-        else:
-            self.setStyleSheet("")
+        self._apply_stylesheet()
     
-    def _update_flash(self) -> None:
-        """Toggle the flash state and update background color."""
-        self.flash_state = not self.flash_state
-        
-        # Get the base color to flash
-        if self.bg_color:
-            base_color = self.bg_color
-        else:
-            # Default green base color
-            base_color = QColor("#70CC70")
-        
-        # Flash between brighter and darker versions of the base color
-        if self.flash_state:
-            # Flash brighter (lighter)
-            brighter = base_color.lighter(130)
-            self._apply_stylesheet(brighter)
-        else:
-            # Flash darker
-            darker = base_color.darker(120)
-            self._apply_stylesheet(darker)
-            self.update()
+    def _apply_flash_color(self, color: QColor) -> None:
+        """Apply the interpolated flash color from the animation."""
+        if isinstance(color, QColor):
+            self._apply_stylesheet(color)
     
     def _apply_stylesheet(self, bg_color: Optional[QColor] = None) -> None:
         """Apply background and text colors via stylesheet."""
@@ -720,16 +752,35 @@ class SoundFileButton(QPushButton):
         Probe audio file for metadata (duration, sample rate, channels, song title, artist).
         
         Runs in a background thread to avoid blocking the GUI.
+        Starts a worker thread that probes the file and updates button UI when done.
+        """
+        # Start probing in a background thread to keep GUI responsive
+        probe_thread = threading.Thread(
+            target=self._probe_file_in_thread,
+            args=(path,),
+            daemon=True  # Daemon thread won't prevent app exit
+        )
+        probe_thread.start()
+    
+    def _probe_file_in_thread(self, path: str) -> None:
+        """
+        Worker thread function: probe file and update UI via signals.
+        
+        Runs in background thread, updates UI safely via direct attribute assignment
+        since all we're doing is setting text on the button.
         """
         try:
             duration, sr, ch, title, artist = self._probe_file(path)
+            # Update button attributes (thread-safe for simple attribute assignment)
             self.duration_seconds = duration
             self.sample_rate = sr
             self.channels = ch
             self.song_title = title
             self.song_artist = artist
+            # Trigger UI refresh on main thread via QTimer
+            QTimer.singleShot(0, self._refresh_label)
         except Exception as e:
-            print(f"[SoundFileButton._probe_file_async] Error: {e}")
+            print(f"[SoundFileButton._probe_file_in_thread] Error: {e}")
             self.duration_seconds = None
             self.song_title = None
             self.song_artist = None
@@ -950,6 +1001,7 @@ class SoundFileButton(QPushButton):
         
         Only responds to cues this button owns.
         """
+        start = time.perf_counter()
         # Only respond if this cue_id belongs to this button
         if cue_id not in self._active_cue_ids:
             return
@@ -959,8 +1011,12 @@ class SoundFileButton(QPushButton):
         self.is_playing = True
         self.fade_button.setEnabled(True)
         self.fade_button.show()
-        self._update_label_text()  # Event-driven update (no resize)
-        self.update()
+        # Start flash timer (will handle repaints on flash events)
+        self._start_flash()
+        
+        elapsed = (time.perf_counter() - start) * 1000
+        if elapsed > 1.0:
+            print(f"[PERF] SoundFileButton._on_cue_started: {elapsed:.2f}ms cue_id={cue_id}")
     
     def _on_cue_finished(self, cue_id: str, cue_info: object, reason: str) -> None:
         """
@@ -968,6 +1024,7 @@ class SoundFileButton(QPushButton):
         
         Only responds to cues this button owns. Resets UI when all owned cues finish.
         """
+        start = time.perf_counter()
         # Only respond if this cue_id belongs to this button
         if cue_id not in self._active_cue_ids:
             return
@@ -977,29 +1034,71 @@ class SoundFileButton(QPushButton):
         
         # If all our cues have finished, reset the button state
         if not self._active_cue_ids:
+            # Update state immediately (fast)
             self.is_playing = False
             self.elapsed_seconds = 0.0
             self.remaining_seconds = self.duration_seconds
             self.light_level = 0.0
             self.current_cue_id = None
-            self.fade_button.setEnabled(False)
-            self.fade_button.hide()
-            self._stop_flash()
-            self._update_label_text()  # Event-driven update (no resize)
+        
+        elapsed = (time.perf_counter() - start) * 1000
+        if elapsed > 1.0:
+            print(f"[PERF] SoundFileButton._on_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
+    
+    def _finish_cleanup(self) -> None:
+        """
+        Deferred cleanup after cue finishes. Called via QTimer.singleShot(0) to batch
+        with other finish events, so multiple button repaints happen together instead of sequentially.
+        Batches all UI updates into single stylesheet set + single repaint.
+        """
+        if not self._active_cue_ids:
+            start = time.perf_counter()
+            # Stop flash animation without triggering extra stylesheet work mid-cleanup
+            if self.flash_anim is not None:
+                self.flash_anim.stop()
+                self.flash_anim.deleteLater()
+                self.flash_anim = None
+            
+            # Clear tooltip
             self.setToolTip("")
+            
+            # Restore original color in ONE stylesheet update (not two)
+            if self.bg_color or self.text_color:
+                self._apply_stylesheet()
+            else:
+                self.setStyleSheet("")
+            
+            # Single repaint batches everything together
             self.update()
+            
+            # Defer fade button hide slightly (prevents 10 buttons from layout hopping at once)
+            QTimer.singleShot(5, self._hide_fade_button)
+            
+            elapsed = (time.perf_counter() - start) * 1000
+            if elapsed > 1.5:
+                print(f"[PERF] SoundFileButton._finish_cleanup: {elapsed:.2f}ms cue={self.current_cue_id}")
+    
+    def _hide_fade_button(self) -> None:
+        """Deferred fade button hide to batch layout updates."""
+        self.fade_button.setEnabled(False)
+        self.fade_button.hide()
     
     def _on_cue_time(self, cue_id: str, elapsed: float, remaining: float, total: Optional[float]) -> None:
         """
         Handle CueTimeEvent from engine adapter.
         Updates time display for owned cues.
         """
+        start = time.perf_counter()
         if cue_id not in self._active_cue_ids:
             return
         
         self.elapsed_seconds = elapsed
         self.remaining_seconds = self.duration_seconds - elapsed
         self._update_time_display()
+        
+        elapsed_ms = (time.perf_counter() - start) * 1000
+        if elapsed_ms > 2.0:
+            print(f"[PERF] SoundFileButton._on_cue_time: {elapsed_ms:.2f}ms cue_id={cue_id}")
     
     def _on_cue_levels(self, cue_id: str, rms, peak) -> None:
         """
@@ -1012,6 +1111,7 @@ class SoundFileButton(QPushButton):
         Updates level display for owned cues.
         Also updates the audio level meters if they are visible.
         """
+        start = time.perf_counter()
         if cue_id not in self._active_cue_ids:
             return
         
@@ -1092,6 +1192,10 @@ class SoundFileButton(QPushButton):
         
         # Trigger repaint to update the playing indicator gradient
         self.update()
+        
+        elapsed = (time.perf_counter() - start) * 1000
+        if elapsed > 2.0:
+            print(f"[PERF] SoundFileButton._on_cue_levels: {elapsed:.2f}ms cue_id={cue_id}")
 
     # ==========================================================================
     # DRAG AND DROP HANDLING

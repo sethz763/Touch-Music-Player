@@ -1,10 +1,14 @@
 from __future__ import annotations
 
 import multiprocessing as mp
-from typing import Optional
+import time
+from typing import Optional, TYPE_CHECKING
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout
 from PySide6.QtCore import QTimer, QThread, Signal
 from PySide6.QtGui import QAction
+
+if TYPE_CHECKING:
+    from engine.commands import PlayCueCommand
 
 
 from ui.windows.log_dialogue import Log_Settings_Window
@@ -14,11 +18,12 @@ from engine.audio_service import audio_service_main, AudioServiceConfig
 from gui.engine_adapter import EngineAdapter
 
 from log.cue_logger import CueLogger
-from log.Save_To_Excel import Save_To_Excel
+from log.async_csv_excel_logger import AsyncCsvExcelLogger
 from log.log_manager import LogManager
 from engine.messages.events import CueFinishedEvent
 from log.log import Log
 import datetime
+from persistence.SaveSettings import SaveSettings
 
 class MainWindow(QMainWindow):
     log_signal = Signal(dict, str, datetime)
@@ -61,9 +66,32 @@ class MainWindow(QMainWindow):
         
         # Create LogManager (central logging hub)
         self.log_manager = LogManager()
-        
-        # Create Excel logger
-        self.save_to_excel = Save_To_Excel(filename="cue_log.xlsx", title="Cue Log")
+
+        # Apply logging settings from log_settings.json
+        settings = {}
+        try:
+            settings = SaveSettings('log_settings.json').get_settings() or {}
+        except Exception:
+            settings = {}
+
+        xlsx_path = settings.get("filename") or "cue_log.xlsx"
+        title = settings.get("show_name") or "Cue Log"
+        enabled = bool(settings.get("logging_enabled", True))
+        try:
+            import os
+            base, _ext = os.path.splitext(xlsx_path)
+            csv_path = base + ".csv"
+        except Exception:
+            csv_path = "cue_log.csv"
+
+        # Create async CSV+Excel logger (writes CSV immediately; batches XLSX saves off the GUI thread)
+        self.save_to_excel = AsyncCsvExcelLogger(
+            csv_path=csv_path,
+            xlsx_path=xlsx_path,
+            title=title,
+            enabled=enabled,
+            parent=self,
+        )
         
         # Create CueLogger that sends to LogManager and Excel
         self.cue_logger = CueLogger(self.log_manager, save_to_excel=self.save_to_excel)
@@ -150,6 +178,13 @@ class MainWindow(QMainWindow):
                 self._audio_service.join(timeout=1.0)
         except Exception:
             pass
+
+        try:
+            # Flush/stop async logger process
+            if getattr(self, "save_to_excel", None) is not None:
+                self.save_to_excel.close(timeout_s=2.0)
+        except Exception:
+            pass
         event.accept()
 
 
@@ -212,19 +247,43 @@ class MainWindow(QMainWindow):
 
     def _on_cue_finished(self, cue_id: str, cue_info: object, reason: str) -> None:
         """Handle CueFinishedEvent from engine adapter."""
-        self.status.setText(f"Finished cue {cue_id[:8]} ({reason})")
-        
-        # Log to Excel if we have cue_info
-        if cue_info is not None:
-            try:
-                from engine.messages.events import CueFinishedEvent
-                evt = CueFinishedEvent(cue_info=cue_info, reason=reason)
-                self.cue_logger.on_cue_finished(evt)
-            except Exception:
-                pass
+        start = time.perf_counter()
+        try:
+            t0 = time.perf_counter()
+            self.status.setText(f"Finished cue {cue_id[:8]} ({reason})")
+            status_ms = (time.perf_counter() - t0) * 1000
+
+            cue_logger_ms = 0.0
+            # Log to Excel if we have cue_info
+            if cue_info is not None:
+                try:
+                    from engine.messages.events import CueFinishedEvent
+                    evt = CueFinishedEvent(cue_info=cue_info, reason=reason)
+                    t1 = time.perf_counter()
+                    self.cue_logger.on_cue_finished(evt)
+                    cue_logger_ms = (time.perf_counter() - t1) * 1000
+                except Exception:
+                    pass
+
+            total_ms = (time.perf_counter() - start) * 1000
+            if total_ms > 2.0 or cue_logger_ms > 2.0 or status_ms > 2.0:
+                print(
+                    f"[PERF] MainWindow._on_cue_finished: {total_ms:.2f}ms cue={cue_id[:8]}"
+                    f" status={status_ms:.2f}ms cue_logger={cue_logger_ms:.2f}ms reason={reason}"
+                )
+        except Exception:
+            pass
                 
     def open_logging_dialog(self):
         self._logging_dialog = Log_Settings_Window(650, 360, excel_logger=self.save_to_excel)
+        # Wire dialog actions to the logger proxy
+        try:
+            self._logging_dialog.create_sheet_signal.connect(self.save_to_excel.start_new_log)
+            self._logging_dialog.load_sheet_signal.connect(self.save_to_excel.load)
+            self._logging_dialog.clear_sheet_signal.connect(self.save_to_excel.clear_sheet)
+            self._logging_dialog.enable_disable_logging_signal.connect(self.save_to_excel.set_logging_enabled)
+        except Exception:
+            pass
         self._logging_dialog.show()
     
     def _on_log_entry_added(self, log_data: dict) -> None:

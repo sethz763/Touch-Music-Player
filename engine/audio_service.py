@@ -29,6 +29,7 @@ from engine.commands import (
     UpdateCueCommand,
     SetMasterGainCommand,
     TransportStop,
+    BatchCommandsCommand,
 )
 from engine.messages.events import (
     CueStartedEvent,
@@ -106,6 +107,30 @@ def audio_service_main(
                     if isinstance(cmd, TransportStop):
                         running = False
                         break
+
+                    # BatchCommandsCommand - unwrap and process each command atomically
+                    if isinstance(cmd, BatchCommandsCommand):
+                        try:
+                            for batched_cmd in cmd.commands:
+                                if isinstance(batched_cmd, PlayCueCommand):
+                                    try:
+                                        cue_started_event = engine.play_cue(batched_cmd)
+                                        if cue_started_event:
+                                            try:
+                                                evt_q.put_nowait(cue_started_event)
+                                            except Exception:
+                                                pass
+                                    except Exception:
+                                        pass
+                                else:
+                                    # Other commands (StopCueCommand, FadeCueCommand, UpdateCueCommand)
+                                    try:
+                                        engine.handle_command(batched_cmd)
+                                    except Exception:
+                                        pass
+                        except Exception:
+                            pass
+                        continue
 
                     # PlayCueCommand is special - route to play_cue()
                     if isinstance(cmd, PlayCueCommand):

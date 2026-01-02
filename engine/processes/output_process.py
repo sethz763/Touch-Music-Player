@@ -147,6 +147,23 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     looping_cues: set[str] = set()
     # Track removal reasons for debug logging: {cue_id: reason_str}
     removal_reasons: Dict[str, str] = {}
+    telemetry_probe = {
+        "status_sent": 0,
+        "status_dropped": 0,
+        "levels_sent": 0,
+        "levels_dropped": 0,
+        "times_sent": 0,
+        "times_dropped": 0,
+        "master_sent": 0,
+        "master_dropped": 0,
+    }
+    lifecycle_probe = {
+        "finished_sent": 0,
+        "finished_failed": 0,
+    }
+    _probe_emit_interval = 0.5
+    _last_probe_emit = time.time()
+    _pending_probe_payload: str | None = None
     
     # Open file logger for ticking diagnosis
     debug_log_file = None
@@ -155,21 +172,74 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     except Exception:
         pass
 
+    def _send_debug_payload(payload: str) -> bool:
+        """Best-effort enqueue of a preformatted debug payload to the engine."""
+        try:
+            event_q.put_nowait(("debug", payload))
+            return True
+        except Exception:
+            return False
+
+    def _write_debug_file(payload: str) -> None:
+        try:
+            if debug_log_file:
+                debug_log_file.write(f"{payload}\n")
+        except Exception:
+            pass
+
     def _log(msg: str) -> None:
         # Debug logging: send via non-blocking queue AND to file
         # This keeps _log safe for use outside callback while never blocking
         import time as time_module
         ts = time_module.time()
-        try:
-            event_q.put_nowait(("debug", f"[{ts:.3f}] {msg}"))
-        except Exception:
-            pass
-        # Also log to file for analysis
-        try:
-            if debug_log_file:
-                debug_log_file.write(f"[{ts:.3f}] {msg}\n")
-        except Exception:
-            pass
+        payload = f"[{ts:.3f}] {msg}"
+        _send_debug_payload(payload)
+        _write_debug_file(payload)
+
+    def _flush_probe_logs(force: bool = False) -> None:
+        """Emit probe summaries without losing them when the event queue is full.
+
+        If enqueue fails, we keep a single pending payload and retry later.
+        Probe counters are snapshotted into that pending payload and reset
+        so we don't double-count or spam the file on retries.
+        """
+        nonlocal _last_probe_emit, _pending_probe_payload
+        now = time.time()
+
+        # First, try to flush any pending probe payload.
+        if _pending_probe_payload is not None:
+            if _send_debug_payload(_pending_probe_payload):
+                _write_debug_file(_pending_probe_payload)
+                _pending_probe_payload = None
+            else:
+                return
+
+        if not force and (now - _last_probe_emit) < _probe_emit_interval:
+            return
+
+        if any(telemetry_probe.values()) or any(lifecycle_probe.values()):
+            ts = now
+            msg = (
+                "[OUTPUT-PROBE] status="
+                f"{telemetry_probe['status_sent']}/{telemetry_probe['status_dropped']} "
+                f"levels={telemetry_probe['levels_sent']}/{telemetry_probe['levels_dropped']} "
+                f"times={telemetry_probe['times_sent']}/{telemetry_probe['times_dropped']} "
+                f"master={telemetry_probe['master_sent']}/{telemetry_probe['master_dropped']} "
+                f"finished={lifecycle_probe['finished_sent']}/{lifecycle_probe['finished_failed']}"
+            )
+            payload = f"[{ts:.3f}] {msg}"
+
+            # Snapshot + reset counters immediately to avoid double counting.
+            for bucket in (telemetry_probe, lifecycle_probe):
+                for key in bucket:
+                    bucket[key] = 0
+
+            if _send_debug_payload(payload):
+                _write_debug_file(payload)
+            else:
+                _pending_probe_payload = payload
+
+        _last_probe_emit = now
 
     def _drain_pcm(max_items: int = 256) -> None:
         """Drain decoded PCM chunks from pcm_q into per-cue rings.
@@ -256,8 +326,9 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             if status:
                 try:
                     event_q.put_nowait(("status", str(status)))
+                    telemetry_probe["status_sent"] += 1
                 except Exception:
-                    pass
+                    telemetry_probe["status_dropped"] += 1
             
             mix = np.zeros((frames, cfg.channels), dtype=np.float32)
             active_envelopes = len(envelopes)  # Check concurrency level
@@ -384,28 +455,32 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     pass
             
             # Send batched telemetry events (one per callback cycle instead of N per cue)
-            try:
-                if batch_levels:
-                    # Include per-channel levels if available
-                    batch_levels_per_ch = getattr(callback, '_batch_levels_per_channel', {})
-                    event_q.put_nowait(BatchCueLevelsEvent(
-                        cue_levels=batch_levels,
-                        cue_levels_per_channel=batch_levels_per_ch if batch_levels_per_ch else None
-                    ))
-                    # Clear per-channel cache for next cycle
-                    callback._batch_levels_per_channel = {}
-            except Exception:
-                pass
-            try:
-                if batch_times:
-                    event_q.put_nowait(BatchCueTimeEvent(cue_times=batch_times))
-            except Exception:
-                pass
+            if batch_levels:
+                batch_levels_per_ch = getattr(callback, '_batch_levels_per_channel', {})
+                event = BatchCueLevelsEvent(
+                    cue_levels=batch_levels,
+                    cue_levels_per_channel=batch_levels_per_ch if batch_levels_per_ch else None,
+                )
+                try:
+                    event_q.put_nowait(event)
+                    telemetry_probe["levels_sent"] += 1
+                except Exception:
+                    telemetry_probe["levels_dropped"] += 1
+                # Clear per-channel cache for next cycle regardless of queue success
+                callback._batch_levels_per_channel = {}
+            if batch_times:
+                event = BatchCueTimeEvent(cue_times=batch_times)
+                try:
+                    event_q.put_nowait(event)
+                    telemetry_probe["times_sent"] += 1
+                except Exception:
+                    telemetry_probe["times_dropped"] += 1
             
             np.clip(mix, -1.0, 1.0, out=mix)
             outdata[:] = mix
             
             # Calculate and emit master output levels (per-channel RMS and peak)
+            master_event = None
             try:
                 master_rms_per_channel = []
                 master_peak_per_channel = []
@@ -415,7 +490,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     peak = float(np.max(np.abs(channel_data)))
                     master_rms_per_channel.append(rms)
                     master_peak_per_channel.append(peak)
-                
+
                 # Convert linear RMS/peak to dB (avoid log(0))
                 master_rms_db = []
                 master_peak_db = []
@@ -424,11 +499,16 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     peak_db = 20 * np.log10(peak) if peak > 0 else -120.0
                     master_rms_db.append(float(rms_db))
                     master_peak_db.append(float(peak_db))
-                
-                # Send per-channel master levels
-                event_q.put_nowait(MasterLevelsEvent(rms=master_rms_db, peak=master_peak_db))
+
+                master_event = MasterLevelsEvent(rms=master_rms_db, peak=master_peak_db)
             except Exception:
-                pass
+                master_event = None
+            if master_event is not None:
+                try:
+                    event_q.put_nowait(master_event)
+                    telemetry_probe["master_sent"] += 1
+                except Exception:
+                    telemetry_probe["master_dropped"] += 1
         except Exception:
             pass
 
@@ -482,12 +562,13 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         removal_reason = removal_reasons.pop(cue_id, "eof_natural")
                         _log(f"[FINISHED] cue={cue_id[:8]} removal_reason={removal_reason}")
                         event_q.put(("finished", cue_id, removal_reason))
+                        lifecycle_probe["finished_sent"] += 1
                         rings.pop(cue_id, None)
                         gains.pop(cue_id, None)
                         cue_samples_consumed.pop(cue_id, None)
                         looping_cues.discard(cue_id)
                     except Exception:
-                        pass
+                        lifecycle_probe["finished_failed"] += 1
             
             # -------------------------------------------------
             # Buffer threshold check (OUTSIDE callback)
@@ -581,6 +662,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         ring = _Ring()
                         rings[pcm.cue_id] = ring
                     ring.push(pcm.pcm, pcm.eof)
+                _flush_probe_logs()
                 continue
 
             # Log all non-None messages
@@ -736,7 +818,10 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         pass
                 except Exception as ex:
                     _log(f"EXCEPTION in OutputListDevices handler: {type(ex).__name__}: {ex}")
+
+            _flush_probe_logs()
     finally:
+        _flush_probe_logs(force=True)
         try:
             stream.stop()
             stream.close()
