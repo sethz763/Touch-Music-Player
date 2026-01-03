@@ -5,6 +5,8 @@ import uuid
 import time
 import threading
 import queue
+import json
+from pathlib import Path
 from dataclasses import replace
 from datetime import datetime
 from typing import Dict, Optional, List
@@ -35,7 +37,7 @@ from engine.commands import (
     OutputSetConfig,
     OutputFadeTo,
 )
-from engine.messages.events import CueStartedEvent, CueFinishedEvent, DecodeErrorEvent
+from engine.messages.events import CueStartedEvent, CueFinishedEvent, DecodeErrorEvent, CueLevelsEvent, CueTimeEvent
 from engine.processes.decode_process_pooled import decode_process_main, DecodeStart, DecodeStop, DecodedChunk, DecodeError
 from engine.processes.output_process import output_process_main, OutputConfig, OutputStartCue, OutputStopCue
 import sounddevice as sd
@@ -51,6 +53,8 @@ class AudioEngine:
         self.fade_curve = str(fade_curve)
 
         self.log = LogManager()
+        # Dedicated debug log for high-signal engine diagnostics (separate from the user XLSX cue log)
+        self._engine_debug_log_path = Path.cwd() / "engine_debug.log"
         self._ctx = mp.get_context("spawn")
 
         self._decode_cmd_q = self._ctx.Queue()
@@ -78,13 +82,45 @@ class AudioEngine:
         self._fade_requested: set[str] = set()
         # track cues pending force-stop: {cue_id: stop_time_unix}
         self._pending_stops: Dict[str, float] = {}
+
         # rate-limit refade checks to avoid spamming every pump call
         self._last_refade_check: float = time.time()
         self._refade_check_interval: float = 0.05  # Check every 50ms max
         # track events generated in play_cue() to be returned by pump()
         self._pending_events: List[object] = []
-        
 
+        # -------------------------------------------------
+        # Engine-loop heartbeat (diagnostics)
+        # -------------------------------------------------
+        self._hb_last_pump_mono: float | None = None
+        self._hb_last_emit_mono: float = time.monotonic()
+        self._hb_emit_interval: float = 0.5  # seconds
+        self._hb_max_pump_dt_ms: float = 0.0
+        self._hb_max_engine_hold_ms: float = 0.0
+        self._hb_max_decoder_age_ms: float = 0.0
+        self._hb_max_decode_to_engine_ms: float = 0.0
+        self._hb_max_engine_internal_ms: float = 0.0
+        self._hb_decode_chunks_drained: int = 0
+        self._hb_out_events_drained: int = 0
+        self._hb_decode_events_drained: int = 0
+
+    def _append_engine_debug(self, *, level: str, message: str, metadata: dict) -> None:
+        try:
+            # Format: one record per line for easy grep/correlation with output_process_debug.log
+            record = {
+                "ts_unix": time.time(),
+                "pid": mp.current_process().pid,
+                "level": level,
+                "message": message,
+                "metadata": metadata,
+            }
+            line = "[ENGINE-DEBUG] " + json.dumps(record, ensure_ascii=False, separators=(",", ":")) + "\n"
+            self._engine_debug_log_path.parent.mkdir(parents=True, exist_ok=True)
+            with self._engine_debug_log_path.open("a", encoding="utf-8") as f:
+                f.write(line)
+        except Exception:
+            # Best-effort only; never break audio engine on logging failures.
+            pass
     def start(self) -> None:
         if self._decode_proc or self._out_proc:
             return
@@ -500,6 +536,16 @@ class AudioEngine:
 
     def pump(self) -> List[object]:
         evts: List[object] = []
+
+        # Heartbeat timing: cadence of pump calls (this is the "engine loop")
+        pump_start_perf = time.perf_counter()
+        now_mono = time.monotonic()
+        pump_dt_ms: float | None = None
+        if self._hb_last_pump_mono is not None:
+            pump_dt_ms = (now_mono - self._hb_last_pump_mono) * 1000.0
+            if pump_dt_ms > self._hb_max_pump_dt_ms:
+                self._hb_max_pump_dt_ms = pump_dt_ms
+        self._hb_last_pump_mono = now_mono
         
         # First, add any pending events from play_cue() or other methods
         for evt in self._pending_events:
@@ -515,15 +561,18 @@ class AudioEngine:
         other_events = []
         
         # Drain all events from output queue, separating finished from other events
+        out_events_drained_this_pump = 0
         while True:
             try:
                 m = self._out_evt_q.get_nowait()
             except Exception:
                 break
+            out_events_drained_this_pump += 1
             if isinstance(m, tuple) and m and m[0] == "finished":
                 finished_events.append(m)
             else:
                 other_events.append(m)
+        self._hb_out_events_drained += out_events_drained_this_pump
         
         # Process all finished events first
         for m in finished_events:
@@ -592,12 +641,51 @@ class AudioEngine:
                     final_cue_info = replace(cue_info, stopped_at=stopped_at, removal_reason="emergency_stop")
                     evts.append(CueFinishedEvent(cue_info=final_cue_info, reason="forced"))
         
+        decode_chunks_drained_this_pump = 0
+        max_engine_hold_ms_this_pump = 0.0
+        max_decoder_age_ms_this_pump = 0.0
+        max_decode_to_engine_ms_this_pump = 0.0
+        max_engine_internal_ms_this_pump = 0.0
         while True:
             try:
                 msg = self._decode_out_q.get_nowait()
             except Exception:
                 break
             if isinstance(msg, DecodedChunk):
+                decode_chunks_drained_this_pump += 1
+                # Decode heartbeat: stamp engine dequeue + forward timestamps.
+                # This lets output_process split: decode->engine dequeue, engine internal work, engine->output.
+                try:
+                    recv_mono = time.monotonic()
+                    if getattr(msg, "engine_received_mono", None) is None:
+                        msg = replace(msg, engine_received_mono=recv_mono)
+                except Exception:
+                    pass
+
+                # Heartbeat: compute how long this chunk waited in the engine before forwarding.
+                try:
+                    produced = getattr(msg, "decoder_produced_mono", None)
+                    received = getattr(msg, "engine_received_mono", None)
+                    forwarded = getattr(msg, "engine_forwarded_mono", None)
+                    if produced is not None:
+                        basis = float(received) if received is not None else now_mono
+                        age_ms = (basis - float(produced)) * 1000.0
+                        if age_ms > max_decoder_age_ms_this_pump:
+                            max_decoder_age_ms_this_pump = age_ms
+                    if produced is not None and received is not None:
+                        q_ms = (float(received) - float(produced)) * 1000.0
+                        if q_ms > max_decode_to_engine_ms_this_pump:
+                            max_decode_to_engine_ms_this_pump = q_ms
+                    if produced is not None and forwarded is not None:
+                        hold_ms = (float(forwarded) - float(produced)) * 1000.0
+                        if hold_ms > max_engine_hold_ms_this_pump:
+                            max_engine_hold_ms_this_pump = hold_ms
+                    if received is not None and forwarded is not None:
+                        internal_ms = (float(forwarded) - float(received)) * 1000.0
+                        if internal_ms > max_engine_internal_ms_this_pump:
+                            max_engine_internal_ms_this_pump = internal_ms
+                except Exception:
+                    pass
                 # If this is the first decoded chunk for the cue, notify output to start
                 if msg.cue_id in self.active_cues and msg.cue_id not in self._output_started:
                     cue = self.active_cues.get(msg.cue_id)
@@ -614,6 +702,13 @@ class AudioEngine:
                         target_gain_db=cue.gain_db,
                     ))
                     self._output_started.add(msg.cue_id)
+
+                # Stamp forwarded time as close as possible to the actual enqueue to output.
+                try:
+                    if getattr(msg, "engine_forwarded_mono", None) is None:
+                        msg = replace(msg, engine_forwarded_mono=time.monotonic())
+                except Exception:
+                    pass
                 self._out_pcm_q.put(msg)
             elif isinstance(msg, DecodeError):
                 cue = self.active_cues.pop(msg.cue_id, None)
@@ -627,12 +722,28 @@ class AudioEngine:
                         pass
                     evts.append(DecodeErrorEvent(cue_id=msg.cue_id, track_id=msg.track_id, file_path=msg.file_path, error=msg.error))
 
+        self._hb_decode_chunks_drained += decode_chunks_drained_this_pump
+        if max_engine_hold_ms_this_pump > self._hb_max_engine_hold_ms:
+            self._hb_max_engine_hold_ms = max_engine_hold_ms_this_pump
+        if max_decoder_age_ms_this_pump > self._hb_max_decoder_age_ms:
+            self._hb_max_decoder_age_ms = max_decoder_age_ms_this_pump
+        # Optional finer-grain maxima (used only for debugging)
+        try:
+            if max_decode_to_engine_ms_this_pump > getattr(self, "_hb_max_decode_to_engine_ms", 0.0):
+                self._hb_max_decode_to_engine_ms = max_decode_to_engine_ms_this_pump
+            if max_engine_internal_ms_this_pump > getattr(self, "_hb_max_engine_internal_ms", 0.0):
+                self._hb_max_engine_internal_ms = max_engine_internal_ms_this_pump
+        except Exception:
+            pass
+
         # Drain decoder events and emit OutputStartCue on "started" event
+        decode_events_drained_this_pump = 0
         while True:
             try:
                 m = self._decode_evt_q.get_nowait()
             except Exception:
                 break
+            decode_events_drained_this_pump += 1
             if isinstance(m, tuple) and m and m[0] == "started":
                 cue_id = m[1] if len(m) > 1 else None
                 track_id = m[2] if len(m) > 2 else None
@@ -671,6 +782,14 @@ class AudioEngine:
                     ))
                     self._output_started.add(cue_id)
                     self.log.info(cue_id=cue_id, track_id=track_id, source="engine", message="sent_start_on_decoder_ready", metadata={"file_path": file_path})
+
+            # Decoder diagnostics (best-effort)
+            elif isinstance(m, tuple) and m and m[0] == "diag":
+                try:
+                    payload = m[1] if len(m) > 1 else None
+                    self.log.warning(source="engine", message="decoder_diag", metadata=payload)
+                except Exception:
+                    pass
             
             # Handle looped event from decoder - send OutputStartCue with is_loop_restart=True
             elif isinstance(m, tuple) and m and m[0] == "looped":
@@ -694,6 +813,59 @@ class AudioEngine:
                     ))
                 else:
                     print(f"[DEBUG-LOOP-ENGINE] Looped event for cue {cue_id}: cue not in active_cues")
+
+        self._hb_decode_events_drained += decode_events_drained_this_pump
+
+        # Emit heartbeat (rate-limited). Only emit when engine is doing work or cues are active.
+        try:
+            hb_now = time.monotonic()
+            if (hb_now - self._hb_last_emit_mono) >= self._hb_emit_interval:
+                pump_work_ms = (time.perf_counter() - pump_start_perf) * 1000.0
+                active = len(self.active_cues)
+                should_emit = active > 0 or decode_chunks_drained_this_pump > 0 or out_events_drained_this_pump > 0
+                if should_emit:
+                    suspicious = False
+                    if pump_dt_ms is not None and pump_dt_ms > 50.0:
+                        suspicious = True
+                    if max_engine_hold_ms_this_pump > 50.0 or max_decoder_age_ms_this_pump > 100.0:
+                        suspicious = True
+                    if pump_work_ms > 20.0:
+                        suspicious = True
+
+                    level = "warning" if suspicious else "info"
+                    meta = {
+                        "active_cues": active,
+                        "pump_dt_ms": pump_dt_ms,
+                        "pump_work_ms": pump_work_ms,
+                        "out_events_drained": out_events_drained_this_pump,
+                        "decode_chunks_drained": decode_chunks_drained_this_pump,
+                        "decode_events_drained": decode_events_drained_this_pump,
+                        "max_engine_hold_ms": max_engine_hold_ms_this_pump,
+                        "max_decoder_age_ms": max_decoder_age_ms_this_pump,
+                        "max_decode_to_engine_ms": max_decode_to_engine_ms_this_pump,
+                        "max_engine_internal_ms": max_engine_internal_ms_this_pump,
+                        # running maxima since engine start (useful for quick triage)
+                        "max_pump_dt_ms_run": self._hb_max_pump_dt_ms,
+                        "max_engine_hold_ms_run": self._hb_max_engine_hold_ms,
+                        "max_decoder_age_ms_run": self._hb_max_decoder_age_ms,
+                        "max_decode_to_engine_ms_run": self._hb_max_decode_to_engine_ms,
+                        "max_engine_internal_ms_run": self._hb_max_engine_internal_ms,
+                    }
+                    if level == "warning":
+                        self.log.warning(source="engine", message="engine_heartbeat", metadata=meta)
+                    else:
+                        self.log.info(source="engine", message="engine_heartbeat", metadata=meta)
+
+                    # Always mirror heartbeat to a dedicated debug file for correlation.
+                    self._append_engine_debug(level=level, message="engine_heartbeat", metadata=meta)
+
+                # Reset running counters each emit window (keep maxima)
+                self._hb_decode_chunks_drained = 0
+                self._hb_out_events_drained = 0
+                self._hb_decode_events_drained = 0
+                self._hb_last_emit_mono = hb_now
+        except Exception:
+            pass
 
         # Now process all other output events (not finished)
         for m in other_events:
@@ -734,7 +906,7 @@ class AudioEngine:
                         _cid = m[1]
                         _rms = float(m[2]) if len(m) > 2 else 0.0
                         _peak = float(m[3]) if len(m) > 3 else 0.0
-                        evts.append(engine_commands.CueLevelsEvent(cue_id=_cid, rms=_rms, peak=_peak))
+                        evts.append(CueLevelsEvent(cue_id=_cid, rms=_rms, peak=_peak))
                     except Exception:
                         pass
                 elif tag == "cue_time":
@@ -750,7 +922,7 @@ class AudioEngine:
                                 _total = getattr(cue, "total_seconds", None)
                         except Exception:
                             _total = None
-                        evts.append(engine_commands.CueTimeEvent(cue_id=_cid, elapsed_seconds=_elapsed, remaining_seconds=_remaining, total_seconds=_total))
+                        evts.append(CueTimeEvent(cue_id=_cid, elapsed_seconds=_elapsed, remaining_seconds=_remaining, total_seconds=_total))
                     except Exception:
                         pass
                 elif tag == "debug":

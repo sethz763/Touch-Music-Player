@@ -109,11 +109,20 @@ class _Ring:
         self.request_started_at = None  # timestamp when current buffer request was made
         self.last_pcm_time = None  # timestamp when last PCM was pushed to this ring
         self.finished_pending = False  # set by callback when cue is done; main loop emits event
+        # Diagnostics (keep callback RT-safe: counters only, no I/O)
+        self.started = False  # set True on first PCM arrival
+        self.underflow_count = 0
+        self.underflow_missing_frames_total = 0
+        self.last_underflow_missing_frames = 0
+        self.partial_fill_count = 0
+        self.partial_padded_frames_total = 0
+        self.last_partial_padded_frames = 0
 
     def push(self, a: np.ndarray, eof: bool):
         if a.size:
             self.q.append(a)
             self.frames += a.shape[0]
+            self.started = True
         if eof:
             self.eof = True
 
@@ -164,6 +173,142 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     _probe_emit_interval = 0.5
     _last_probe_emit = time.time()
     _pending_probe_payload: str | None = None
+    _last_starvation_report = time.time()
+    _starvation_report_interval = 0.5
+    _starvation_reported: Dict[str, tuple[int, int]] = {}  # cue_id -> (underflow_count, partial_fill_count)
+    _last_heartbeat_report: Dict[str, float] = {}
+    _last_chunk_produced_mono: Dict[str, float] = {}
+    _heartbeat_report_interval = 0.5
+    _last_hb_snapshot: Dict[str, dict] = {}
+
+    def _format_hb_snapshot(cue_id: str) -> str:
+        """Return a compact, single-line snapshot of latest heartbeat timings for this cue."""
+        try:
+            snap = _last_hb_snapshot.get(cue_id)
+            if not snap:
+                return ""
+            parts: list[str] = []
+            wid = snap.get("worker_id")
+            if wid is not None:
+                parts.append(f"wid={wid}")
+            for key in (
+                "decode_work_ms",
+                "total_ms",
+                "engine_hold_ms",
+                "decode_to_engine_ms",
+                "engine_internal_ms",
+                "engine_to_output_ms",
+            ):
+                val = snap.get(key)
+                if val is None:
+                    continue
+                parts.append(f"{key}={val}")
+            return (" hb{" + " ".join(parts) + "}") if parts else ""
+        except Exception:
+            return ""
+
+    def _maybe_log_decode_heartbeat(pcm: DecodedChunk, ring: _Ring) -> None:
+        """Log per-cue decode/IPC timing breakdown (non-RT; called from _drain_pcm)."""
+        try:
+            now_mono = time.monotonic()
+            cue_id = pcm.cue_id
+
+            last_report = _last_heartbeat_report.get(cue_id, 0.0)
+            if (now_mono - last_report) < _heartbeat_report_interval:
+                return
+
+            produced_mono = getattr(pcm, "decoder_produced_mono", None)
+            received_mono = getattr(pcm, "engine_received_mono", None)
+            forwarded_mono = getattr(pcm, "engine_forwarded_mono", None)
+            decode_work_ms = getattr(pcm, "decode_work_ms", None)
+            worker_id = getattr(pcm, "worker_id", None)
+
+            # If we don't have heartbeat metadata, nothing to do.
+            if produced_mono is None and forwarded_mono is None and decode_work_ms is None:
+                return
+
+            total_ms = (now_mono - produced_mono) * 1000.0 if produced_mono is not None else None
+            engine_hold_ms = (
+                (forwarded_mono - produced_mono) * 1000.0
+                if (produced_mono is not None and forwarded_mono is not None)
+                else None
+            )
+            decode_to_engine_ms = (
+                (received_mono - produced_mono) * 1000.0
+                if (produced_mono is not None and received_mono is not None)
+                else None
+            )
+            engine_internal_ms = (
+                (forwarded_mono - received_mono) * 1000.0
+                if (received_mono is not None and forwarded_mono is not None)
+                else None
+            )
+            engine_to_output_ms = (now_mono - forwarded_mono) * 1000.0 if forwarded_mono is not None else None
+
+            # Keep a best-effort snapshot for correlation with starvation/tick logs.
+            try:
+                _last_hb_snapshot[cue_id] = {
+                    "worker_id": worker_id,
+                    "decode_work_ms": decode_work_ms,
+                    "total_ms": total_ms,
+                    "engine_hold_ms": engine_hold_ms,
+                    "decode_to_engine_ms": decode_to_engine_ms,
+                    "engine_internal_ms": engine_internal_ms,
+                    "engine_to_output_ms": engine_to_output_ms,
+                }
+            except Exception:
+                pass
+
+            produced_gap_ms = None
+            if produced_mono is not None:
+                prev = _last_chunk_produced_mono.get(cue_id)
+                _last_chunk_produced_mono[cue_id] = float(produced_mono)
+                if prev is not None:
+                    produced_gap_ms = (produced_mono - prev) * 1000.0
+
+            # Only log when something looks suspicious, to avoid log spam.
+            suspicious = False
+            if decode_work_ms is not None and decode_work_ms > 50.0:
+                suspicious = True
+            if total_ms is not None and total_ms > 100.0:
+                suspicious = True
+            if engine_hold_ms is not None and engine_hold_ms > 50.0:
+                suspicious = True
+            if decode_to_engine_ms is not None and decode_to_engine_ms > 50.0:
+                suspicious = True
+            if engine_internal_ms is not None and engine_internal_ms > 20.0:
+                suspicious = True
+            if engine_to_output_ms is not None and engine_to_output_ms > 50.0:
+                suspicious = True
+            if produced_gap_ms is not None and produced_gap_ms > 200.0:
+                suspicious = True
+            if ring.frames < 2048:
+                suspicious = True
+
+            if not suspicious:
+                return
+
+            frames_in_chunk = 0
+            try:
+                frames_in_chunk = int(pcm.pcm.shape[0])
+            except Exception:
+                frames_in_chunk = 0
+
+            _log(
+                "[DECODE-HB] cue="
+                f"{cue_id[:8]} wid={worker_id} frames={frames_in_chunk} ring_frames={ring.frames} "
+                f"decode_work_ms={decode_work_ms if decode_work_ms is not None else 'NA'} "
+                f"total_ms={total_ms if total_ms is not None else 'NA'} "
+                f"engine_hold_ms={engine_hold_ms if engine_hold_ms is not None else 'NA'} "
+                f"decode_to_engine_ms={decode_to_engine_ms if decode_to_engine_ms is not None else 'NA'} "
+                f"engine_internal_ms={engine_internal_ms if engine_internal_ms is not None else 'NA'} "
+                f"engine_to_output_ms={engine_to_output_ms if engine_to_output_ms is not None else 'NA'} "
+                f"produced_gap_ms={produced_gap_ms if produced_gap_ms is not None else 'NA'}"
+            )
+
+            _last_heartbeat_report[cue_id] = now_mono
+        except Exception:
+            pass
     
     # Open file logger for ticking diagnosis
     debug_log_file = None
@@ -241,6 +386,38 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
 
         _last_probe_emit = now
 
+    def _report_starvation() -> None:
+        """Best-effort starvation diagnostics OUTSIDE the RT callback."""
+        nonlocal _last_starvation_report
+        now = time.time()
+        if (now - _last_starvation_report) < _starvation_report_interval:
+            return
+
+        any_reported = False
+        for cue_id, ring in list(rings.items()):
+            prev_under, prev_partial = _starvation_reported.get(cue_id, (0, 0))
+            cur_under = getattr(ring, "underflow_count", 0)
+            cur_partial = getattr(ring, "partial_fill_count", 0)
+            if cur_under != prev_under or cur_partial != prev_partial:
+                any_reported = True
+                _starvation_reported[cue_id] = (cur_under, cur_partial)
+                _log(
+                    "[STARVATION] cue="
+                    f"{cue_id[:8]} underflows={cur_under}"
+                    f" missing_total={getattr(ring, 'underflow_missing_frames_total', 0)}"
+                    f" last_missing={getattr(ring, 'last_underflow_missing_frames', 0)}"
+                    f" partials={cur_partial}"
+                    f" padded_total={getattr(ring, 'partial_padded_frames_total', 0)}"
+                    f" last_padded={getattr(ring, 'last_partial_padded_frames', 0)}"
+                    f" ring_frames={ring.frames} eof={ring.eof}"
+                    f"{_format_hb_snapshot(cue_id)}"
+                )
+
+        if any_reported:
+            _flush_probe_logs(force=True)
+
+        _last_starvation_report = now
+
     def _drain_pcm(max_items: int = 256) -> None:
         """Drain decoded PCM chunks from pcm_q into per-cue rings.
         We drain every loop to avoid backpressure that can stall decode."""
@@ -308,8 +485,14 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     old_frames = ring.frames - frames_in_chunk  # what it was before push
                     # CRITICAL: Log if buffer had dropped dangerously low before this chunk arrived
                     if old_frames < 2048:  # Less than ~42ms of audio at 48kHz
-                        _log(f"[BUFFER-STARVING] cue={pcm.cue_id[:8]} CRITICAL: buffer was at {old_frames}fr before receiving {frames_in_chunk}fr chunk! This may cause ticking.")
+                        _log(
+                            f"[BUFFER-STARVING] cue={pcm.cue_id[:8]} CRITICAL: buffer was at {old_frames}fr before receiving {frames_in_chunk}fr chunk! This may cause ticking."
+                            f"{_format_hb_snapshot(pcm.cue_id)}"
+                        )
                     _log(f"[DRAIN-PCM-PUSH] cue={pcm.cue_id[:8]} frames={frames_in_chunk} total={ring.frames} eof={pcm.eof} ring.eof={ring.eof}")
+
+                # Decode heartbeat timing breakdown (non-RT)
+                _maybe_log_decode_heartbeat(pcm, ring)
             except Exception as ex:
                 _log(f"[DRAIN-EXCEPTION] cue={pcm.cue_id[:8]}: {type(ex).__name__}")
 
@@ -344,13 +527,27 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             
             for cue_id, ring in list(rings.items()):
                 try:
+                    # If we have never received PCM for this cue yet, don't pull/mix at all.
+                    # This avoids injecting silence mid-buffer and reduces chance of a start click.
+                    if ring.frames <= 0:
+                        if ring.eof:
+                            ring.finished_pending = True
+                        elif ring.started:
+                            # Underflow: we previously had PCM but now have none while not EOF.
+                            missing = frames
+                            ring.underflow_count += 1
+                            ring.underflow_missing_frames_total += int(missing)
+                            ring.last_underflow_missing_frames = int(missing)
+                        continue
+
                     chunk, done, filled = ring.pull(frames, cfg.channels)
-                    if done:
-                        _log(f"[CALLBACK-DONE] cue={cue_id[:8]} done=True filled={filled} eof={ring.eof} frames={ring.frames}")
-                    
-                    # CRITICAL: Log if we had to return a partial buffer (which causes silence padding)
+
+                    # Track partial fills (padding happens inside ring.pull via zero-filled remainder)
                     if filled < frames and not done:
-                        _log(f"[CALLBACK-PARTIAL] cue={cue_id[:8]} CRITICAL: requested {frames}fr but only got {filled}fr! Padding with {frames-filled}fr of silence - THIS CAUSES TICKING")
+                        padded = int(frames - filled)
+                        ring.partial_fill_count += 1
+                        ring.partial_padded_frames_total += padded
+                        ring.last_partial_padded_frames = padded
                     
                     env = envelopes.get(cue_id)
                     if env:
@@ -366,7 +563,6 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                                 gains[cue_id] = env.target
                                 envelopes.pop(cue_id, None)
                                 if env.target == 0.0:
-                                    _log(f"[ENVELOPE-SILENCE] cue={cue_id[:8]} envelope finished to silence - batch mode")
                                     ring.finished_pending = True
                                     ring.request_pending = False
                                     # Request decoder stop; let EOF naturally propagate when all buffered frames consumed
@@ -384,7 +580,6 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                                     gains[cue_id] = env.target
                                     envelopes.pop(cue_id, None)
                                     if env.target == 0.0:
-                                        _log(f"[ENVELOPE-SILENCE] cue={cue_id[:8]} envelope finished to silence - per sample mode")
                                         ring.finished_pending = True
                                         ring.request_pending = False
                                         # Request decoder stop; let EOF naturally propagate when all buffered frames consumed
@@ -446,7 +641,6 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     
                     # Mark cue finished pending; main loop will emit event reliably
                     if done:
-                        _log(f"[CALLBACK-DONE] cue={cue_id[:8]} done=True (filled={filled} eof={ring.eof} frames={ring.frames})")
                         ring.finished_pending = True
                         # Clean up envelope and gains when cue finishes
                         envelopes.pop(cue_id, None)
@@ -550,6 +744,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             except Exception:
                 msg = None
             _drain_pcm()
+            _report_starvation()
             
             # Emit finished events reliably (outside RT callback)
             # Detect finished_pending flag set by callback and emit event with blocking put
@@ -582,6 +777,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             # between chunks. We need MASSIVE buffers to hide these decode delays.
             low_water = cfg.block_frames * 48       # ~1000ms (was 12)
             block_frames = cfg.block_frames * 96    # Request ~2000ms per refill (was 24)
+            request_retry_secs = 0.5  # resend credit if request seems stuck (no PCM arriving)
             
             current_time = time.time()
             stuck_timeout_secs = 30.0  # 30s timeout for stuck pending cues (very long to handle high concurrency without prematurely timing out active playback)
@@ -627,7 +823,14 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     if ring.eof:
                         continue
 
-                    if ring.frames < low_water and not ring.request_pending:
+                    should_retry = (
+                        ring.request_pending
+                        and ring.request_started_at is not None
+                        and (current_time - ring.request_started_at) > request_retry_secs
+                        and ring.frames < low_water
+                    )
+
+                    if ring.frames < low_water and (not ring.request_pending or should_retry):
                         # Request more frames: either up to block_frames, or higher for high concurrency
                         target_frames = block_frames
                         if active_rings > 8:
@@ -637,7 +840,10 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         needed = target_frames - ring.frames
                         if needed > 0:
                             try:
-                                decode_cmd_q.put_nowait(BufferRequest(cue_id, needed))
+                                # If this is a retry, don't re-credit the full amount again.
+                                # Keep it bounded to avoid runaway credit during slow decodes.
+                                credit = needed if not should_retry else min(needed, cfg.block_frames * 12)
+                                decode_cmd_q.put_nowait(BufferRequest(cue_id, int(credit)))
                                 ring.request_pending = True
                                 ring.request_started_at = current_time
                             except Exception as ex:

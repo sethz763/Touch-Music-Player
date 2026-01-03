@@ -10,6 +10,8 @@ import multiprocessing as mp
 from dataclasses import dataclass
 from typing import Dict, Optional
 import queue as queue_module
+import queue
+import threading
 import time
 import os
 
@@ -40,6 +42,17 @@ class DecodedChunk:
     pcm: np.ndarray
     eof: bool
     is_loop_restart: bool = False
+    # --- Decode heartbeat diagnostics (optional) ---
+    # Monotonic timestamp (seconds) captured in decoder worker right before enqueue.
+    decoder_produced_mono: float | None = None
+    # Approx time spent decoding/resampling/building this chunk in the worker.
+    decode_work_ms: float | None = None
+    # Worker id that produced this chunk (pooled decoder only).
+    worker_id: int | None = None
+    # Monotonic timestamp (seconds) captured in audio_engine when the chunk is dequeued from decode_out_q.
+    engine_received_mono: float | None = None
+    # Monotonic timestamp (seconds) captured in audio_engine right before forwarding to output.
+    engine_forwarded_mono: float | None = None
 
 @dataclass(frozen=True, slots=True)
 class DecodeError:
@@ -102,8 +115,7 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
     """
     import queue as queue_module
     
-    # DEBUG: print disabled to prevent I/O blocking
-    # print(f"[POOL-WORKER-{worker_id}] Started")
+    # NOTE: Avoid any stdout/stderr I/O in decoder workers; it can block and stall decoding.
     
     # Active decode jobs: cue_id -> JobState
     active_jobs: Dict[str, _JobState] = {}
@@ -134,7 +146,7 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
             if isinstance(cmd, DecodeStart):
                 # Add new job without killing existing ones
                 cue_id = cmd.cue_id
-                print(f"[POOL-WORKER-{worker_id}] Starting job for cue {cue_id[:8]} in_frame={cmd.in_frame} out_frame={cmd.out_frame} (total active jobs: {len(active_jobs) + 1})")
+                # (no prints)
                 
                 try:
                     container = av.open(cmd.file_path)
@@ -172,10 +184,9 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                         is_loop_restart=False
                     )
                     active_jobs[cue_id] = job
-                    print(f"[POOL-WORKER-{worker_id}] Job {cue_id[:8]} opened, ready for decode")
+                    # (no prints)
                 
                 except Exception as e:
-                    print(f"[POOL-WORKER-{worker_id}] Error opening {cue_id[:8]}: {e}")
                     out_q.put(DecodeError(cmd.cue_id, cmd.track_id, cmd.file_path, str(e)))
             
             elif isinstance(cmd, BufferRequest):
@@ -188,7 +199,6 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
             elif isinstance(cmd, DecodeStop):
                 # Remove the specific job
                 if cmd.cue_id in active_jobs:
-                    print(f"[POOL-WORKER-{worker_id}] Stopping job {cmd.cue_id[:8]}")
                     cleanup_job(cmd.cue_id)
             
             elif cmd is None:
@@ -211,6 +221,8 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                             frames_out = 0
                             decode_target = min(job.credit_frames, 4096)
                             pcm_chunks = []
+
+                            work_start = time.monotonic()
                             
                             while frames_out < decode_target and job.credit_frames > 0:
                                 if job.frame_iter is None:
@@ -258,11 +270,9 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                     if job.cmd.out_frame is not None:
                                         remaining = job.cmd.out_frame - job.decoded_frames
                                         if remaining <= 0:
-                                            print(f"[POOL-WORKER-{worker_id}] Reached out_frame boundary for cue {cue_id[:8]}: decoded_frames={job.decoded_frames} out_frame={job.cmd.out_frame}")
                                             job.eof = True
                                             break
                                         if pcm.shape[0] > remaining:
-                                            print(f"[POOL-WORKER-{worker_id}] Trimming PCM at out_frame for cue {cue_id[:8]}: {pcm.shape[0]} -> {remaining} frames")
                                             pcm = pcm[:remaining, :]
                                     
                                     # Cap PCM to not exceed remaining credit
@@ -282,22 +292,27 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                         break
                             
                             if pcm_chunks:
+                                work_end = time.monotonic()
+                                decode_work_ms = (work_end - work_start) * 1000.0
                                 chunk_data = np.concatenate(pcm_chunks, axis=0).astype(np.float32)
                                 if job.eof:
                                     # DEBUG: Uncomment for EOF events: print(f"[POOL-WORKER-{worker_id}] Cue {cue_id[:8]} FINAL: {chunk_data.shape[0]} frames, EOF=True")
                                     cleanup_job(cue_id)
                                 # Removed chunk logging - causes stuttering with frequent small chunks
+                                produced_mono = time.monotonic()
                                 out_q.put(DecodedChunk(
                                     cue_id=cue_id,
                                     track_id=job.cmd.track_id,
                                     pcm=chunk_data,
                                     eof=job.eof,
-                                    is_loop_restart=job.is_loop_restart
+                                    is_loop_restart=job.is_loop_restart,
+                                    decoder_produced_mono=produced_mono,
+                                    decode_work_ms=decode_work_ms,
+                                    worker_id=worker_id,
                                 ))
                                 job.is_loop_restart = False
                         
                         except Exception as e:
-                            print(f"[POOL-WORKER-{worker_id}] Decode error for {cue_id[:8]}: {e}")
                             out_q.put(DecodeError(cue_id, job.cmd.track_id, job.cmd.file_path, str(e)))
                             cleanup_job(cue_id)
                     else:
@@ -307,56 +322,286 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                         # Clean up any jobs that reached EOF
                         to_remove = [cid for cid, job in active_jobs.items() if job.eof and job.credit_frames == 0]
                         for cid in to_remove:
-                            print(f"[POOL-WORKER-{worker_id}] Cleaning up finished job {cid[:8]}")
                             cleanup_job(cid)
                 else:
                     # No active jobs - sleep briefly
                     time.sleep(0.001)
     
     except Exception as e:
-        print(f"[POOL-WORKER-{worker_id}] Worker crash: {e}")
+        # Don't print from workers; report via out_q.
+        try:
+            out_q.put(DecodeError("", "", "", f"decode_worker_crash: {type(e).__name__}: {e}"))
+        except Exception:
+            pass
     finally:
         # Clean up all jobs
         for cue_id in list(active_jobs.keys()):
             cleanup_job(cue_id)
-        print(f"[POOL-WORKER-{worker_id}] Exiting")
+        pass
+
+
+def _decode_worker_thread(
+    worker_id: int,
+    start_cmd: DecodeStart,
+    cmd_q: "queue.Queue[object]",
+    out_q: mp.Queue,
+    event_q: mp.Queue,
+    decode_sema: threading.Semaphore,
+) -> None:
+    """Decode a single cue on a dedicated thread.
+
+    PyAV is not generally thread-safe across shared objects; this design keeps one
+    container/stream/resampler confined to a single thread.
+    """
+    cue_id = start_cmd.cue_id
+
+    container = None
+    try:
+        container = av.open(start_cmd.file_path)
+        stream = next((s for s in container.streams if s.type == "audio"), None)
+        if not stream:
+            out_q.put(DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, "No audio stream"))
+            return
+
+        discard_frames = 0
+        if start_cmd.in_frame > 0:
+            try:
+                seek_seconds = start_cmd.in_frame / start_cmd.target_sample_rate
+                container.seek(
+                    int(seek_seconds / stream.time_base),
+                    stream=stream,
+                    any_frame=False,
+                    backward=True,
+                )
+                discard_frames = start_cmd.target_sample_rate // 100
+            except Exception:
+                pass
+
+        resampler = av.AudioResampler(format="fltp", rate=start_cmd.target_sample_rate)
+        packet_iter = container.demux(stream)
+        frame_iter = None
+
+        decoded_frames = 0
+        credit_frames = 0
+        eof = False
+        is_loop_restart = False
+
+        TARGET_CHUNK_SIZE = max(1024, int(start_cmd.block_frames) * 32)
+        stopping = False
+
+        try:
+            event_q.put(("started", cue_id, start_cmd.track_id, start_cmd.file_path, None))
+        except Exception:
+            pass
+
+        while not stopping:
+            # Drain any pending commands quickly (non-blocking).
+            while True:
+                try:
+                    msg = cmd_q.get_nowait()
+                except queue.Empty:
+                    break
+
+                if isinstance(msg, DecodeStop):
+                    stopping = True
+                    break
+                if isinstance(msg, BufferRequest) and msg.cue_id == cue_id:
+                    credit_frames += int(msg.frames_needed)
+
+            if stopping:
+                break
+
+            if credit_frames <= 0 or eof:
+                time.sleep(0.001)
+                continue
+
+            # Avoid having dozens of cue threads decode at once.
+            # This keeps per-cue container/thread isolation, but limits active decode work.
+            acquired = decode_sema.acquire(timeout=0.01)
+            if not acquired:
+                time.sleep(0.0005)
+                continue
+
+            frames_out = 0
+            decode_target = min(credit_frames, TARGET_CHUNK_SIZE)
+            pcm_chunks: list[np.ndarray] = []
+            work_start = time.monotonic()
+
+            try:
+                while frames_out < decode_target and credit_frames > 0:
+                    if frame_iter is None:
+                        packet = next(packet_iter, None)
+                        if packet is None:
+                            if start_cmd.loop_enabled:
+                                try:
+                                    seek_ts = 0
+                                    if start_cmd.in_frame != 0:
+                                        seek_ts = int(
+                                            (start_cmd.in_frame / start_cmd.target_sample_rate)
+                                            / stream.time_base
+                                        )
+                                    container.seek(
+                                        seek_ts,
+                                        stream=stream,
+                                        any_frame=False,
+                                        backward=True,
+                                    )
+                                    packet_iter = container.demux(stream)
+                                    is_loop_restart = True
+                                    discard_frames = (
+                                        start_cmd.target_sample_rate // 100
+                                        if start_cmd.in_frame > 0
+                                        else 0
+                                    )
+                                    packet = next(packet_iter, None)
+                                    if packet is None:
+                                        eof = True
+                                        break
+                                except Exception:
+                                    eof = True
+                                    break
+                            else:
+                                eof = True
+                                break
+                        frame_iter = iter(packet.decode())
+
+                    frame = next(frame_iter, None)
+                    if frame is None:
+                        frame_iter = None
+                        continue
+
+                    frame.pts = None
+                    resampled = resampler.resample(frame)
+                    if not resampled:
+                        continue
+
+                    pcm = _normalize_audio(resampled[0].to_ndarray())
+                    pcm = _ensure_channels(pcm, start_cmd.target_channels)
+
+                    if discard_frames > 0:
+                        discard = min(discard_frames, pcm.shape[0])
+                        pcm = pcm[discard:, :]
+                        discard_frames -= discard
+
+                    if pcm.size == 0:
+                        continue
+
+                    if start_cmd.out_frame is not None:
+                        remaining = start_cmd.out_frame - decoded_frames
+                        if remaining <= 0:
+                            eof = True
+                            break
+                        if pcm.shape[0] > remaining:
+                            pcm = pcm[:remaining, :]
+
+                    if pcm.shape[0] > credit_frames:
+                        pcm = pcm[:credit_frames, :]
+                    if pcm.size == 0:
+                        continue
+
+                    decoded_frames += pcm.shape[0]
+                    frames_out += pcm.shape[0]
+                    credit_frames -= pcm.shape[0]
+                    pcm_chunks.append(pcm)
+
+                    # Send reasonably sized chunks; don't wait too long.
+                    if frames_out >= decode_target or frames_out >= 4096:
+                        break
+
+                if pcm_chunks:
+                    work_end = time.monotonic()
+                    decode_work_ms = (work_end - work_start) * 1000.0
+                    chunk_data = np.concatenate(pcm_chunks, axis=0).astype(np.float32, copy=False)
+                    produced_mono = time.monotonic()
+                    out_q.put(
+                        DecodedChunk(
+                            cue_id=cue_id,
+                            track_id=start_cmd.track_id,
+                            pcm=chunk_data,
+                            eof=eof,
+                            is_loop_restart=is_loop_restart,
+                            decoder_produced_mono=produced_mono,
+                            decode_work_ms=decode_work_ms,
+                            worker_id=worker_id,
+                        )
+                    )
+                    is_loop_restart = False
+            except Exception as e:
+                out_q.put(DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Decode error: {e}"))
+                break
+            finally:
+                try:
+                    decode_sema.release()
+                except Exception:
+                    pass
+
+    except Exception as e:
+        try:
+            out_q.put(DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Worker crash: {e}"))
+        except Exception:
+            pass
+    finally:
+        if container is not None:
+            try:
+                container.close()
+            except Exception:
+                pass
 
 
 
 def decode_process_main(cmd_q: mp.Queue, out_q: mp.Queue, event_q: mp.Queue) -> None:
+    """Decoder coordinator (thread-per-container).
+
+    Spawns one dedicated decode thread per cue; each thread owns its own PyAV
+    container/stream/resampler, which avoids unsafe sharing and eliminates
+    multi-cue interleaving inside a single worker.
     """
-    Coordinator: Manages a fixed pool of decoder workers.
-    Routes DecodeStart/BufferRequest/DecodeStop to appropriate workers.
-    """
-    # Determine pool size: 1-4 workers based on CPU cores, never more than cores
+    threads: Dict[str, threading.Thread] = {}
+    thread_queues: Dict[str, "queue.Queue[object]"] = {}
+    cue_cmd_map: Dict[str, DecodeStart] = {}
+    cue_worker_id: Dict[str, int] = {}
+    next_worker_id = 0
+
     cpu_count = os.cpu_count() or 4
-    num_workers = min(4, max(1, cpu_count))
-    
-    print(f"[DECODE-COORD] Starting with {num_workers} worker pool (CPU cores: {cpu_count})")
-    
-    # Create worker queues and processes
-    worker_queues: list[mp.Queue] = []
-    workers: list[mp.Process] = []
-    worker_cue_map: Dict[str, int] = {}  # Maps cue_id -> worker_index
-    
-    for i in range(num_workers):
-        wq = mp.Queue()
-        worker_queues.append(wq)
-        
-        worker = mp.Process(
-            target=_decode_worker_pool,
-            args=(i, wq, out_q),
-            name=f"decode-pool-worker-{i}"
-        )
-        worker.start()
-        workers.append(worker)
-    
-    # Main coordinator loop
-    next_worker_idx = 0  # Round-robin assignment
+    # Conservative cap to avoid Python/GIL thrash while still allowing parallelism.
+    max_active_decoders = max(1, min(4, cpu_count))
+    decode_sema = threading.Semaphore(max_active_decoders)
+
     running = True
-    
+
+    def _start_or_restart_thread(cmd: DecodeStart) -> None:
+        nonlocal next_worker_id
+        cue_id = cmd.cue_id
+
+        # Stop existing thread if present.
+        prev_q = thread_queues.get(cue_id)
+        prev_t = threads.get(cue_id)
+        if prev_q is not None:
+            try:
+                prev_q.put_nowait(DecodeStop(cue_id=cue_id))
+            except Exception:
+                pass
+        if prev_t is not None and prev_t.is_alive():
+            prev_t.join(timeout=0.25)
+
+        q: "queue.Queue[object]" = queue.Queue()
+        worker_id = next_worker_id
+        next_worker_id += 1
+        cue_worker_id[cue_id] = worker_id
+        cue_cmd_map[cue_id] = cmd
+
+        t = threading.Thread(
+            target=_decode_worker_thread,
+            args=(worker_id, cmd, q, out_q, event_q, decode_sema),
+            name=f"decode-thread-{cue_id[:8]}",
+            daemon=True,
+        )
+        thread_queues[cue_id] = q
+        threads[cue_id] = t
+        t.start()
+
     while running:
-        # Drain all pending commands
+        # Drain commands from cmd_q.
         first_cmd = True
         while True:
             try:
@@ -364,72 +609,84 @@ def decode_process_main(cmd_q: mp.Queue, out_q: mp.Queue, event_q: mp.Queue) -> 
                 first_cmd = False
             except queue_module.Empty:
                 break
-            
+
             if msg is None:
                 running = False
                 break
-            
+
             if isinstance(msg, DecodeStart):
-                # Assign to next worker (round-robin)
-                worker_idx = next_worker_idx
-                next_worker_idx = (next_worker_idx + 1) % num_workers
-                
-                print(f"[DECODE-COORD] DecodeStart cue {msg.cue_id[:8]} -> worker {worker_idx}")
-                
-                # Send job to worker
-                worker_queues[worker_idx].put(msg)
-                worker_cue_map[msg.cue_id] = worker_idx
-                
-                # Notify audio_service that decode started
-                event_q.put(("started", msg.cue_id, msg.track_id, msg.file_path, None))
-            
+                _start_or_restart_thread(msg)
+
             elif isinstance(msg, BufferRequest):
-                # Route to worker handling this cue
-                worker_idx = worker_cue_map.get(msg.cue_id)
-                if worker_idx is not None:
-                    worker_queues[worker_idx].put(msg)
-            
+                q = thread_queues.get(msg.cue_id)
+                if q is not None:
+                    try:
+                        q.put_nowait(msg)
+                    except Exception:
+                        # If the per-cue queue is wedged, surface as diag.
+                        try:
+                            event_q.put((
+                                "diag",
+                                {
+                                    "type": "decode_cmd_queue_full",
+                                    "cue": msg.cue_id[:8],
+                                    "ts": time.time(),
+                                },
+                            ))
+                        except Exception:
+                            pass
+
             elif isinstance(msg, DecodeStop):
-                # Route to worker handling this cue
-                worker_idx = worker_cue_map.get(msg.cue_id)
-                if worker_idx is not None:
-                    worker_queues[worker_idx].put(msg)
-                    worker_cue_map.pop(msg.cue_id, None)
-        
-        # Check worker health
-        for i, worker in enumerate(workers):
-            if not worker.is_alive():
-                print(f"[DECODE-COORD] Worker {i} died! Restarting...")
-                # Restart the worker
-                wq = mp.Queue()
-                worker_queues[i] = wq
-                
-                new_worker = mp.Process(
-                    target=_decode_worker_pool,
-                    args=(i, wq, out_q),
-                    name=f"decode-pool-worker-{i}"
-                )
-                new_worker.start()
-                workers[i] = new_worker
-        
-        # Small sleep to prevent busy-wait
+                cue_id = msg.cue_id
+                q = thread_queues.get(cue_id)
+                t = threads.get(cue_id)
+                if q is not None:
+                    try:
+                        q.put_nowait(msg)
+                    except Exception:
+                        pass
+                if t is not None and t.is_alive():
+                    t.join(timeout=0.25)
+                thread_queues.pop(cue_id, None)
+                threads.pop(cue_id, None)
+                cue_cmd_map.pop(cue_id, None)
+                cue_worker_id.pop(cue_id, None)
+
+        # Health check / restart if a decode thread died unexpectedly.
+        for cue_id, t in list(threads.items()):
+            if t.is_alive():
+                continue
+            cmd = cue_cmd_map.get(cue_id)
+            if cmd is None:
+                threads.pop(cue_id, None)
+                thread_queues.pop(cue_id, None)
+                cue_worker_id.pop(cue_id, None)
+                continue
+            try:
+                event_q.put((
+                    "diag",
+                    {
+                        "type": "decode_thread_restart",
+                        "cue": cue_id[:8],
+                        "worker_id": cue_worker_id.get(cue_id),
+                        "ts": time.time(),
+                    },
+                ))
+            except Exception:
+                pass
+            _start_or_restart_thread(cmd)
+
         time.sleep(0.001)
-    
-    # Shutdown: send None to all workers
-    print("[DECODE-COORD] Shutting down worker pool...")
-    for wq in worker_queues:
+
+    # Shutdown: ask all threads to stop.
+    for cue_id, q in list(thread_queues.items()):
         try:
-            wq.put(None)
+            q.put_nowait(DecodeStop(cue_id=cue_id))
         except Exception:
             pass
-    
-    # Wait for workers to exit
-    for worker in workers:
+    for t in list(threads.values()):
         try:
-            worker.join(timeout=2)
-            if worker.is_alive():
-                worker.terminate()
+            if t.is_alive():
+                t.join(timeout=1.0)
         except Exception:
             pass
-    
-    print("[DECODE-COORD] Coordinator exiting")
