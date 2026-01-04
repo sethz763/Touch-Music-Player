@@ -199,6 +199,10 @@ class SoundFileButton(QPushButton):
         self.slider_animation: Optional[QPropertyAnimation] = None
         self._swipe_start_pos: Optional[QPoint] = None  # Track swipe start position
         self._swipe_start_time: Optional[float] = None  # Track swipe timing
+
+        # Debounce accidental clicks immediately after swipe gestures.
+        # Qt can emit `clicked` on mouse release after a swipe.
+        self._gesture_click_block_until: float = 0.0  # time.monotonic() seconds
         
         # Audio level meters for channels (displayed with gain slider)
         self.level_meter_left: Optional[AudioLevelMeter] = None
@@ -1010,6 +1014,13 @@ class SoundFileButton(QPushButton):
         - If not auto_fade_enabled: Start new cue without stopping old one (layered playback)
         - If gain slider is visible (from gesture), ignore click to prevent accidental play
         """
+        # Ignore clicks shortly after a swipe gesture (mouse release can emit clicked)
+        try:
+            if time.monotonic() < float(self._gesture_click_block_until):
+                return
+        except Exception:
+            pass
+
         # Ignore clicks while gain slider is visible (user is adjusting gain via swipe gesture)
         if self.gain_slider_visible:
             return
@@ -1588,10 +1599,14 @@ class SoundFileButton(QPushButton):
                     # Swipe is fast horizontal movement (within 300ms)
                     if elapsed_time < 0.3:
                         if delta.x() < 0:  # Left swipe
+                            # Prevent mouse-release from triggering a click-to-play.
+                            self._gesture_click_block_until = time.monotonic() + 0.35
                             self._show_gain_slider()
                             self._swipe_start_pos = None
                             return
                         elif delta.x() > 0:  # Right swipe
+                            # Prevent mouse-release from triggering a click-to-play.
+                            self._gesture_click_block_until = time.monotonic() + 0.35
                             self._hide_gain_slider()
                             self._swipe_start_pos = None
                             return

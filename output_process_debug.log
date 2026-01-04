@@ -1,136 +1,15 @@
-[1767562344.329] Opened output stream device=None sr=48000 ch=2 block=2048
-[1767562344.331] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice
-[1767562344.331] OutputSetDevice received: 15
-[1767562345.498] Opened output stream device=15 sr=48000 ch=2 block=2048
-[1767562345.498] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig
-[1767562345.498] OutputSetConfig received: sr=48000 ch=2 block=2048
-[1767562346.665] Opened output stream device=None sr=48000 ch=2 block=2048
-[1767562346.665] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=1/0 finished=0/0
-[1767562347.169] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562347.672] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562348.175] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562348.681] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562349.194] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767562349.538] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
-[1767562349.538] [START-CUE] cue=a2c561b7 is_new=True fade_in=756
-[1767562349.538] [START-CUE-BUFFER] cue=a2c561b7 BufferRequest sent for 196608 frames (~2000ms)
-[1767562349.573] [DRAIN-ACTIVATE] cue=a2c561b7 first PCM, gain=-120.0
-[1767562349.574] [DRAIN-FADE-IN] cue=a2c561b7 fade_in=36288fr
-[1767562349.574] [DECODE-CHUNK] cue=a2c561b7 received 131375 frames, eof=False
-[1767562349.574] [BUFFER-STARVING] cue=a2c561b7 CRITICAL: buffer was at 0fr before receiving 131375fr chunk! This may cause ticking.
-[1767562349.574] [DRAIN-PCM-PUSH] cue=a2c561b7 frames=131375 total=131375 eof=False ring.eof=False
-[1767562349.575] [DECODE-CHUNK] cue=a2c561b7 received 65233 frames, eof=False
-[1767562349.575] [DRAIN-PCM-PUSH] cue=a2c561b7 frames=65233 total=196608 eof=False ring.eof=False
-[1767562349.696] [OUTPUT-PROBE] status=0/0 levels=4/0 times=4/0 master=16/0 finished=0/0
-[1767562350.208] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562350.709] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562351.224] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
-[1767562351.357] [OUTPUT-PROCESS-MSG] Received message type=TransportPause
-[1767562351.736] [OUTPUT-PROBE] status=0/0 levels=4/0 times=4/0 master=4/0 finished=0/0
-[1767562352.294] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
-[1767562352.294] [STOP-CUE] cue=a2c561b7 BEFORE: eof=False frames=110592 finished_pending=False
-[1767562352.294] [STOP-CUE] cue=a2c561b7 AFTER: eof=True cleared and marked EOF
-[1767562352.295] [OUTPUT-PROCESS-MSG] Received message type=TransportPlay
-[1767562352.296] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
-[1767562352.296] [OUTPUT-FADE-EOF] cue=a2c561b7 ring is EOF, marking finished_pending
-[1767562352.296] [FINISHED] cue=a2c561b7 removal_reason=eof_natural
-[1767562352.296] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
-[1767562352.296] [START-CUE] cue=5924c92d is_new=True fade_in=756
-[1767562352.296] [START-CUE-BUFFER] cue=5924c92d BufferRequest sent for 196608 frames (~2000ms)
-[1767562352.321] [DRAIN-ACTIVATE] cue=5924c92d first PCM, gain=-120.0
-[1767562352.321] [DRAIN-FADE-IN] cue=5924c92d fade_in=36288fr
-[1767562352.321] [DECODE-CHUNK] cue=5924c92d received 131328 frames, eof=False
-[1767562352.321] [BUFFER-STARVING] cue=5924c92d CRITICAL: buffer was at 0fr before receiving 131328fr chunk! This may cause ticking.
-[1767562352.321] [DRAIN-PCM-PUSH] cue=5924c92d frames=131328 total=131328 eof=False ring.eof=False
-[1767562352.321] [DECODE-CHUNK] cue=5924c92d received 65280 frames, eof=False
-[1767562352.321] [DRAIN-PCM-PUSH] cue=5924c92d frames=65280 total=196608 eof=False ring.eof=False
-[1767562352.740] [OUTPUT-PROBE] status=0/0 levels=12/0 times=12/0 master=14/0 finished=1/0
-[1767562353.243] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562353.755] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
-[1767562354.257] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562354.427] [DECODE-CHUNK] cue=5924c92d received 100352 frames, eof=False
-[1767562354.427] [DRAIN-PCM-PUSH] cue=5924c92d frames=100352 total=196608 eof=False ring.eof=False
-[1767562354.427] [DECODE-HB] cue=5924c92d wid=1 frames=100352 ring_frames=196608 decode_work_ms=0.0 total_ms=15.999999945051968 engine_hold_ms=15.999999945051968 decode_to_engine_ms=15.999999945051968 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=2109.000000054948
-[1767562354.633] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
-[1767562354.633] [STOP-CUE] cue=5924c92d BEFORE: eof=False frames=186368 finished_pending=False
-[1767562354.633] [STOP-CUE] cue=5924c92d AFTER: eof=True cleared and marked EOF
-[1767562354.672] [FINISHED] cue=5924c92d removal_reason=eof_natural
-[1767562354.765] [OUTPUT-PROBE] status=0/0 levels=13/0 times=13/0 master=16/0 finished=1/0
-[1767562355.269] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562355.777] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562356.277] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562356.782] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562357.283] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562357.553] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
-[1767562357.553] [START-CUE] cue=16975233 is_new=True fade_in=756
-[1767562357.553] [START-CUE-BUFFER] cue=16975233 BufferRequest sent for 196608 frames (~2000ms)
-[1767562357.580] [DRAIN-ACTIVATE] cue=16975233 first PCM, gain=-120.0
-[1767562357.580] [DRAIN-FADE-IN] cue=16975233 fade_in=36288fr
-[1767562357.580] [DECODE-CHUNK] cue=16975233 received 131328 frames, eof=False
-[1767562357.580] [BUFFER-STARVING] cue=16975233 CRITICAL: buffer was at 0fr before receiving 131328fr chunk! This may cause ticking.
-[1767562357.580] [DRAIN-PCM-PUSH] cue=16975233 frames=131328 total=131328 eof=False ring.eof=False
-[1767562357.582] [DECODE-CHUNK] cue=16975233 received 65280 frames, eof=False
-[1767562357.582] [DRAIN-PCM-PUSH] cue=16975233 frames=65280 total=196608 eof=False ring.eof=False
-[1767562357.784] [OUTPUT-PROBE] status=0/0 levels=6/0 times=6/0 master=16/0 finished=0/0
-[1767562358.297] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562358.800] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562359.304] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562359.683] [DECODE-CHUNK] cue=16975233 received 100352 frames, eof=False
-[1767562359.683] [DRAIN-PCM-PUSH] cue=16975233 frames=100352 total=196608 eof=False ring.eof=False
-[1767562359.683] [DECODE-HB] cue=16975233 wid=2 frames=100352 ring_frames=196608 decode_work_ms=15.999999945051968 total_ms=0.0 engine_hold_ms=0.0 decode_to_engine_ms=0.0 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=2109.99999998603
-[1767562359.808] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562360.320] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
-[1767562360.570] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
-[1767562360.570] [STOP-CUE] cue=16975233 BEFORE: eof=False frames=153600 finished_pending=False
-[1767562360.570] [STOP-CUE] cue=16975233 AFTER: eof=True cleared and marked EOF
-[1767562360.600] [FINISHED] cue=16975233 removal_reason=eof_natural
-[1767562360.834] [OUTPUT-PROBE] status=0/0 levels=8/0 times=8/0 master=16/0 finished=1/0
-[1767562361.336] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562361.408] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
-[1767562361.408] [START-CUE] cue=af598c24 is_new=True fade_in=756
-[1767562361.408] [START-CUE-BUFFER] cue=af598c24 BufferRequest sent for 196608 frames (~2000ms)
-[1767562361.429] [DRAIN-ACTIVATE] cue=af598c24 first PCM, gain=-120.0
-[1767562361.429] [DRAIN-FADE-IN] cue=af598c24 fade_in=36288fr
-[1767562361.429] [DECODE-CHUNK] cue=af598c24 received 131328 frames, eof=False
-[1767562361.429] [BUFFER-STARVING] cue=af598c24 CRITICAL: buffer was at 0fr before receiving 131328fr chunk! This may cause ticking.
-[1767562361.429] [DRAIN-PCM-PUSH] cue=af598c24 frames=131328 total=131328 eof=False ring.eof=False
-[1767562361.431] [DECODE-CHUNK] cue=af598c24 received 65280 frames, eof=False
-[1767562361.431] [DRAIN-PCM-PUSH] cue=af598c24 frames=65280 total=196608 eof=False ring.eof=False
-[1767562361.848] [OUTPUT-PROBE] status=0/0 levels=13/0 times=13/0 master=17/0 finished=0/0
-[1767562362.363] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562362.876] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
-[1767562362.978] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
-[1767562362.978] [STOP-CUE] cue=af598c24 BEFORE: eof=False frames=122880 finished_pending=False
-[1767562362.978] [STOP-CUE] cue=af598c24 AFTER: eof=True cleared and marked EOF
-[1767562362.999] [FINISHED] cue=af598c24 removal_reason=eof_natural
-[1767562363.390] [OUTPUT-PROBE] status=0/0 levels=3/0 times=3/0 master=15/0 finished=1/0
-[1767562363.819] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
-[1767562363.819] [START-CUE] cue=c45c0e50 is_new=True fade_in=756
-[1767562363.819] [START-CUE-BUFFER] cue=c45c0e50 BufferRequest sent for 196608 frames (~2000ms)
-[1767562363.845] [DRAIN-ACTIVATE] cue=c45c0e50 first PCM, gain=-120.0
-[1767562363.845] [DRAIN-FADE-IN] cue=c45c0e50 fade_in=36288fr
-[1767562363.845] [DECODE-CHUNK] cue=c45c0e50 received 131328 frames, eof=False
-[1767562363.845] [BUFFER-STARVING] cue=c45c0e50 CRITICAL: buffer was at 0fr before receiving 131328fr chunk! This may cause ticking.
-[1767562363.845] [DRAIN-PCM-PUSH] cue=c45c0e50 frames=131328 total=131328 eof=False ring.eof=False
-[1767562363.846] [DECODE-CHUNK] cue=c45c0e50 received 65280 frames, eof=False
-[1767562363.846] [DRAIN-PCM-PUSH] cue=c45c0e50 frames=65280 total=196608 eof=False ring.eof=False
-[1767562363.890] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767562364.405] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
-[1767562364.907] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
-[1767562365.259] [OUTPUT-PROCESS-MSG] Received message type=TransportPause
-[1767562365.409] [OUTPUT-PROBE] status=0/0 levels=11/0 times=11/0 master=11/0 finished=0/0
-[1767562366.249] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
-[1767562366.249] [STOP-CUE] cue=c45c0e50 BEFORE: eof=False frames=129024 finished_pending=False
-[1767562366.250] [STOP-CUE] cue=c45c0e50 AFTER: eof=True cleared and marked EOF
-[1767562366.272] [FINISHED] cue=c45c0e50 removal_reason=eof_natural
-[1767562366.427] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=0/0 finished=1/0
-[1767562367.004] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
-[1767562367.004] [START-CUE] cue=e56e410b is_new=True fade_in=756
-[1767562367.004] [START-CUE-BUFFER] cue=e56e410b BufferRequest sent for 196608 frames (~2000ms)
-[1767562367.016] [DRAIN-ACTIVATE] cue=e56e410b first PCM, gain=-120.0
-[1767562367.016] [DRAIN-FADE-IN] cue=e56e410b fade_in=36288fr
-[1767562367.016] [DECODE-CHUNK] cue=e56e410b received 131328 frames, eof=False
-[1767562367.016] [BUFFER-STARVING] cue=e56e410b CRITICAL: buffer was at 0fr before receiving 131328fr chunk! This may cause ticking.
-[1767562367.016] [DRAIN-PCM-PUSH] cue=e56e410b frames=131328 total=131328 eof=False ring.eof=False
-[1767562367.030] [DECODE-CHUNK] cue=e56e410b received 65280 frames, eof=False
-[1767562367.030] [DRAIN-PCM-PUSH] cue=e56e410b frames=65280 total=196608 eof=False ring.eof=False
+[1767566728.237] Opened output stream device=None sr=48000 ch=2 block=2048
+[1767566728.237] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice
+[1767566728.237] OutputSetDevice received: 15
+[1767566729.392] Opened output stream device=15 sr=48000 ch=2 block=2048
+[1767566729.392] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig
+[1767566729.393] OutputSetConfig received: sr=48000 ch=2 block=2048
+[1767566730.552] Opened output stream device=None sr=48000 ch=2 block=2048
+[1767566731.063] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767566731.571] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767566732.071] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767566732.577] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767566733.078] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767566733.580] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767566734.082] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767566734.255] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=5/0 finished=0/0

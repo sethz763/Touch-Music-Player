@@ -192,8 +192,40 @@ class AudioEngine:
         except Exception: pass
         try: self._out_cmd_q.put(False)
         except Exception: pass
-        if self._decode_proc: self._decode_proc.join(timeout=1.0)
-        if self._out_proc: self._out_proc.join(timeout=1.0)
+
+        # Best-effort graceful join.
+        if self._decode_proc:
+            try:
+                self._decode_proc.join(timeout=1.0)
+            except Exception:
+                pass
+        if self._out_proc:
+            try:
+                self._out_proc.join(timeout=1.0)
+            except Exception:
+                pass
+
+        # If still alive, force terminate so we don't leave orphans behind.
+        if self._decode_proc and self._decode_proc.is_alive():
+            try:
+                self._decode_proc.terminate()
+            except Exception:
+                pass
+            try:
+                self._decode_proc.join(timeout=1.0)
+            except Exception:
+                pass
+
+        if self._out_proc and self._out_proc.is_alive():
+            try:
+                self._out_proc.terminate()
+            except Exception:
+                pass
+            try:
+                self._out_proc.join(timeout=1.0)
+            except Exception:
+                pass
+
         self._decode_proc = None
         self._out_proc = None
         self.active_cues.clear()

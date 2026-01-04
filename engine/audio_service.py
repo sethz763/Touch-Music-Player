@@ -12,6 +12,7 @@ The service communicates with the GUI via multiprocessing queues:
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import time
 from dataclasses import dataclass
 from typing import Optional
@@ -56,6 +57,12 @@ class AudioServiceConfig:
     auto_fade_on_new: bool = True
     pump_interval_ms: float = 5.0  # How often to call engine.pump()
 
+    # Crash-safety: if the GUI process dies, the service should not remain running.
+    # This avoids orphaned background processes on app crashes.
+    parent_pid: Optional[int] = None
+    parent_watchdog_enabled: bool = True
+    parent_watchdog_poll_s: float = 0.5
+
 
 def audio_service_main(
     cmd_q: mp.Queue,
@@ -75,6 +82,54 @@ def audio_service_main(
     Stops when cmd_q receives None.
     """
     try:
+        # Capture the parent PID (GUI) and watch it so we can self-terminate
+        # if the GUI process crashes or is killed.
+        parent_pid = int(config.parent_pid) if config.parent_pid else int(os.getppid())
+
+        def _is_parent_alive(pid: int) -> bool:
+            try:
+                if pid <= 0:
+                    return False
+                if os.name == "nt":
+                    import ctypes
+                    from ctypes import wintypes
+
+                    PROCESS_QUERY_LIMITED_INFORMATION = 0x1000
+                    SYNCHRONIZE = 0x00100000
+                    WAIT_OBJECT_0 = 0x00000000
+                    WAIT_TIMEOUT = 0x00000102
+
+                    kernel32 = ctypes.windll.kernel32
+                    kernel32.OpenProcess.argtypes = [wintypes.DWORD, wintypes.BOOL, wintypes.DWORD]
+                    kernel32.OpenProcess.restype = wintypes.HANDLE
+                    kernel32.WaitForSingleObject.argtypes = [wintypes.HANDLE, wintypes.DWORD]
+                    kernel32.WaitForSingleObject.restype = wintypes.DWORD
+                    kernel32.CloseHandle.argtypes = [wintypes.HANDLE]
+                    kernel32.CloseHandle.restype = wintypes.BOOL
+
+                    handle = kernel32.OpenProcess(PROCESS_QUERY_LIMITED_INFORMATION | SYNCHRONIZE, False, pid)
+                    if not handle:
+                        return False
+                    try:
+                        rc = kernel32.WaitForSingleObject(handle, 0)
+                        if rc == WAIT_TIMEOUT:
+                            return True
+                        if rc == WAIT_OBJECT_0:
+                            return False
+                        # Unknown: assume dead to be safe.
+                        return False
+                    finally:
+                        kernel32.CloseHandle(handle)
+
+                # POSIX: os.kill(pid, 0) checks existence.
+                try:
+                    os.kill(pid, 0)
+                    return True
+                except Exception:
+                    return False
+            except Exception:
+                return True  # best-effort; don't kill audio on watchdog errors
+
         # Create and start the audio engine with the provided config
         engine = AudioEngine(
             sample_rate=config.sample_rate,
@@ -91,9 +146,19 @@ def audio_service_main(
         pump_interval = config.pump_interval_ms / 1000.0
         running = True
         pump_count = 0
+        next_watchdog_check = time.monotonic() + float(getattr(config, "parent_watchdog_poll_s", 0.5) or 0.5)
 
         while running:
             try:
+                # Parent watchdog (prevents orphaned processes on GUI crash)
+                if getattr(config, "parent_watchdog_enabled", True):
+                    now_mono = time.monotonic()
+                    if now_mono >= next_watchdog_check:
+                        next_watchdog_check = now_mono + float(getattr(config, "parent_watchdog_poll_s", 0.5) or 0.5)
+                        if not _is_parent_alive(parent_pid):
+                            running = False
+                            break
+
                 # Drain commands from GUI (non-blocking)
                 while True:
                     try:

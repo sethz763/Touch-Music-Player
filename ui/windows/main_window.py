@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import multiprocessing as mp
+import os
 import time
 from typing import Optional, TYPE_CHECKING
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout
@@ -54,7 +55,7 @@ class MainWindow(QMainWindow):
                 fade_out_ms = int(app_settings["fade_out_duration"])
         except Exception:
             pass
-
+        
         audio_config = AudioServiceConfig(
             sample_rate=48000,
             channels=2,
@@ -63,6 +64,7 @@ class MainWindow(QMainWindow):
             fade_out_ms=fade_out_ms,
             fade_curve="equal_power",
             auto_fade_on_new=True,
+            parent_pid=os.getpid(),
         )
         
         # Spawn audio service process (daemon=False ensures clean shutdown)
@@ -115,7 +117,6 @@ class MainWindow(QMainWindow):
         title = settings.get("show_name") or "Cue Log"
         enabled = bool(settings.get("logging_enabled", True))
         try:
-            import os
             base, _ext = os.path.splitext(xlsx_path)
             csv_path = base + ".csv"
         except Exception:
