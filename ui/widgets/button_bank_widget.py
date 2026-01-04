@@ -39,6 +39,9 @@ class ButtonBankWidget(QWidget):
         super().__init__()
         self.engine_adapter = engine_adapter
         self.buttons = []
+        self._rows = int(rows)
+        self._cols = int(cols)
+        self._last_started_button_index: int | None = None
         self.setFixedHeight(500)
         
         # Command batching state
@@ -215,9 +218,10 @@ class ButtonBankWidget(QWidget):
         """
         start = time.perf_counter()
         # Find button with matching cue_id in _active_cue_ids
-        for btn in self.buttons:
+        for idx, btn in enumerate(self.buttons):
             if cue_id in btn._active_cue_ids:
                 btn._on_cue_started(cue_id, cue_info)
+                self._last_started_button_index = idx
                 break
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
@@ -240,6 +244,45 @@ class ButtonBankWidget(QWidget):
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
             print(f"[PERF] ButtonBankWidget._on_adapter_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
+
+    def transport_next(self) -> None:
+        """Play the next cue to the right, or the first cue on the next row.
+
+        Implementation: row-major scan starting at the button after the last-started cue.
+        """
+        if not self.buttons:
+            return
+        start_idx = self._last_started_button_index
+        if start_idx is None:
+            start_idx = -1
+
+        for idx in range(start_idx + 1, len(self.buttons)):
+            btn = self.buttons[idx]
+            try:
+                if getattr(btn, "file_path", None):
+                    btn.transport_play_now()
+                    return
+            except Exception:
+                continue
+
+    def transport_enable_loop_for_active(self) -> None:
+        self.transport_set_loop_for_active(True)
+
+    def transport_set_loop_for_active(self, enabled: bool) -> None:
+        """Set looping on/off for all currently playing cues (per-cue update)."""
+        if not self.engine_adapter:
+            return
+
+        for btn in self.buttons:
+            try:
+                cue_id = getattr(btn, "current_cue_id", None)
+                if getattr(btn, "is_playing", False) and cue_id:
+                    # Update engine
+                    self.engine_adapter.update_cue(cue_id, loop_enabled=bool(enabled))
+                    # Update local button state/UI
+                    btn.set_loop_enabled_from_transport(bool(enabled))
+            except Exception:
+                continue
     
     def _on_adapter_cue_time(self, cue_id: str, elapsed: float, remaining: float, total: object) -> None:
         """

@@ -18,6 +18,26 @@ import os
 import numpy as np
 import av
 
+from engine.commands import UpdateCueCommand
+
+
+def _out_send(out_chan: object, msg: object, lock: threading.Lock | None) -> None:
+    """Send a message to the engine.
+
+    Supports either an mp.Queue-like object with .put(...) or a Pipe Connection
+    with .send(...). If using a Connection and multiple decode threads are
+    active, a lock must be provided to prevent interleaved writes.
+    """
+    if hasattr(out_chan, "put"):
+        out_chan.put(msg)  # type: ignore[attr-defined]
+        return
+    # Assume multiprocessing.connection.Connection
+    if lock is not None:
+        with lock:
+            out_chan.send(msg)  # type: ignore[attr-defined]
+    else:
+        out_chan.send(msg)  # type: ignore[attr-defined]
+
 @dataclass(slots=True)
 class DecodeStart:
     cue_id: str
@@ -119,6 +139,12 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
     
     # Active decode jobs: cue_id -> JobState
     active_jobs: Dict[str, _JobState] = {}
+
+    # Import here to keep module import cost low in worker processes.
+    try:
+        from engine.commands import UpdateCueCommand  # type: ignore
+    except Exception:
+        UpdateCueCommand = None  # type: ignore
     
     def cleanup_job(cue_id: str) -> None:
         """Clean up a specific job"""
@@ -200,6 +226,23 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                 # Remove the specific job
                 if cmd.cue_id in active_jobs:
                     cleanup_job(cmd.cue_id)
+
+            elif UpdateCueCommand is not None and isinstance(cmd, UpdateCueCommand):
+                # Apply parameter updates to an active decode job.
+                # IMPORTANT: loop_enabled is handled here (decode-side), not in output.
+                cue_id = getattr(cmd, "cue_id", None)
+                if cue_id in active_jobs:
+                    job = active_jobs[cue_id]
+                    try:
+                        if getattr(cmd, "loop_enabled", None) is not None:
+                            job.cmd.loop_enabled = bool(cmd.loop_enabled)
+                        if getattr(cmd, "in_frame", None) is not None:
+                            job.cmd.in_frame = int(cmd.in_frame)
+                        # Allow clearing out_frame by passing None.
+                        if hasattr(cmd, "out_frame"):
+                            job.cmd.out_frame = cmd.out_frame
+                    except Exception:
+                        pass
             
             elif cmd is None:
                 # No command: decode from active jobs in round-robin fashion
@@ -225,6 +268,39 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                             work_start = time.monotonic()
                             
                             while frames_out < decode_target and job.credit_frames > 0:
+                                # Apply any pending per-cue updates promptly so loop toggles
+                                # take effect before we decide to restart at EOF.
+                                while True:
+                                    try:
+                                        pending_cmd = cmd_q.get_nowait()
+                                    except queue.Empty:
+                                        break
+                                    try:
+                                        if isinstance(pending_cmd, DecodeStop):
+                                            cleanup_job(job.cue_id)
+                                            job = None  # type: ignore
+                                            break
+                                        if UpdateCueCommand is not None and isinstance(pending_cmd, UpdateCueCommand):
+                                            if getattr(pending_cmd, "cue_id", None) == job.cue_id:
+                                                if getattr(pending_cmd, "loop_enabled", None) is not None:
+                                                    job.cmd.loop_enabled = bool(pending_cmd.loop_enabled)
+                                                if getattr(pending_cmd, "in_frame", None) is not None:
+                                                    job.cmd.in_frame = int(pending_cmd.in_frame)
+                                                if hasattr(pending_cmd, "out_frame"):
+                                                    job.cmd.out_frame = pending_cmd.out_frame
+                                            else:
+                                                # Not for this job; push back into the queue for the main loop.
+                                                cmd_q.put_nowait(pending_cmd)
+                                                break
+                                        else:
+                                            # Not an update we handle here; push back.
+                                            cmd_q.put_nowait(pending_cmd)
+                                            break
+                                    except Exception:
+                                        pass
+                                if job is None:
+                                    break
+
                                 if job.frame_iter is None:
                                     packet = next(job.packet_iter, None)
                                     if packet is None:
@@ -235,6 +311,8 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                                 job.packet_iter = job.container.demux(job.stream)
                                                 job.loop_count += 1
                                                 job.is_loop_restart = True
+                                                # Reset per-iteration position so out_frame trimming behaves correctly.
+                                                job.decoded_frames = 0
                                                 job.discard_frames = job.cmd.target_sample_rate // 100 if job.cmd.in_frame > 0 else 0
                                                 packet = next(job.packet_iter, None)
                                                 if packet is None:
@@ -268,7 +346,9 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                         continue
                                     
                                     if job.cmd.out_frame is not None:
-                                        remaining = job.cmd.out_frame - job.decoded_frames
+                                        # out_frame is treated as an absolute frame index in the source.
+                                        # decoded_frames tracks frames produced since in_frame.
+                                        remaining = int(job.cmd.out_frame) - (int(job.cmd.in_frame) + int(job.decoded_frames))
                                         if remaining <= 0:
                                             job.eof = True
                                             break
@@ -347,6 +427,7 @@ def _decode_worker_thread(
     out_q: mp.Queue,
     event_q: mp.Queue,
     decode_sema: threading.Semaphore,
+    out_lock: threading.Lock | None,
 ) -> None:
     """Decode a single cue on a dedicated thread.
 
@@ -360,7 +441,7 @@ def _decode_worker_thread(
         container = av.open(start_cmd.file_path)
         stream = next((s for s in container.streams if s.type == "audio"), None)
         if not stream:
-            out_q.put(DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, "No audio stream"))
+            _out_send(out_q, DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, "No audio stream"), out_lock)
             return
 
         discard_frames = 0
@@ -386,7 +467,14 @@ def _decode_worker_thread(
         eof = False
         is_loop_restart = False
 
-        TARGET_CHUNK_SIZE = max(1024, int(start_cmd.block_frames) * 32)
+        # Larger chunks reduce IPC/message overhead under high concurrency.
+        # Keep configurable so we can tune fairness vs overhead.
+        default_chunk_frames = max(4096, int(start_cmd.block_frames) * 16)  # e.g. 1024*16=16384
+        try:
+            chunk_frames = int(os.environ.get("STEPD_DECODE_CHUNK_FRAMES", str(default_chunk_frames)).strip())
+        except Exception:
+            chunk_frames = default_chunk_frames
+        chunk_frames = max(1024, int(chunk_frames))
         stopping = False
 
         try:
@@ -405,8 +493,40 @@ def _decode_worker_thread(
                 if isinstance(msg, DecodeStop):
                     stopping = True
                     break
+                if isinstance(msg, UpdateCueCommand) and msg.cue_id == cue_id:
+                    try:
+                        if msg.loop_enabled is not None:
+                            start_cmd.loop_enabled = bool(msg.loop_enabled)
+                        if msg.in_frame is not None:
+                            start_cmd.in_frame = int(msg.in_frame)
+                        # Allow clearing out_frame by passing None.
+                        start_cmd.out_frame = msg.out_frame
+                    except Exception:
+                        pass
                 if isinstance(msg, BufferRequest) and msg.cue_id == cue_id:
                     credit_frames += int(msg.frames_needed)
+
+            # If we previously hit EOF (often due to prebuffering the whole cue while looping was OFF)
+            # and looping is turned ON while the cue is still active, resume by seeking and clearing EOF.
+            if eof and start_cmd.loop_enabled:
+                try:
+                    seek_ts = 0
+                    if start_cmd.in_frame != 0:
+                        seek_ts = int(
+                            (start_cmd.in_frame / start_cmd.target_sample_rate) / stream.time_base
+                        )
+                    container.seek(seek_ts, stream=stream, any_frame=False, backward=True)
+                    packet_iter = container.demux(stream)
+                    frame_iter = None
+                    discard_frames = (
+                        start_cmd.target_sample_rate // 100 if start_cmd.in_frame > 0 else 0
+                    )
+                    decoded_frames = 0
+                    eof = False
+                    is_loop_restart = True
+                except Exception:
+                    # If we can't restart, stay EOF.
+                    pass
 
             if stopping:
                 break
@@ -423,12 +543,39 @@ def _decode_worker_thread(
                 continue
 
             frames_out = 0
-            decode_target = min(credit_frames, TARGET_CHUNK_SIZE)
+            decode_target = min(credit_frames, chunk_frames)
             pcm_chunks: list[np.ndarray] = []
             work_start = time.monotonic()
 
             try:
                 while frames_out < decode_target and credit_frames > 0:
+                    # Apply pending updates promptly so loop toggles take effect before EOF handling.
+                    while True:
+                        try:
+                            pending = cmd_q.get_nowait()
+                        except queue.Empty:
+                            break
+                        try:
+                            if isinstance(pending, DecodeStop):
+                                stopping = True
+                                break
+                            if isinstance(pending, UpdateCueCommand) and pending.cue_id == cue_id:
+                                if pending.loop_enabled is not None:
+                                    start_cmd.loop_enabled = bool(pending.loop_enabled)
+                                if pending.in_frame is not None:
+                                    start_cmd.in_frame = int(pending.in_frame)
+                                start_cmd.out_frame = pending.out_frame
+                            elif isinstance(pending, BufferRequest) and pending.cue_id == cue_id:
+                                credit_frames += int(pending.frames_needed)
+                            else:
+                                # Not ours; re-queue and stop draining to avoid starving others.
+                                cmd_q.put_nowait(pending)
+                                break
+                        except Exception:
+                            pass
+                    if stopping:
+                        break
+
                     if frame_iter is None:
                         packet = next(packet_iter, None)
                         if packet is None:
@@ -448,6 +595,8 @@ def _decode_worker_thread(
                                     )
                                     packet_iter = container.demux(stream)
                                     is_loop_restart = True
+                                    # Reset per-iteration position so out_frame trimming behaves correctly.
+                                    decoded_frames = 0
                                     discard_frames = (
                                         start_cmd.target_sample_rate // 100
                                         if start_cmd.in_frame > 0
@@ -487,7 +636,9 @@ def _decode_worker_thread(
                         continue
 
                     if start_cmd.out_frame is not None:
-                        remaining = start_cmd.out_frame - decoded_frames
+                        # out_frame is treated as an absolute frame index in the source.
+                        # decoded_frames tracks frames produced since in_frame.
+                        remaining = int(start_cmd.out_frame) - (int(start_cmd.in_frame) + int(decoded_frames))
                         if remaining <= 0:
                             eof = True
                             break
@@ -504,8 +655,8 @@ def _decode_worker_thread(
                     credit_frames -= pcm.shape[0]
                     pcm_chunks.append(pcm)
 
-                    # Send reasonably sized chunks; don't wait too long.
-                    if frames_out >= decode_target or frames_out >= 4096:
+                    # Send one chunk per slice.
+                    if frames_out >= decode_target:
                         break
 
                 if pcm_chunks:
@@ -513,7 +664,8 @@ def _decode_worker_thread(
                     decode_work_ms = (work_end - work_start) * 1000.0
                     chunk_data = np.concatenate(pcm_chunks, axis=0).astype(np.float32, copy=False)
                     produced_mono = time.monotonic()
-                    out_q.put(
+                    _out_send(
+                        out_q,
                         DecodedChunk(
                             cue_id=cue_id,
                             track_id=start_cmd.track_id,
@@ -523,11 +675,12 @@ def _decode_worker_thread(
                             decoder_produced_mono=produced_mono,
                             decode_work_ms=decode_work_ms,
                             worker_id=worker_id,
-                        )
+                        ),
+                        out_lock,
                     )
                     is_loop_restart = False
             except Exception as e:
-                out_q.put(DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Decode error: {e}"))
+                _out_send(out_q, DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Decode error: {e}"), out_lock)
                 break
             finally:
                 try:
@@ -537,7 +690,7 @@ def _decode_worker_thread(
 
     except Exception as e:
         try:
-            out_q.put(DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Worker crash: {e}"))
+            _out_send(out_q, DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Worker crash: {e}"), out_lock)
         except Exception:
             pass
     finally:
@@ -564,8 +717,20 @@ def decode_process_main(cmd_q: mp.Queue, out_q: mp.Queue, event_q: mp.Queue) -> 
 
     cpu_count = os.cpu_count() or 4
     # Conservative cap to avoid Python/GIL thrash while still allowing parallelism.
+    # Can be overridden for A/B testing via env var STEPD_MAX_ACTIVE_DECODERS.
     max_active_decoders = max(1, min(4, cpu_count))
+    try:
+        override = int(os.environ.get("STEPD_MAX_ACTIVE_DECODERS", "").strip() or "0")
+        if override > 0:
+            max_active_decoders = override
+    except Exception:
+        pass
     decode_sema = threading.Semaphore(max_active_decoders)
+
+    # If out_q is a Pipe Connection shared by multiple threads, protect sends.
+    out_lock: threading.Lock | None = None
+    if not hasattr(out_q, "put") and hasattr(out_q, "send"):
+        out_lock = threading.Lock()
 
     running = True
 
@@ -592,7 +757,7 @@ def decode_process_main(cmd_q: mp.Queue, out_q: mp.Queue, event_q: mp.Queue) -> 
 
         t = threading.Thread(
             target=_decode_worker_thread,
-            args=(worker_id, cmd, q, out_q, event_q, decode_sema),
+            args=(worker_id, cmd, q, out_q, event_q, decode_sema, out_lock),
             name=f"decode-thread-{cue_id[:8]}",
             daemon=True,
         )
@@ -651,6 +816,30 @@ def decode_process_main(cmd_q: mp.Queue, out_q: mp.Queue, event_q: mp.Queue) -> 
                 threads.pop(cue_id, None)
                 cue_cmd_map.pop(cue_id, None)
                 cue_worker_id.pop(cue_id, None)
+
+            elif isinstance(msg, UpdateCueCommand):
+                # Forward updates to the per-cue decode thread so it can change loop behavior
+                # immediately (critical for disabling looping mid-playback).
+                cue_id = msg.cue_id
+                q = thread_queues.get(cue_id)
+                if q is not None:
+                    try:
+                        q.put_nowait(msg)
+                    except Exception:
+                        pass
+                # Keep the last-known parameters so if the thread restarts, it restarts with
+                # the updated loop/in/out values.
+                cmd = cue_cmd_map.get(cue_id)
+                if cmd is not None:
+                    try:
+                        if msg.loop_enabled is not None:
+                            cmd.loop_enabled = bool(msg.loop_enabled)
+                        if msg.in_frame is not None:
+                            cmd.in_frame = int(msg.in_frame)
+                        # Allow clearing out_frame.
+                        cmd.out_frame = msg.out_frame
+                    except Exception:
+                        pass
 
         # Health check / restart if a decode thread died unexpectedly.
         for cue_id, t in list(threads.items()):

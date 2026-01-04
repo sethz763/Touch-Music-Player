@@ -1,0 +1,361 @@
+{
+	"version": "2.0.0",
+	"tasks": [
+		{
+			"label": "Copilot: echo sanity",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/c",
+				"echo",
+				"hi"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Test: loop disable midplay (pytest subset)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-q",
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Test: loop fix script (pytest)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-q",
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Test: loop fix script (pytest) - after patch",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-m",
+				"pytest",
+				"-q",
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: disable loop mid-playback",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_disable_loop_midplay.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: enable loop after start",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_enable_loop_after_start.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: enable loop after start (captured)",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/d",
+				"/c",
+				"\"C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\venv\\Scripts\\python.exe\" manual_test_enable_loop_after_start.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: enable loop after start (redirect)",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/d",
+				"/c",
+				"\"C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\venv\\Scripts\\python.exe\" manual_test_enable_loop_after_start.py > manual_enable_loop_after_start.out.txt 2>&1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: disable loop mid-playback (retest)",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/d",
+				"/c",
+				"\"C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\venv\\Scripts\\python.exe\" manual_test_disable_loop_midplay.py > manual_disable_loop_midplay.out.txt 2>&1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: disable loop mid-playback (post-ordering)",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/d",
+				"/c",
+				"\"C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\venv\\Scripts\\python.exe\" manual_test_disable_loop_midplay.py > manual_disable_loop_midplay2.out.txt 2>&1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Manual: disable loop near boundary",
+			"type": "shell",
+			"command": "cmd",
+			"args": [
+				"/d",
+				"/c",
+				"\"C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\venv\\Scripts\\python.exe\" manual_test_disable_loop_near_boundary.py > manual_disable_loop_near_boundary.out.txt 2>&1"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run manual loop override test",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_loop_override_active_cues.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run manual disable override stop test",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_disable_override_stops_cleanly.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run manual loop override outpoint 2s",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_loop_override_outpoint_2s.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run manual loop override outpoint 2s",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_loop_override_outpoint_2s.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run manual loop override outpoint 2s (captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_loop_override_outpoint_2s.py *>&1 | Tee-Object -FilePath .\\manual_loop_override_outpoint_2s.out.txt; Get-Content .\\manual_loop_override_outpoint_2s.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run manual loop override outpoint 2s (captured after ring fix)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_loop_override_outpoint_2s.py *>&1 | Tee-Object -FilePath .\\manual_loop_override_outpoint_2s.out.txt; Get-Content .\\manual_loop_override_outpoint_2s.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run manual override-on then enable global loop (2s outpoint)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_override_on_then_enable_global_loop_2s.py *>&1 | Tee-Object -FilePath .\\manual_override_on_then_enable_global_loop_2s.out.txt; Get-Content .\\manual_override_on_then_enable_global_loop_2s.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run override-on then enable global loop (2s outpoint) after EOF-resume fix",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_override_on_then_enable_global_loop_2s.py *>&1 | Tee-Object -FilePath .\\manual_override_on_then_enable_global_loop_2s.out.txt; Get-Content .\\manual_override_on_then_enable_global_loop_2s.out.txt -Tail 60"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Sanity: re-run manual loop override outpoint 2s",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_loop_override_outpoint_2s.py *>&1 | Tee-Object -FilePath .\\manual_loop_override_outpoint_2s.out.txt; Get-Content .\\manual_loop_override_outpoint_2s.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Run test_loop_fix",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (no queue spam)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (signature fixed)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (non-daemon)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (clean shutdown)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (loop restart detection)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"test_loop_fix.py"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (captured tail)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\test_loop_fix.py *>&1 | Tee-Object -FilePath .\\test_loop_fix.out.txt; Get-Content .\\test_loop_fix.out.txt -Tail 80"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (pooled decoder)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\test_loop_fix.py *>&1 | Tee-Object -FilePath .\\test_loop_fix.out.txt; Get-Content .\\test_loop_fix.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		},
+		{
+			"label": "Re-run test_loop_fix (multiple restarts)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\test_loop_fix.py *>&1 | Tee-Object -FilePath .\\test_loop_fix.out.txt; Get-Content .\\test_loop_fix.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"problemMatcher": [],
+			"group": "test"
+		}
+	]
+}

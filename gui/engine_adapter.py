@@ -54,6 +54,7 @@ import multiprocessing as mp
 import traceback
 import uuid
 import time
+from collections import deque
 
 from PySide6.QtCore import QObject, Signal, QTimer
 from PySide6.QtWidgets import QWidget
@@ -65,6 +66,8 @@ from engine.commands import (
     SetMasterGainCommand,
     UpdateCueCommand,
     SetAutoFadeCommand,
+    SetGlobalLoopEnabledCommand,
+    SetLoopOverrideCommand,
     TransportPlay,
     TransportStop,
     TransportPause,
@@ -260,9 +263,49 @@ class EngineAdapter(QObject):
         self._pending_master_levels = None
         self._pending_master_time = None
 
+        # Lifecycle backlog: preserve ordering and prevent CueStarted/CueFinished starvation
+        # under heavy telemetry load. We keep overflow lifecycle events here rather than
+        # re-queueing them behind telemetry in the multiprocessing queue.
+        self._lifecycle_backlog = deque()
+
     # ===========================================================================
     # COMMAND METHODS (GUI → AudioService)
     # ===========================================================================
+
+    def transport_play(self) -> None:
+        """Request transport play (global)."""
+        try:
+            self._cmd_q.put(TransportPlay())
+        except Exception as e:
+            print(f"[EngineAdapter.transport_play] Error: {e}")
+
+    def transport_pause(self) -> None:
+        """Request transport pause (global)."""
+        try:
+            self._cmd_q.put(TransportPause())
+        except Exception as e:
+            print(f"[EngineAdapter.transport_pause] Error: {e}")
+
+    def transport_stop(self) -> None:
+        """Request transport stop (global)."""
+        try:
+            self._cmd_q.put(TransportStop())
+        except Exception as e:
+            print(f"[EngineAdapter.transport_stop] Error: {e}")
+
+    def transport_next(self) -> None:
+        """Request transport next (future use)."""
+        try:
+            self._cmd_q.put(TransportNext())
+        except Exception as e:
+            print(f"[EngineAdapter.transport_next] Error: {e}")
+
+    def transport_prev(self) -> None:
+        """Request transport prev (future use)."""
+        try:
+            self._cmd_q.put(TransportPrev())
+        except Exception as e:
+            print(f"[EngineAdapter.transport_prev] Error: {e}")
 
     def play_cue(
         self,
@@ -432,6 +475,20 @@ class EngineAdapter(QObject):
         except Exception as e:
             print(f"[EngineAdapter.set_auto_fade] Error: {e}")
 
+    def set_loop_override(self, enabled: bool) -> None:
+        """Enable/disable global loop override in the engine."""
+        try:
+            self._cmd_q.put(SetLoopOverrideCommand(enabled=bool(enabled)))
+        except Exception as e:
+            print(f"[EngineAdapter.set_loop_override] Error: {e}")
+
+    def set_global_loop_enabled(self, enabled: bool) -> None:
+        """Set global loop enabled state (used only when override is enabled)."""
+        try:
+            self._cmd_q.put(SetGlobalLoopEnabledCommand(enabled=bool(enabled)))
+        except Exception as e:
+            print(f"[EngineAdapter.set_global_loop_enabled] Error: {e}")
+
     def set_master_gain(self, gain_db: float) -> None:
         """
         Request change to master output gain (future use).
@@ -529,8 +586,9 @@ class EngineAdapter(QObject):
     def shutdown(self) -> None:
         """Request graceful shutdown of the AudioService process."""
         try:
-            cmd = TransportStop()
-            self._cmd_q.put(cmd)
+            # AudioService shuts down on sentinel None.
+            # TransportStop is reserved for "stop all cues".
+            self._cmd_q.put(None)
         except Exception as e:
             print(f"[EngineAdapter.shutdown] Error: {e}")
 
@@ -564,13 +622,16 @@ class EngineAdapter(QObject):
         self._last_poll_wall = current_time
         self._poll_seq += 1
         
-        # First pass: drain all pending events from queue
+        # First pass: drain pending events from queue (bounded to avoid long UI stalls)
         pending_events = []
         drain_start = time.perf_counter()
+        max_drain_per_poll = 2000
         while True:
             try:
                 pending_events.append(self._evt_q.get_nowait())
             except Exception:
+                break
+            if len(pending_events) >= max_drain_per_poll:
                 break
         drain_time = (time.perf_counter() - drain_start) * 1000
         stage_times = {
@@ -605,11 +666,20 @@ class EngineAdapter(QObject):
                 f" lifecycle={len(lifecycle_events)} telemetry={len(telemetry_events)} diag={len(other_events)}"
             )
         
-        # Process lifecycle events with limit (critical events but process only few per poll)
-        # When many cues finish simultaneously (9+), spread across multiple polls to avoid frame blocking
+        # Process lifecycle events with limit (critical events)
+        # IMPORTANT: Do NOT re-queue overflow lifecycle events back into the mp queue,
+        # because that can put CueFinishedEvent behind a flood of telemetry and delay it indefinitely.
+        # Instead, keep overflow lifecycle events in an in-memory backlog.
         lifecycle_count = 0
         max_event_time = 0.0
-        max_lifecycle_per_poll = 10  # Allow larger lifecycle bursts before requeueing
+        max_lifecycle_per_poll = 50
+
+        # Prepend any backlog lifecycle events (preserve order)
+        if self._lifecycle_backlog:
+            try:
+                lifecycle_events = list(self._lifecycle_backlog) + lifecycle_events
+            finally:
+                self._lifecycle_backlog.clear()
 
         # Per-poll event timing aggregation (captures slot execution time too)
         # {event_type: {"count": int, "total_ms": float, "max_ms": float, "max_detail": str}}
@@ -659,21 +729,18 @@ class EngineAdapter(QObject):
             except Exception:
                 pass
             lifecycle_count += 1
-        
-        # Re-queue remaining lifecycle events for next poll (preserve order, ensure delivery)
+
+        # Keep remaining lifecycle events for next poll (preserve order, ensure delivery)
         lifecycle_dropped = len(lifecycle_events) - lifecycle_count
-        for event in lifecycle_events[max_lifecycle_per_poll:]:
-            try:
-                self._evt_q.put(event)  # Put back at front of queue
-            except Exception:
-                pass
+        if lifecycle_dropped > 0:
+            self._lifecycle_backlog.extend(lifecycle_events[max_lifecycle_per_poll:])
         
         max_telemetry_per_poll = 40  # Drain more telemetry per tick to avoid backlog
 
         if self._poll_debug_logging and lifecycle_dropped > 0:
             print(
                 f"[POLL-DEBUG] lifecycle backlog total={len(lifecycle_events)} processed={lifecycle_count}"
-                f" requeued={lifecycle_dropped}"
+                f" deferred={lifecycle_dropped}"
             )
         if self._poll_debug_logging and len(telemetry_events) > max_telemetry_per_poll:
             print(

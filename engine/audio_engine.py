@@ -6,6 +6,7 @@ import time
 import threading
 import queue
 import json
+import os
 from pathlib import Path
 from dataclasses import replace
 from datetime import datetime
@@ -24,6 +25,8 @@ from engine.commands import (
     SetMasterGainCommand,
     UpdateCueCommand,
     SetAutoFadeCommand,
+    SetGlobalLoopEnabledCommand,
+    SetLoopOverrideCommand,
     
     # Transport commands
     TransportPlay,
@@ -37,7 +40,16 @@ from engine.commands import (
     OutputSetConfig,
     OutputFadeTo,
 )
-from engine.messages.events import CueStartedEvent, CueFinishedEvent, DecodeErrorEvent, CueLevelsEvent, CueTimeEvent
+from engine.messages.events import (
+    CueStartedEvent,
+    CueFinishedEvent,
+    DecodeErrorEvent,
+    CueLevelsEvent,
+    CueTimeEvent,
+    MasterLevelsEvent,
+    BatchCueLevelsEvent,
+    BatchCueTimeEvent,
+)
 from engine.processes.decode_process_pooled import decode_process_main, DecodeStart, DecodeStop, DecodedChunk, DecodeError
 from engine.processes.output_process import output_process_main, OutputConfig, OutputStartCue, OutputStopCue
 import sounddevice as sd
@@ -58,7 +70,17 @@ class AudioEngine:
         self._ctx = mp.get_context("spawn")
 
         self._decode_cmd_q = self._ctx.Queue()
-        self._decode_out_q = self._ctx.Queue()
+        # Decode output transport can be switched to Pipe to reduce mp.Queue contention.
+        # Enable by setting env var: STEPD_DECODE_TRANSPORT=pipe
+        self._decode_transport = os.environ.get("STEPD_DECODE_TRANSPORT", "queue").strip().lower()
+        self._decode_out_send = None
+        if self._decode_transport == "pipe":
+            recv_conn, send_conn = self._ctx.Pipe(duplex=False)
+            self._decode_out_q = recv_conn
+            self._decode_out_send = send_conn
+        else:
+            self._decode_out_q = self._ctx.Queue()
+            self._decode_out_send = self._decode_out_q
         self._decode_evt_q = self._ctx.Queue()
 
         self._out_cmd_q = self._ctx.Queue()
@@ -78,6 +100,13 @@ class AudioEngine:
         # If True, starting a new cue will automatically fade existing active cues
         # unless the caller requests layered playback via the `layered` flag on play_cue().
         self.auto_fade_on_new = bool(auto_fade_on_new)
+
+        # -------------------------------------------------
+        # Global loop override (driven by PlayControls)
+        # -------------------------------------------------
+        # When enabled, ignore per-cue loop_enabled and use _global_loop_enabled.
+        self._loop_override_enabled: bool = False
+        self._global_loop_enabled: bool = False
         # track cues we've requested fades for to avoid duplicate commands
         self._fade_requested: set[str] = set()
         # track cues pending force-stop: {cue_id: stop_time_unix}
@@ -124,8 +153,29 @@ class AudioEngine:
     def start(self) -> None:
         if self._decode_proc or self._out_proc:
             return
-        self._decode_proc = self._ctx.Process(target=decode_process_main, args=(self._decode_cmd_q, self._decode_out_q, self._decode_evt_q), daemon=False)
+
+        # Record the active decode transport (queue vs pipe) for run-to-run comparisons.
+        self._append_engine_debug(
+            level="info",
+            message="engine_startup",
+            metadata={
+                "decode_transport": self._decode_transport,
+                "max_active_decoders_env": os.environ.get("STEPD_MAX_ACTIVE_DECODERS"),
+            },
+        )
+        self._decode_proc = self._ctx.Process(
+            target=decode_process_main,
+            args=(self._decode_cmd_q, self._decode_out_send, self._decode_evt_q),
+            daemon=False,
+        )
         self._decode_proc.start()
+
+        # Parent no longer needs the send end of the pipe.
+        try:
+            if self._decode_transport == "pipe" and self._decode_out_send is not None:
+                self._decode_out_send.close()
+        except Exception:
+            pass
 
         cfg = OutputConfig(sample_rate=self.sample_rate, channels=self.channels, block_frames=self.block_frames)
         self._out_proc = self._ctx.Process(target=output_process_main, args=(cfg, self._out_cmd_q, self._out_pcm_q, self._out_evt_q, self._decode_cmd_q), daemon=True)
@@ -160,6 +210,30 @@ class AudioEngine:
         """Return current auto-fade-on-new setting."""
         return bool(self.auto_fade_on_new)
 
+    def _effective_loop_enabled(self, requested_loop_enabled: bool) -> bool:
+        if self._loop_override_enabled:
+            return bool(self._global_loop_enabled)
+        return bool(requested_loop_enabled)
+
+    def _send_loop_enabled_to_processes(self, cue_id: str, *, loop_enabled: bool) -> None:
+        cmd = UpdateCueCommand(cue_id=cue_id, loop_enabled=bool(loop_enabled))
+        try:
+            self._out_cmd_q.put(cmd)
+        except Exception:
+            pass
+        try:
+            self._decode_cmd_q.put(cmd)
+        except Exception:
+            pass
+
+    def _apply_effective_loop_to_all_active(self) -> None:
+        # Do not mutate per-cue stored loop_enabled; only update decoder/output.
+        for cue_id, cue_obj in list(self.active_cues.items()):
+            self._send_loop_enabled_to_processes(
+                cue_id,
+                loop_enabled=self._effective_loop_enabled(bool(getattr(cue_obj, "loop_enabled", False))),
+            )
+
     def handle_command(self, cmd: object) -> None:
         """Route a public Engine command (from `engine.commands`) to engine actions.
 
@@ -168,15 +242,37 @@ class AudioEngine:
         commands are logged as TODOs.
         """
         try:
-            # Transport commands (TODO: integrate with transport state)
-            if isinstance(cmd, TransportPlay):
-                self.log.info(source="engine", message="transport_play_requested", metadata={})
-                return
-            if isinstance(cmd, TransportStop):
-                self.log.info(source="engine", message="transport_stop_requested", metadata={})
-                return
+            # Transport commands
             if isinstance(cmd, TransportPause):
                 self.log.info(source="engine", message="transport_pause_requested", metadata={})
+                try:
+                    # Pause is implemented at output stage: mute without consuming buffers.
+                    self._out_cmd_q.put(cmd)
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, TransportPlay):
+                self.log.info(source="engine", message="transport_play_requested", metadata={})
+                try:
+                    self._out_cmd_q.put(cmd)
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, TransportStop):
+                # Stop all active cues immediately and emit CueFinishedEvent for each
+                # once output process reports "finished".
+                self.log.info(source="engine", message="transport_stop_requested", metadata={"active_cues": len(self.active_cues)})
+                for cue_id in list(self.active_cues.keys()):
+                    try:
+                        self._removal_reasons[cue_id] = "transport_stop"
+                        self._fade_requested.discard(cue_id)
+                        self._pending_stops.pop(cue_id, None)
+                        self._decode_cmd_q.put(DecodeStop(cue_id=cue_id))
+                        self._out_cmd_q.put(OutputStopCue(cue_id=cue_id))
+                    except Exception:
+                        pass
                 return
             if isinstance(cmd, TransportNext):
                 self.log.info(source="engine", message="transport_next_requested", metadata={})
@@ -246,6 +342,29 @@ class AudioEngine:
             if isinstance(cmd, SetAutoFadeCommand):
                 try:
                     self.set_auto_fade_on_new(cmd.enabled)
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, SetLoopOverrideCommand):
+                try:
+                    self._loop_override_enabled = bool(cmd.enabled)
+                    self.log.info(source="engine", message="loop_override_set", metadata={"enabled": self._loop_override_enabled})
+                    # Loop override means "use global loop state for all cues".
+                    # Apply immediately to all currently-active cues.
+                    self._apply_effective_loop_to_all_active()
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, SetGlobalLoopEnabledCommand):
+                try:
+                    self._global_loop_enabled = bool(cmd.enabled)
+                    self.log.info(source="engine", message="global_loop_set", metadata={"enabled": self._global_loop_enabled})
+                    # Transport loop button should affect currently active cues too.
+                    # If override is enabled, this becomes authoritative for all cues.
+                    for cue_id in list(self.active_cues.keys()):
+                        self._send_loop_enabled_to_processes(cue_id, loop_enabled=bool(self._global_loop_enabled))
                 except Exception:
                     pass
                 return
@@ -444,7 +563,7 @@ class AudioEngine:
             in_frame=cmd.in_frame,
             out_frame=cmd.out_frame,
             gain_db=cmd.gain_db,
-            loop_enabled=cmd.loop_enabled,
+            loop_enabled=self._effective_loop_enabled(bool(cmd.loop_enabled)),
             target_sample_rate=self.sample_rate,
             target_channels=self.channels,
             block_frames=self.block_frames * 4,
@@ -462,6 +581,7 @@ class AudioEngine:
             fade_in_duration_ms=self.fade_in_ms,
             fade_in_curve=self.fade_curve,
             target_gain_db=cue.gain_db,
+            loop_enabled=self._effective_loop_enabled(bool(getattr(cue, "loop_enabled", False))),
         ))
         self._output_started.add(cue.cue_id)
 
@@ -474,20 +594,33 @@ class AudioEngine:
         return evt
 
     def stop_cue(self, cmd: StopCueCommand) -> None:
-        cue = self.active_cues.pop(cmd.cue_id, None)  # Remove immediately
+        """Request stop of a single cue.
+
+        Important: Do NOT remove the cue from active_cues here.
+        We wait for the output process to emit ("finished", cue_id, reason)
+        so we can emit a proper CueFinishedEvent to the GUI.
+        """
+        cue = self.active_cues.get(cmd.cue_id)
         if not cue:
             return
-        self._removal_reasons[cmd.cue_id] = "manual_stop"  # Track that it was manually stopped
-        self._decode_cmd_q.put(DecodeStop(cue_id=cmd.cue_id))
-        self._out_cmd_q.put(OutputStopCue(cue_id=cmd.cue_id))
+        self._removal_reasons[cmd.cue_id] = "manual_stop"
         try:
-            self._output_started.discard(cmd.cue_id)
             self._fade_requested.discard(cmd.cue_id)
             self._pending_stops.pop(cmd.cue_id, None)
-            self.cue_info_map.pop(cmd.cue_id, None)
         except Exception:
             pass
-        self.log.info(cue_id=cue.cue_id, track_id=cue.track.track_id, tod_start=cue.tod_start or datetime.now(), source="engine", message="cue_stop_requested", metadata={"removal_reason": "manual_stop"})
+        try:
+            self._decode_cmd_q.put(DecodeStop(cue_id=cmd.cue_id))
+        except Exception:
+            pass
+        try:
+            self._out_cmd_q.put(OutputStopCue(cue_id=cmd.cue_id))
+        except Exception:
+            pass
+        try:
+            self.log.info(cue_id=cue.cue_id, track_id=cue.track.track_id, tod_start=cue.tod_start or datetime.now(), source="engine", message="cue_stop_requested", metadata={"removal_reason": "manual_stop"})
+        except Exception:
+            pass
 
     def update_cue(
         self,
@@ -522,16 +655,20 @@ class AudioEngine:
             cue.loop_enabled = loop_enabled
         
         # Send update command to decoder and output processes
+        effective_loop_enabled = loop_enabled
+        if loop_enabled is not None:
+            effective_loop_enabled = self._effective_loop_enabled(bool(loop_enabled))
         cmd = UpdateCueCommand(
             cue_id=cue_id,
             in_frame=in_frame,
             out_frame=out_frame,
             gain_db=gain_db,
-            loop_enabled=loop_enabled,
+            loop_enabled=effective_loop_enabled,
         )
         print(f"[AudioEngine.update_cue] Sending UpdateCueCommand to both queues: {cmd}")
-        self._decode_cmd_q.put(cmd)
+        # Send to output first so loop toggles take effect before any queued PCM is drained.
         self._out_cmd_q.put(cmd)
+        self._decode_cmd_q.put(cmd)
         print(f"[AudioEngine.update_cue] Commands queued")
 
     def pump(self) -> List[object]:
@@ -591,13 +728,45 @@ class AudioEngine:
 
             assert cue_id not in self.active_cues, f"cue_finished but cue still active: {cue_id}"
 
-            if cue and cue_info:
-                # Use removal reason from audio_engine if set (manual_fade, auto_fade, manual_stop, error), 
+            # ALWAYS emit CueFinishedEvent if we have enough information to do so.
+            # This prevents the GUI from getting stuck "playing" (e.g. button still flashing)
+            # in cases like DecodeError where the Cue may already have been removed.
+            if cue_info is None and cue is not None:
+                # Reconstruct a minimal CueInfo snapshot from the Cue.
+                cue_info = CueInfo(
+                    cue_id=cue.cue_id,
+                    track_id=cue.track.track_id,
+                    file_path=cue.track.file_path,
+                    duration_seconds=getattr(cue, "total_seconds", None),
+                    in_frame=cue.in_frame,
+                    out_frame=cue.out_frame,
+                    gain_db=cue.gain_db,
+                    fade_in_ms=self.fade_in_ms,
+                    fade_out_ms=self.fade_out_ms,
+                    started_at=cue.tod_start,
+                    loop_enabled=bool(getattr(cue, "loop_enabled", False)),
+                )
+
+            if cue_info is not None:
+                # Use removal reason from audio_engine if set (manual_fade, auto_fade, manual_stop, decode_error:..., etc.)
                 # otherwise use reason from output process (eof_natural, decode_error, etc.)
                 removal_reason = self._removal_reasons.pop(cue_id, output_removal_reason)
-                self.log.info(cue_id=cue.cue_id, track_id=cue.track.track_id, tod_start=cue.tod_start or datetime.now(), source="engine",
-                              message="cue_finished", metadata={"removal_reason": removal_reason})
-                # Capture stopped_at timestamp and create final CueInfo snapshot with it
+
+                # Best-effort logging: prefer Cue if present, else fall back to CueInfo.
+                try:
+                    track_id = cue.track.track_id if cue is not None else cue_info.track_id
+                    tod_start = cue.tod_start if cue is not None else (cue_info.started_at or datetime.now())
+                    self.log.info(
+                        cue_id=cue_id,
+                        track_id=track_id,
+                        tod_start=tod_start,
+                        source="engine",
+                        message="cue_finished",
+                        metadata={"removal_reason": removal_reason},
+                    )
+                except Exception:
+                    pass
+
                 stopped_at = datetime.now()
                 final_cue_info = replace(cue_info, stopped_at=stopped_at, removal_reason=removal_reason)
                 evts.append(CueFinishedEvent(cue_info=final_cue_info, reason=removal_reason))
@@ -648,7 +817,13 @@ class AudioEngine:
         max_engine_internal_ms_this_pump = 0.0
         while True:
             try:
-                msg = self._decode_out_q.get_nowait()
+                if hasattr(self._decode_out_q, "get_nowait"):
+                    msg = self._decode_out_q.get_nowait()
+                else:
+                    # Pipe transport: non-blocking poll
+                    if not self._decode_out_q.poll(0):
+                        break
+                    msg = self._decode_out_q.recv()
             except Exception:
                 break
             if isinstance(msg, DecodedChunk):
@@ -700,6 +875,7 @@ class AudioEngine:
                         fade_in_duration_ms=self.fade_in_ms,
                         fade_in_curve=self.fade_curve,
                         target_gain_db=cue.gain_db,
+                        loop_enabled=self._effective_loop_enabled(bool(getattr(cue, "loop_enabled", False))),
                     ))
                     self._output_started.add(msg.cue_id)
 
@@ -777,7 +953,7 @@ class AudioEngine:
                         fade_in_duration_ms=self.fade_in_ms,
                         fade_in_curve=self.fade_curve,
                         target_gain_db=cue.gain_db,
-                        loop_enabled=cue.loop_enabled,
+                        loop_enabled=self._effective_loop_enabled(bool(getattr(cue, "loop_enabled", False))),
                         is_loop_restart=is_loop_restart,
                     ))
                     self._output_started.add(cue_id)
@@ -808,7 +984,7 @@ class AudioEngine:
                         fade_in_duration_ms=0,  # No fade on loop restart
                         fade_in_curve="linear",
                         target_gain_db=cue.gain_db,
-                        loop_enabled=cue.loop_enabled,
+                        loop_enabled=self._effective_loop_enabled(bool(getattr(cue, "loop_enabled", False))),
                         is_loop_restart=True,
                     ))
                 else:
@@ -869,6 +1045,11 @@ class AudioEngine:
 
         # Now process all other output events (not finished)
         for m in other_events:
+            # Pass through non-tuple event objects (telemetry) directly.
+            if isinstance(m, (BatchCueLevelsEvent, BatchCueTimeEvent, MasterLevelsEvent)):
+                evts.append(m)
+                continue
+
             if isinstance(m, tuple) and m:
                 tag = m[0]
                 if tag == "started":

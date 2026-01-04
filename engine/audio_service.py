@@ -68,7 +68,7 @@ def audio_service_main(
     4. Forwards engine events to evt_q for GUI consumption
     5. Sleeps briefly to yield CPU
     
-    Stops when receiving TransportStop or when cmd_q receives None.
+    Stops when cmd_q receives None.
     """
     try:
         # Create and start the audio engine with the provided config
@@ -83,9 +83,6 @@ def audio_service_main(
         )
         engine.start()
         
-        # Get direct access to output event queue for explicit event forwarding
-        out_evt_q = engine.get_output_event_queue()
-
         # Main service loop
         pump_interval = config.pump_interval_ms / 1000.0
         running = True
@@ -102,9 +99,6 @@ def audio_service_main(
 
                     # Shutdown signals
                     if cmd is None:
-                        running = False
-                        break
-                    if isinstance(cmd, TransportStop):
                         running = False
                         break
 
@@ -150,33 +144,6 @@ def audio_service_main(
                             engine.handle_command(cmd)
                         except Exception:
                             pass
-
-                # Process output events FIRST (direct from output process)
-                # These include: cue_levels, cue_time, cue_finished, master_levels
-                if running:
-                    try:
-                        while True:
-                            try:
-                                out_event = out_evt_q.get_nowait()
-                                
-                                # Convert ("finished", cue_id) tuple to CueFinishedEvent
-                                if isinstance(out_event, tuple) and len(out_event) >= 2 and out_event[0] == "finished":
-                                    cue_id = out_event[1]
-                                    cue_info = engine.cue_info_map.get(cue_id)
-                                    if cue_info:
-                                        finished_event = CueFinishedEvent(cue_info=cue_info, reason="eof")
-                                        try:
-                                            evt_q.put_nowait(finished_event)
-                                        except Exception as queue_err:
-                                            pass
-                                        engine.cue_info_map.pop(cue_id, None)  # Clean up
-                                else:
-                                    # Regular event (CueLevelsEvent, CueTimeEvent, etc.)
-                                    evt_q.put_nowait(out_event)
-                            except Exception as e:
-                                break
-                    except Exception as e:
-                        pass
 
                 # Process engine events (includes cue_started from play_cue)
                 if running:

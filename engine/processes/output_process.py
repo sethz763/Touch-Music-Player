@@ -1,16 +1,25 @@
 from __future__ import annotations
 
 import multiprocessing as mp
-from dataclasses import dataclass
+from dataclasses import dataclass, replace
 from typing import Dict
 from collections import deque
 import time
+import os
 
 import numpy as np
 import math
 from engine.processes.decode_process_pooled import DecodedChunk
 from engine.processes.decode_process_pooled import BufferRequest, DecodeError, DecodeStop
-from engine.commands import OutputFadeTo, OutputSetDevice, OutputSetConfig, OutputListDevices, UpdateCueCommand
+from engine.commands import (
+    OutputFadeTo,
+    OutputSetDevice,
+    OutputSetConfig,
+    OutputListDevices,
+    UpdateCueCommand,
+    TransportPause,
+    TransportPlay,
+)
 
 
 #these events need to bu used to send events back to audio_service 
@@ -102,13 +111,18 @@ def _db_to_lin(db: float) -> float:
 
 class _Ring:
     def __init__(self):
-        self.q = deque()
+        # Store (pcm, is_loop_restart) so we can trim already-buffered loop iterations
+        # at the exact loop boundary when looping is disabled.
+        self.q: deque[tuple[np.ndarray, bool]] = deque()
         self.frames = 0
         self.eof = False
         self.request_pending = False
         self.request_started_at = None  # timestamp when current buffer request was made
         self.last_pcm_time = None  # timestamp when last PCM was pushed to this ring
         self.finished_pending = False  # set by callback when cue is done; main loop emits event
+        # If True, treat the next loop-restart boundary as end-of-cue.
+        # This lets us stop cleanly at the boundary without yanking already-buffered audio mid-stream.
+        self.stop_on_restart_boundary = False
         # Diagnostics (keep callback RT-safe: counters only, no I/O)
         self.started = False  # set True on first PCM arrival
         self.underflow_count = 0
@@ -118,25 +132,70 @@ class _Ring:
         self.partial_padded_frames_total = 0
         self.last_partial_padded_frames = 0
 
-    def push(self, a: np.ndarray, eof: bool):
+    def push(self, a: np.ndarray, eof: bool, *, is_loop_restart: bool = False):
         if a.size:
-            self.q.append(a)
+            self.q.append((a, bool(is_loop_restart)))
             self.frames += a.shape[0]
             self.started = True
         if eof:
             self.eof = True
 
+    def drop_buffered_loop_restart_audio(self) -> bool:
+        """Drop any already-buffered audio that belongs to a future loop iteration.
+
+        Returns True if any audio was dropped.
+        """
+        if not self.q:
+            return False
+
+        dropped = False
+        new_q: deque[tuple[np.ndarray, bool]] = deque()
+        new_frames = 0
+        saw_restart = False
+
+        for pcm, is_restart in self.q:
+            if saw_restart:
+                dropped = True
+                continue
+            if is_restart:
+                saw_restart = True
+                dropped = True
+                continue
+            new_q.append((pcm, False))
+            new_frames += int(pcm.shape[0])
+
+        if dropped:
+            self.q = new_q
+            self.frames = new_frames
+        return dropped
+
     def pull(self, n: int, channels: int):
         out = np.zeros((n, channels), dtype=np.float32)
         filled = 0
         while filled < n and self.q:
-            a = self.q[0]
+            # If loop disable was requested, stop cleanly at the loop boundary.
+            # The first chunk of the next loop iteration is tagged is_restart=True.
+            if self.stop_on_restart_boundary:
+                try:
+                    _, is_restart = self.q[0]
+                    if is_restart:
+                        # Do not play any samples from the next loop iteration.
+                        self.q.clear()
+                        self.frames = 0
+                        self.eof = True
+                        break
+                except Exception:
+                    pass
+            a, is_restart = self.q[0]
             take = min(n - filled, a.shape[0])
             out[filled:filled+take] = a[:take]
             if take == a.shape[0]:
                 self.q.popleft()
             else:
-                self.q[0] = a[take:]
+                # If this chunk marks a loop restart boundary, consuming any samples from it
+                # means we've crossed the boundary. Clear the marker on the remainder so
+                # stop_on_restart_boundary won't incorrectly stop mid-chunk.
+                self.q[0] = (a[take:], False)
             self.frames -= take
             filled += take
         done = (filled == 0 and self.eof and self.frames == 0 and not self.q)
@@ -154,6 +213,9 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     cue_samples_consumed: Dict[str, int] = {}
     # Track which cues are looping to suppress finish event on loop restart
     looping_cues: set[str] = set()
+    # Cues that have had looping disabled mid-playback.
+    # We use this to prevent any additional loop restarts from being enqueued/played.
+    loop_stop_requested: set[str] = set()
     # Track removal reasons for debug logging: {cue_id: reason_str}
     removal_reasons: Dict[str, str] = {}
     telemetry_probe = {
@@ -452,7 +514,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     gains[pcm.cue_id] = _db_to_lin(pending.gain_db)
                     
                     # Track looping cues
-                    if pending.loop_enabled:
+                    if pending.loop_enabled and pcm.cue_id not in loop_stop_requested:
                         looping_cues.add(pcm.cue_id)
                     
                     # Apply bundled fade-in atomically on first PCM (but NOT on loop restart)
@@ -465,17 +527,23 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                             _log(f"[DRAIN-FADE-IN] cue={pcm.cue_id[:8]} fade_in={fade_frames}fr")
                         except Exception as ex:
                             _log(f"[DRAIN-ACTIVATE-ERROR] cue={pcm.cue_id[:8]}: {type(ex).__name__}")
-                # Reset elapsed time on loop restart
-                if pcm.is_loop_restart:
-                    cue_samples_consumed[pcm.cue_id] = 0
                 ring = rings.get(pcm.cue_id)
                 if ring is None:
                     ring = _Ring()
                     rings[pcm.cue_id] = ring
                     _log(f"[DRAIN-CREATE-RING] cue={pcm.cue_id[:8]} created new ring")
+
+                # When looping is disabled mid-playback, we rely on the ring's
+                # stop_on_restart_boundary flag to stop cleanly at the loop boundary.
+                # Do NOT mark EOF early here: under prebuffering, doing so can stop
+                # buffer requests and cause the cue to end immediately due to underflow.
+
+                # Reset elapsed time on loop restart (only if we will actually play it).
+                if pcm.is_loop_restart:
+                    cue_samples_consumed[pcm.cue_id] = 0
                 frames_in_chunk = pcm.pcm.shape[0]
                 _log(f"[DECODE-CHUNK] cue={pcm.cue_id[:8]} received {frames_in_chunk} frames, eof={pcm.eof}")
-                ring.push(pcm.pcm, pcm.eof)
+                ring.push(pcm.pcm, pcm.eof, is_loop_restart=bool(pcm.is_loop_restart))
                 # PCM received, buffered in ring
                 # arrival of PCM clears any outstanding request state
                 ring.request_pending = False
@@ -505,14 +573,33 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
         # - Set finished_pending flag; main loop handles event emission
         
         try:
-            # Telemetry status: non-blocking, may be dropped silently
+            # Telemetry/status: cache in-process; main loop emits at a steady rate.
             if status:
                 try:
-                    event_q.put_nowait(("status", str(status)))
-                    telemetry_probe["status_sent"] += 1
+                    callback._latest_status = str(status)
                 except Exception:
-                    telemetry_probe["status_dropped"] += 1
+                    pass
             
+            # Transport pause: output silence without consuming cue buffers.
+            # This keeps cue position stable so TransportPlay resumes instantly.
+            if transport_paused:
+                # Still mark EOF rings as finished_pending so Stop works while paused.
+                for cue_id, ring in list(rings.items()):
+                    try:
+                        if ring.frames <= 0 and ring.eof:
+                            ring.finished_pending = True
+                    except Exception:
+                        pass
+                outdata[:] = 0
+                try:
+                    callback._latest_batch_levels = None
+                    callback._latest_batch_levels_per_ch = None
+                    callback._latest_batch_times = None
+                    callback._latest_master_event = None
+                except Exception:
+                    pass
+                return
+
             mix = np.zeros((frames, cfg.channels), dtype=np.float32)
             active_envelopes = len(envelopes)  # Check concurrency level
             skip_telemetry = active_envelopes > 6  # Skip telemetry during bulk fades to reduce CPU load
@@ -648,27 +735,16 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                 except Exception:
                     pass
             
-            # Send batched telemetry events (one per callback cycle instead of N per cue)
-            if batch_levels:
+            # Cache batched telemetry (main loop emits at ~60Hz).
+            try:
+                callback._latest_batch_levels = batch_levels if batch_levels else None
                 batch_levels_per_ch = getattr(callback, '_batch_levels_per_channel', {})
-                event = BatchCueLevelsEvent(
-                    cue_levels=batch_levels,
-                    cue_levels_per_channel=batch_levels_per_ch if batch_levels_per_ch else None,
-                )
-                try:
-                    event_q.put_nowait(event)
-                    telemetry_probe["levels_sent"] += 1
-                except Exception:
-                    telemetry_probe["levels_dropped"] += 1
-                # Clear per-channel cache for next cycle regardless of queue success
-                callback._batch_levels_per_channel = {}
-            if batch_times:
-                event = BatchCueTimeEvent(cue_times=batch_times)
-                try:
-                    event_q.put_nowait(event)
-                    telemetry_probe["times_sent"] += 1
-                except Exception:
-                    telemetry_probe["times_dropped"] += 1
+                callback._latest_batch_levels_per_ch = batch_levels_per_ch if batch_levels_per_ch else None
+                callback._latest_batch_times = batch_times if batch_times else None
+            except Exception:
+                pass
+            # Clear per-channel cache for next cycle.
+            callback._batch_levels_per_channel = {}
             
             np.clip(mix, -1.0, 1.0, out=mix)
             outdata[:] = mix
@@ -699,12 +775,24 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                 master_event = None
             if master_event is not None:
                 try:
-                    event_q.put_nowait(master_event)
-                    telemetry_probe["master_sent"] += 1
+                    callback._latest_master_event = master_event
                 except Exception:
-                    telemetry_probe["master_dropped"] += 1
+                    pass
         except Exception:
             pass
+
+    # -------------------------------------------------
+    # Telemetry emission pacing
+    # -------------------------------------------------
+    # Emit telemetry at a stable rate (default ~60Hz) regardless of audio callback block size.
+    # This keeps UI updates smooth even if PCM chunk sizes grow.
+    try:
+        telemetry_hz = float(os.environ.get("STEPD_TELEMETRY_HZ", "60").strip() or "60")
+    except Exception:
+        telemetry_hz = 60.0
+    telemetry_hz = max(1.0, min(240.0, telemetry_hz))
+    telemetry_interval = 1.0 / telemetry_hz
+    telemetry_next_mono = time.monotonic()
 
     # Create/open output stream with ability to re-open on device/config change
     stream = None
@@ -738,13 +826,101 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     open_stream()
 
     try:
+        transport_paused = False
         while True:
             try:
                 msg = cmd_q.get(timeout=0.01)
             except Exception:
                 msg = None
+
+            # IMPORTANT: Apply loop enable/disable immediately (before draining PCM).
+            # Otherwise, a loop-restart PCM chunk can be drained and played before we
+            # observe the loop toggle, causing an audible jump.
+            if isinstance(msg, UpdateCueCommand) and getattr(msg, "loop_enabled", None) is not None:
+                try:
+                    if bool(msg.loop_enabled):
+                        looping_cues.add(msg.cue_id)
+                        loop_stop_requested.discard(msg.cue_id)
+                        ring = rings.get(msg.cue_id)
+                        if ring is not None and not ring.finished_pending:
+                            # Decoder may have hit EOF early due to prebuffering.
+                            # If loop is enabled mid-playback, allow refilling.
+                            ring.eof = False
+                    else:
+                        looping_cues.discard(msg.cue_id)
+                        loop_stop_requested.add(msg.cue_id)
+
+                        # Stop cleanly at the next loop boundary.
+                        ring = rings.get(msg.cue_id)
+                        if ring is not None:
+                            try:
+                                ring.stop_on_restart_boundary = True
+                            except Exception:
+                                pass
+
+                    # If cue hasn't started yet, keep pending metadata in sync.
+                    pending = pending_starts.get(msg.cue_id)
+                    if pending is not None:
+                        try:
+                            pending_starts[msg.cue_id] = replace(pending, loop_enabled=bool(msg.loop_enabled))
+                        except Exception:
+                            pass
+                except Exception:
+                    pass
             _drain_pcm()
             _report_starvation()
+
+            # -------------------------------------------------
+            # Emit cached telemetry at ~60Hz (outside RT callback)
+            # -------------------------------------------------
+            try:
+                now_mono = time.monotonic()
+                if now_mono >= telemetry_next_mono:
+                    telemetry_next_mono = now_mono + telemetry_interval
+
+                    latest_status = getattr(callback, "_latest_status", None)
+                    if latest_status:
+                        try:
+                            event_q.put_nowait(("status", latest_status))
+                            telemetry_probe["status_sent"] += 1
+                        except Exception:
+                            telemetry_probe["status_dropped"] += 1
+                        try:
+                            callback._latest_status = None
+                        except Exception:
+                            pass
+
+                    latest_levels = getattr(callback, "_latest_batch_levels", None)
+                    latest_levels_per_ch = getattr(callback, "_latest_batch_levels_per_ch", None)
+                    if latest_levels:
+                        event = BatchCueLevelsEvent(
+                            cue_levels=latest_levels,
+                            cue_levels_per_channel=latest_levels_per_ch,
+                        )
+                        try:
+                            event_q.put_nowait(event)
+                            telemetry_probe["levels_sent"] += 1
+                        except Exception:
+                            telemetry_probe["levels_dropped"] += 1
+
+                    latest_times = getattr(callback, "_latest_batch_times", None)
+                    if latest_times:
+                        event = BatchCueTimeEvent(cue_times=latest_times)
+                        try:
+                            event_q.put_nowait(event)
+                            telemetry_probe["times_sent"] += 1
+                        except Exception:
+                            telemetry_probe["times_dropped"] += 1
+
+                    latest_master = getattr(callback, "_latest_master_event", None)
+                    if latest_master is not None:
+                        try:
+                            event_q.put_nowait(latest_master)
+                            telemetry_probe["master_sent"] += 1
+                        except Exception:
+                            telemetry_probe["master_dropped"] += 1
+            except Exception:
+                pass
             
             # Emit finished events reliably (outside RT callback)
             # Detect finished_pending flag set by callback and emit event with blocking put
@@ -831,18 +1007,20 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     )
 
                     if ring.frames < low_water and (not ring.request_pending or should_retry):
-                        # Request more frames: either up to block_frames, or higher for high concurrency
+                        # Request more frames: refill toward a target buffer size.
+                        # Under high concurrency, request *more* (not less) to reduce request churn
+                        # and decoder scheduling/IPC pressure.
                         target_frames = block_frames
                         if active_rings > 8:
-                            # High concurrency: request larger chunks (12 blocks instead of 4)
-                            # This reduces decoder scheduling pressure
-                            target_frames = cfg.block_frames * 12
+                            # Default target is ~2000ms. Increase to ~4000ms when many cues are active.
+                            target_frames = cfg.block_frames * 192
                         needed = target_frames - ring.frames
                         if needed > 0:
                             try:
                                 # If this is a retry, don't re-credit the full amount again.
                                 # Keep it bounded to avoid runaway credit during slow decodes.
-                                credit = needed if not should_retry else min(needed, cfg.block_frames * 12)
+                                retry_cap = cfg.block_frames * (192 if active_rings > 8 else 96)
+                                credit = needed if not should_retry else min(needed, retry_cap)
                                 decode_cmd_q.put_nowait(BufferRequest(cue_id, int(credit)))
                                 ring.request_pending = True
                                 ring.request_started_at = current_time
@@ -867,7 +1045,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     if ring is None:
                         ring = _Ring()
                         rings[pcm.cue_id] = ring
-                    ring.push(pcm.pcm, pcm.eof)
+                    ring.push(pcm.pcm, pcm.eof, is_loop_restart=bool(getattr(pcm, "is_loop_restart", False)))
                 _flush_probe_logs()
                 continue
 
@@ -938,6 +1116,12 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     looping_cues.discard(msg.cue_id)
                 except Exception as ex:
                     _log(f"[STOP-CUE-EXCEPTION] cue={msg.cue_id[:8]}: {type(ex).__name__}: {ex}")
+
+            elif isinstance(msg, TransportPause):
+                transport_paused = True
+
+            elif isinstance(msg, TransportPlay):
+                transport_paused = False
                     
             elif isinstance(msg, OutputFadeTo):
                 try:
@@ -985,7 +1169,38 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         # Remove any active envelope so static gain takes effect
                         removed_env = envelopes.pop(msg.cue_id, None)
                         _log(f"[OUTPUT-UPDATE-CUE] cue={msg.cue_id} NEW_gain_db={msg.gain_db} linear={target:.6f} (from {old_gain:.6f}), removed_envelope={removed_env is not None}")
-                    # Note: in_frame, out_frame, loop_enabled are handled in decode_process
+                    # Keep output-side loop tracking in sync so it can't get stale when
+                    # global loop / override toggles issue UpdateCueCommand(loop_enabled=...).
+                    if msg.loop_enabled is not None:
+                        if bool(msg.loop_enabled):
+                            looping_cues.add(msg.cue_id)
+                            loop_stop_requested.discard(msg.cue_id)
+                            ring = rings.get(msg.cue_id)
+                            if ring is not None:
+                                try:
+                                    ring.stop_on_restart_boundary = False
+                                    if not ring.finished_pending:
+                                        ring.eof = False
+                                except Exception:
+                                    pass
+                        else:
+                            looping_cues.discard(msg.cue_id)
+                            loop_stop_requested.add(msg.cue_id)
+                            ring = rings.get(msg.cue_id)
+                            if ring is not None:
+                                try:
+                                    ring.stop_on_restart_boundary = True
+                                except Exception:
+                                    pass
+
+                        # If the cue hasn't started yet (waiting for first PCM), update
+                        # the pending start metadata so activation uses the latest loop flag.
+                        pending = pending_starts.get(msg.cue_id)
+                        if pending is not None:
+                            pending_starts[msg.cue_id] = replace(pending, loop_enabled=bool(msg.loop_enabled))
+
+                    # Note: in_frame/out_frame/loop_enabled application for decoding is handled
+                    # in the decoder process; output only tracks loop for lifecycle bookkeeping.
                 except Exception as ex:
                     _log(f"EXCEPTION in UpdateCueCommand handler for cue={msg.cue_id}: {type(ex).__name__}: {ex}")
             

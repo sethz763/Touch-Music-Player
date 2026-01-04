@@ -8,6 +8,7 @@ import sys
 import time
 import numpy as np
 import av
+import queue
 
 def create_test_audio(filename, duration_seconds=2, sample_rate=44100):
     """Create a short test audio file with a simple tone."""
@@ -26,7 +27,8 @@ def create_test_audio(filename, duration_seconds=2, sample_rate=44100):
     audio_int16 = (audio_data * 32767).astype(np.int16)
     
     # Create frame
-    frame = av.AudioFrame.from_ndarray(audio_int16.reshape(-1, 1), format='s16', layout='mono')
+    # NOTE: For packed audio formats (e.g. s16), PyAV expects ndarray shape (channels, samples).
+    frame = av.AudioFrame.from_ndarray(audio_int16.reshape(1, -1), format='s16', layout='mono')
     frame.sample_rate = sample_rate
     
     # Write the frame
@@ -42,9 +44,8 @@ def create_test_audio(filename, duration_seconds=2, sample_rate=44100):
 
 def test_decode_looping():
     """Test that the decode process can handle looping correctly."""
-    from engine.processes.decode_process import decode_process_main, DecodeStart, BufferRequest
+    from engine.processes.decode_process_pooled import decode_process_main, DecodeStart, BufferRequest, DecodeStop
     import multiprocessing as mp
-    from queue import Queue
     
     # Create test audio file
     test_file = "test_audio.wav"
@@ -54,22 +55,25 @@ def test_decode_looping():
     # Setup queues
     cmd_q = mp.Queue()
     out_q = mp.Queue()
+    evt_q = mp.Queue()
     
     # Start decode process
     decode_proc = mp.Process(
         target=decode_process_main,
-        args=(cmd_q, out_q),
+        args=(cmd_q, out_q, evt_q),
         daemon=True
     )
     decode_proc.start()
     
+    cue_id = "test_cue_1"
+
     try:
         # Send decode start command with looping
-        cue_id = "test_cue_1"
         start_msg = DecodeStart(
             cue_id=cue_id,
             track_id="track_1",
             file_path=os.path.abspath(test_file),
+            gain_db=0.0,
             target_sample_rate=44100,
             target_channels=2,
             loop_enabled=True,
@@ -79,6 +83,10 @@ def test_decode_looping():
         )
         cmd_q.put(start_msg)
         print("Sent DecodeStart with loop_enabled=True")
+
+        # Kick the decoder with initial credit; looping decoders only produce when credited.
+        cmd_q.put(BufferRequest(cue_id, 4096 * 16))
+        print("Sent initial BufferRequest")
         
         # Simulate output process sending buffer requests
         total_chunks = 0
@@ -92,46 +100,66 @@ def test_decode_looping():
                 msg = out_q.get(timeout=0.1)
                 print(f"Got message: {type(msg).__name__}")
                 
-                if hasattr(msg, 'eof'):
-                    print(f"  EOF: {msg.eof}, frames: {msg.pcm.shape[0] if hasattr(msg, 'pcm') else 'N/A'}")
-                    if msg.eof and loop_count == 0:
-                        print("First loop completed!")
-                        loop_count += 1
-                        total_chunks = 0
-                    elif msg.eof:
-                        loop_count += 1
-                        print(f"Loop {loop_count} completed!")
-                else:
-                    print(f"  {msg}")
+                if hasattr(msg, 'pcm'):
+                    print(f"  frames: {msg.pcm.shape[0]}")
+                if getattr(msg, 'is_loop_restart', False):
+                    loop_count += 1
+                    print(f"  Loop restart #{loop_count}")
                 
                 total_chunks += 1
+
+                # Keep the decoder running by topping up credit continuously.
+                # (In the real engine, output_process issues these BufferRequests.)
+                cmd_q.put(BufferRequest(cue_id, 4096 * 16))
                 
                 if loop_count >= 2:
-                    print(f"\nSUCCESS: Looping works! Got {loop_count} complete loops")
+                    print(f"\nSUCCESS: Looping works! Got {loop_count} loop restarts")
                     break
                 
-                # Send buffer request to keep decoder going
                 if total_chunks % 5 == 0:
-                    cmd_q.put(BufferRequest(cue_id, 4096))
-                    print(f"Sent BufferRequest")
-                    
+                    print("Sent BufferRequest")
+
+            except queue.Empty:
+                # Normal: no decoded chunk available within timeout.
+                continue
             except Exception as e:
-                if "Empty" not in str(e):
-                    print(f"Queue error: {e}")
+                print(f"Queue error: {type(e).__name__}: {e}")
+                # If the decoder died, don't spin forever.
+                if not decode_proc.is_alive():
+                    break
         
         if loop_count < 2:
             print(f"\nWARNING: Only got {loop_count} loops in {timeout}s")
             print("Checking for deadlock...")
         
     finally:
-        decode_proc.terminate()
+        # Stop pooled decoder.
+        try:
+            cmd_q.put(DecodeStop(cue_id=cue_id))
+        except Exception:
+            pass
+        try:
+            cmd_q.put(None)
+        except Exception:
+            pass
+
         decode_proc.join(timeout=2)
         if decode_proc.is_alive():
+            decode_proc.terminate()
+            decode_proc.join(timeout=2)
+        if decode_proc.is_alive():
             decode_proc.kill()
-        
-        # Cleanup
+
+        # Cleanup test file (best-effort with retries on Windows).
         if os.path.exists(test_file):
-            os.remove(test_file)
+            for _ in range(10):
+                try:
+                    os.remove(test_file)
+                    break
+                except PermissionError:
+                    time.sleep(0.1)
+                except Exception:
+                    break
 
 if __name__ == "__main__":
     print("Testing audio looping fix...\n")

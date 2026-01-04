@@ -278,6 +278,25 @@ class SoundFileButton(QPushButton):
             return  # Already subscribed, avoid double-subscription
         self._adapter_subscribed = True
         self._subscribe_to_adapter(engine_adapter)
+
+    def transport_play_now(self) -> None:
+        """Trigger a play request as if the user pressed the button.
+
+        Used by global transport controls (e.g., Next).
+        """
+        try:
+            self._request_play()
+        except Exception:
+            # Best-effort; do not crash UI on transport.
+            pass
+
+    def set_loop_enabled_from_transport(self, enabled: bool) -> None:
+        """Update local loop state when set by global transport."""
+        try:
+            self.loop_enabled = bool(enabled)
+            self._refresh_label()
+        except Exception:
+            pass
     
     def set_fade_in_duration(self, ms: int) -> None:
         """

@@ -229,6 +229,28 @@ class SetAutoFadeCommand:
 
 
 @dataclass(frozen=True, slots=True)
+class SetLoopOverrideCommand:
+    """Enable/disable global loop override.
+
+    When enabled, the engine ignores per-cue loop_enabled parameters and instead
+    uses the global loop enabled state (SetGlobalLoopEnabledCommand) to decide
+    whether cues loop.
+    """
+
+    enabled: bool
+
+
+@dataclass(frozen=True, slots=True)
+class SetGlobalLoopEnabledCommand:
+    """Set the global loop enabled state.
+
+    This state only affects playback when SetLoopOverrideCommand.enabled is True.
+    """
+
+    enabled: bool
+
+
+@dataclass(frozen=True, slots=True)
 class OutputFadeTo:
     """Request a fade of a cue's output gain to a target level.
     

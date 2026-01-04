@@ -14,6 +14,7 @@ if TYPE_CHECKING:
 from ui.windows.log_dialogue import Log_Settings_Window
 from ui.widgets.button_bank_widget import ButtonBankWidget
 from ui.widgets.AudioLevelMeterHorizontal_LR import AudioLevelMeterHorizontal
+from ui.widgets.PlayControls import PlayControls
 from engine.audio_service import audio_service_main, AudioServiceConfig
 from gui.engine_adapter import EngineAdapter
 
@@ -120,29 +121,57 @@ class MainWindow(QMainWindow):
         meter_layout.addWidget(self.right_meter, 1)  # Add stretch factor so it grows with window
         layout.addLayout(meter_layout)
 
+        # Row directly under meters:
+        # - Left: labels + checkboxes
+        # - Right: play controls
+        under_meters_row = QHBoxLayout()
+        under_meters_row.setContentsMargins(5, 0, 5, 5)
+        under_meters_row.setSpacing(10)
+
+        labels_and_toggles = QVBoxLayout()
+        labels_and_toggles.setContentsMargins(0, 0, 0, 0)
+        labels_and_toggles.setSpacing(4)
+
         self.status = QLabel("Ready")
-        layout.addWidget(self.status)
-        
+        labels_and_toggles.addWidget(self.status)
+
         self.master_time_display = QLabel("Master Time: 00:00.000")
-        layout.addWidget(self.master_time_display)
+        labels_and_toggles.addWidget(self.master_time_display)
         self.view_elapsed_time = True  # Toggle for elapsed vs remaining time display
 
-        # Auto-fade toggle
-        self.auto_fade_chk = QCheckBox("Auto-fade previous cues on new cue")
-        self.auto_fade_chk.setChecked(self._auto_fade_enabled)
-        self.auto_fade_chk.toggled.connect(self._on_toggle_auto_fade)
-        layout.addWidget(self.auto_fade_chk)
-        
         # Drag and drop toggle (start with gestures enabled, dragging disabled)
         self.drag_enabled_chk = QCheckBox("Enable button dragging (gestures disabled)")
         self.drag_enabled_chk.setChecked(False)
         self.drag_enabled_chk.toggled.connect(self._on_toggle_drag)
-        layout.addWidget(self.drag_enabled_chk)
+        labels_and_toggles.addWidget(self.drag_enabled_chk)
+
+        under_meters_row.addLayout(labels_and_toggles, 1)
+
+        # Create the button bank early so PlayControls can wire Next/Loop handlers
+        # (layout placement still happens below)
+        self.bank = ButtonBankWidget(rows=3, cols=8, engine_adapter=self.engine_adapter)
+
+        self.play_controls = PlayControls(50, 400)
+        self.play_controls.transport_play.connect(self.engine_adapter.transport_play)
+        self.play_controls.transport_pause.connect(self.engine_adapter.transport_pause)
+        self.play_controls.transport_stop.connect(self.engine_adapter.transport_stop)
+        # Next is a GUI concern (button grid context), not an engine concern
+        self.play_controls.transport_next.connect(self.bank.transport_next)
+        # Loop + override: global loop state always goes to engine; per-cue updates only when override is OFF
+        self.play_controls.loop_enabled_toggled.connect(self._on_loop_button_toggled)
+        self.play_controls.loop_override_toggled.connect(self._on_loop_override_toggled)
+        # Auto-fade toggle (replaces checkbox)
+        self.play_controls.auto_fade_toggled.connect(self._on_toggle_auto_fade)
+        try:
+            self.play_controls.cue_mode_button.setChecked(self._auto_fade_enabled)
+        except Exception:
+            pass
+        under_meters_row.addWidget(self.play_controls, 0)
+
+        layout.addLayout(under_meters_row)
         
         # Initialize the drag/gesture states (False = dragging disabled, gestures enabled)
         self._on_toggle_drag(False)
-
-        self.bank = ButtonBankWidget(rows=3, cols=8, engine_adapter=self.engine_adapter)
         layout.addWidget(self.bank)
 
         # Connect to engine adapter signals instead of polling queue directly
@@ -154,6 +183,38 @@ class MainWindow(QMainWindow):
         log_action = QAction("Logging Settings", self)
         log_action.triggered.connect(self.open_logging_dialog)
         self.menuBar().addAction(log_action)
+
+    def _on_loop_button_toggled(self, enabled: bool) -> None:
+        """Update engine global loop state; optionally apply per-cue loop when not overriding."""
+        try:
+            self.engine_adapter.set_global_loop_enabled(bool(enabled))
+        except Exception:
+            pass
+
+        # If override is enabled, do NOT mutate per-cue loop settings.
+        try:
+            override_on = bool(self.play_controls.loop_overide_checkbox.isChecked())
+        except Exception:
+            override_on = False
+
+        if not override_on:
+            try:
+                self.bank.transport_set_loop_for_active(bool(enabled))
+            except Exception:
+                pass
+
+    def _on_loop_override_toggled(self, enabled: bool) -> None:
+        """Enable/disable engine loop override; keep engine global state in sync with UI button."""
+        try:
+            self.engine_adapter.set_loop_override(bool(enabled))
+        except Exception:
+            pass
+
+        # Re-send current loop button state so override immediately applies correct on/off.
+        try:
+            self.engine_adapter.set_global_loop_enabled(bool(self.play_controls.loop_button.isChecked()))
+        except Exception:
+            pass
 
     def resizeEvent(self, event):
         """Handle window resize - layout will manage meter sizing automatically."""

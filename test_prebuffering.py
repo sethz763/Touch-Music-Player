@@ -7,6 +7,7 @@ import sys
 import time
 import numpy as np
 import av
+import queue
 from engine.processes.decode_process import decode_process_main, DecodeStart, BufferRequest
 import multiprocessing as mp
 
@@ -21,7 +22,7 @@ def test_prebuffering_loop():
     evt_q = mp.Queue()
     
     # Start decode process
-    decode_proc = mp.Process(target=decode_process_main, args=(cmd_q, out_q, evt_q), daemon=True)
+    decode_proc = mp.Process(target=decode_process_main, args=(cmd_q, out_q, evt_q), daemon=False)
     decode_proc.start()
     
     try:
@@ -105,9 +106,13 @@ def test_prebuffering_loop():
                         print(f"\n[SUCCESS] Got {loop_iteration} complete loop restarts!")
                         break
                         
+            except queue.Empty:
+                # Normal: no decoded chunk available within timeout.
+                continue
             except Exception as e:
-                if "Empty" not in str(e):
-                    print(f"[ERROR] Queue error: {e}")
+                print(f"[ERROR] Queue error: {type(e).__name__}: {e}")
+                if not decode_proc.is_alive():
+                    break
         
         # Print summary
         print("\n" + "="*70)

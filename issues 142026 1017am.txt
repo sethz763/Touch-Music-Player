@@ -1,0 +1,22 @@
+issues 1/4/2026 10:17am
+
+1. when paused - clicking a cue button needs to remove all tracks, un-pause, then start the new one immediately
+
+
+2. stopping and pausing should set meters to -64db  - no sound
+
+3. dropping in a group the files did not replace labels or duration, they kept the old labels and durations, but cues seemed to change sound files. The new cues played  (dropping the same files a 2nd time updated the names)
+
+4. soundfilebutton - need to debounce after the gesture slide out of gain slider and meter, sometimes accidentally trigger the cue to play
+
+
+new features
+1. number buttons in upper left
+
+2. banks
+
+3. settings window
+
+4. editor
+
+
