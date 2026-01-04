@@ -761,9 +761,34 @@ class SoundFileButton(QPushButton):
             "Audio Files (*.wav *.mp3 *.flac *.aac *.m4a);;All Files (*)"
         )
         if fp:
-            self.file_path = fp
-            self._probe_file_async(fp)
-            self._refresh_label()
+            self._set_new_file(fp)
+
+    def _set_new_file(self, file_path: str) -> None:
+        """Assign a new file to this button.
+
+        Resets per-file state that can make the next play invalid (e.g. stale in/out points
+        from the previous file).
+        """
+        # Reset file-derived metadata so UI doesn't temporarily show stale info.
+        self.duration_seconds = None
+        self.sample_rate = None
+        self.channels = None
+        self.song_title = None
+        self.song_artist = None
+
+        # Reset edit points to safe defaults for the new file.
+        self.in_frame = 0
+        self.out_frame = None
+
+        # Reset live display fields.
+        self.elapsed_seconds = 0.0
+        self.remaining_seconds = 0.0
+        self.rms_level = 0.0
+        self.peak_level = 0.0
+
+        self.file_path = file_path
+        self._probe_file_async(file_path)
+        self._refresh_label()
     
     def _clear_file(self) -> None:
         """Clear the file path and reset button."""
@@ -1322,11 +1347,22 @@ class SoundFileButton(QPushButton):
         if not file_paths:
             event.ignore()
             return
+
+        # If this drop would overwrite existing cues, confirm first.
+        overwritten: list[tuple[SoundFileButton, str]] = []
+        if self.file_path:
+            overwritten.append((self, self.file_path))
+
+        if len(file_paths) > 1:
+            overwritten.extend(self._preview_overwrites_for_sibling_distribution(file_paths[1:]))
+
+        if overwritten:
+            if not self._show_overwrite_warning(overwritten):
+                event.ignore()
+                return
         
         # Load first file into this button
-        self.file_path = file_paths[0]
-        self._probe_file_async(file_paths[0])
-        self._refresh_label()
+        self._set_new_file(file_paths[0])
         
         # If there are more files, distribute them to nearby buttons
         if len(file_paths) > 1:
@@ -1334,6 +1370,75 @@ class SoundFileButton(QPushButton):
             self._distribute_files_to_siblings(remaining_files)
         
         event.acceptProposedAction()
+
+    def _preview_overwrites_for_sibling_distribution(
+        self,
+        file_paths: list[str],
+    ) -> list[tuple["SoundFileButton", str]]:
+        """Preview which buttons would be overwritten by sibling/overflow distribution.
+
+        This performs the same targeting logic as `_distribute_files_to_siblings`, but does not
+        modify any button state.
+        """
+        if not file_paths:
+            return []
+
+        # Find parent widget (button bank or grid container)
+        parent = self.parent()
+        if parent is None:
+            return []
+
+        # Get all buttons from parent (look for SoundFileButton instances)
+        all_buttons = [w for w in parent.findChildren(SoundFileButton) if isinstance(w, SoundFileButton)]
+        if not all_buttons:
+            return []
+
+        # Find current button's index
+        try:
+            all_buttons.index(self)
+        except ValueError:
+            return []
+
+        # Get geometry info to determine layout (assumes grid layout with fixed columns)
+        button_positions = [(btn, (btn.x(), btn.y())) for btn in all_buttons]
+        button_positions.sort(key=lambda x: (x[1][1], x[1][0]))  # Sort by y, then x
+
+        current_pos = (self.x(), self.y())
+        buttons_to_fill: list[SoundFileButton] = []
+
+        for btn, (btn_x, btn_y) in button_positions:
+            if btn is self:
+                continue
+
+            if btn_y == current_pos[1]:
+                if btn_x > current_pos[0]:
+                    buttons_to_fill.append(btn)
+            elif btn_y > current_pos[1]:
+                buttons_to_fill.append(btn)
+
+        overwritten: list[tuple[SoundFileButton, str]] = []
+        placed_count = 0
+        for _file_path, btn in zip(file_paths, buttons_to_fill):
+            placed_count += 1
+            if btn.file_path:
+                overwritten.append((btn, btn.file_path))
+
+        overflow_files = file_paths[placed_count:]
+        if overflow_files:
+            ancestor = self.parent()
+            while ancestor is not None:
+                distribute = getattr(ancestor, "distribute_overflow_files", None)
+                if callable(distribute):
+                    try:
+                        extra_warn = distribute(self, overflow_files, preview=True)
+                        if extra_warn:
+                            overwritten.extend(extra_warn)
+                    except Exception:
+                        pass
+                    break
+                ancestor = ancestor.parent()
+
+        return overwritten
     
     def _distribute_files_to_siblings(self, file_paths: list[str]) -> None:
         """
@@ -1380,20 +1485,16 @@ class SoundFileButton(QPushButton):
                 # Below current row
                 buttons_to_fill.append(btn)
         
-        # Assign files to buttons
-        buttons_to_warn: list[tuple[SoundFileButton, str]] = []
-
         placed_count = 0
         for file_path, btn in zip(file_paths, buttons_to_fill):
             placed_count += 1
-            # Warn if button already has a file
-            if btn.file_path:
-                buttons_to_warn.append((btn, btn.file_path))
-
             # Update button with file
-            btn.file_path = file_path
-            btn._probe_file_async(file_path)
-            btn._refresh_label()
+            try:
+                btn._set_new_file(file_path)
+            except Exception:
+                btn.file_path = file_path
+                btn._probe_file_async(file_path)
+                btn._refresh_label()
 
         # If there are more files than remaining buttons in this bank,
         # try to populate subsequent banks (if we're inside a BankSelectorWidget).
@@ -1404,38 +1505,52 @@ class SoundFileButton(QPushButton):
                 distribute = getattr(ancestor, "distribute_overflow_files", None)
                 if callable(distribute):
                     try:
-                        extra_warn = distribute(self, overflow_files)
-                        if extra_warn:
-                            buttons_to_warn.extend(extra_warn)
+                        distribute(self, overflow_files)
                     except Exception:
                         pass
                     break
                 ancestor = ancestor.parent()
-
-        # Show warning dialog if any buttons were overwritten
-        if buttons_to_warn:
-            self._show_overwrite_warning(buttons_to_warn)
     
-    def _show_overwrite_warning(self, overwritten: list[tuple]) -> None:
-        """
-        Show a warning dialog listing buttons that had their files overwritten.
-        
-        Args:
-            overwritten: List of (button, old_file_path) tuples
+    def _show_overwrite_warning(self, overwritten: list[tuple]) -> bool:
+        """Confirm overwriting existing files.
+
+        Returns True to proceed with overwriting, False to cancel.
         """
         from PySide6.QtWidgets import QMessageBox
-        
-        msg = "The following buttons already had files. They have been overwritten:\n\n"
+
+        # De-duplicate by button instance to avoid repeated entries.
+        deduped: list[tuple[SoundFileButton, str]] = []
+        seen_btn_ids: set[int] = set()
         for btn, old_path in overwritten:
+            try:
+                key = id(btn)
+            except Exception:
+                key = None
+            if key is not None and key in seen_btn_ids:
+                continue
+            if key is not None:
+                seen_btn_ids.add(key)
+            deduped.append((btn, old_path))
+
+        count = len(deduped)
+        details_lines: list[str] = []
+        for _btn, old_path in deduped:
             filename = old_path.split("/")[-1].split("\\")[-1]
-            msg += f"• {filename}\n"
-        
-        QMessageBox.warning(
-            self,
-            "Files Overwritten",
-            msg,
-            QMessageBox.StandardButton.Ok
+            details_lines.append(filename)
+
+        dialog = QMessageBox(self)
+        dialog.setIcon(QMessageBox.Icon.Warning)
+        dialog.setWindowTitle("Overwrite Existing Files")
+        dialog.setText(f"Overwrite {count} existing file(s)?")
+        dialog.setInformativeText(
+            "This drop would replace files that are already loaded. "
+            "Press OK to continue, or Cancel to abort.\n\n"
+            "Use 'Show Details' to see the full list."
         )
+        dialog.setDetailedText("\n".join(details_lines))
+        dialog.setStandardButtons(QMessageBox.StandardButton.Ok | QMessageBox.StandardButton.Cancel)
+        dialog.setDefaultButton(QMessageBox.StandardButton.Cancel)
+        return dialog.exec() == QMessageBox.StandardButton.Ok
 
     # ==========================================================================
     # BUTTON-TO-BUTTON DRAGGING (MOVE SETTINGS)

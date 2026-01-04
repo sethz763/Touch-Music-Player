@@ -162,14 +162,17 @@ class BankSelectorWidget(QWidget):
 	# Drag/drop overflow support (multi-file drops)
 	# ---------------------------------------------------------------------
 
-	def distribute_overflow_files(self, from_button: object, file_paths: list[str]):
+	def distribute_overflow_files(self, from_button: object, file_paths: list[str], preview: bool = False):
 		"""Distribute overflow files into subsequent banks.
 
 		Called by SoundFileButton when a multi-file drop exceeds the remaining
 		buttons in the current bank.
 
+		Args:
+			preview: If True, do not modify any buttons; only report which would be overwritten.
+
 		Returns:
-			list[tuple[SoundFileButton, str]]: overwritten button + old path (for warnings)
+			list[tuple[SoundFileButton, str]]: overwritten button + old path
 		"""
 		if not file_paths:
 			return []
@@ -196,11 +199,17 @@ class BankSelectorWidget(QWidget):
 					old = getattr(btn, "file_path", None)
 					if old:
 						overwritten.append((btn, old))
+
 					fp = file_paths[file_idx]
 					file_idx += 1
-					btn.file_path = fp
-					btn._probe_file_async(fp)
-					btn._refresh_label()
+					if not preview:
+						apply_new = getattr(btn, "_set_new_file", None)
+						if callable(apply_new):
+							apply_new(fp)
+						else:
+							btn.file_path = fp
+							btn._probe_file_async(fp)
+							btn._refresh_label()
 				except Exception:
 					# If one button fails, keep going.
 					continue
