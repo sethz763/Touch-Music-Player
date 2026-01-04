@@ -8,9 +8,9 @@ from PySide6.QtGui import QFont, QColor, QResizeEvent
 from PySide6.QtCore import QObject, Signal, QUrl, Slot, QTimer, QPoint, QRect
 # from PySide6 import QtWidgets
 
-from ColorChangingButton import ColorChangingButton
-from SoundFileButton import SoundFileButton
-from SaveSettings import SaveSettings
+from widgets.ColorChangingButton import ColorChangingButton
+from widgets.SoundFileButton import SoundFileButton
+from persistence.SaveSettings import SaveSettings
 from DragSelectWidget import DragSelectWidget
 
 from streamdeck_connector import StreamDeckConnector

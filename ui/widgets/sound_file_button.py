@@ -45,7 +45,7 @@ import numpy as np
 
 from PySide6.QtCore import QMimeData
 from PySide6.QtWidgets import QPushButton, QFileDialog, QMenu, QDialog, QVBoxLayout, QLabel, QSlider, QSpinBox, QColorDialog, QHBoxLayout, QSizePolicy, QWidget, QMessageBox
-from PySide6.QtCore import Signal, QTimer, Qt, QTime, QPoint, QRect, QPointF, QEvent, QPropertyAnimation, QEasingCurve, QThread, QVariantAnimation
+from PySide6.QtCore import Signal, QTimer, Qt, QTime, QPoint, QRect, QPointF, QEvent, QPropertyAnimation, QEasingCurve, QThread, QVariantAnimation, QSize
 from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QRadialGradient, QBrush, QPolygon, QResizeEvent, QDrag
 from PySide6.QtCore import QMimeData
 
@@ -173,11 +173,13 @@ class SoundFileButton(QPushButton):
         """
         super().__init__(label)
         
-        self.setSizePolicy(
-            QSizePolicy.Policy.MinimumExpanding,
-            QSizePolicy.Policy.MinimumExpanding
-        )
+        # Important: prevent text/font changes from increasing the widget's minimum size
+        # (which can cause the window/layout to grow beyond the screen).
+        self.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Expanding)
+        self.setMinimumSize(1, 1)
         self.engine_adapter = engine_adapter
+
+    
         
         # File and metadata
         self.file_path: Optional[str] = file_path
@@ -266,6 +268,20 @@ class SoundFileButton(QPushButton):
         
         # Note: Engine adapter subscription is handled by ButtonBankWidget for efficient event routing
         # Buttons no longer subscribe directly to avoid broadcasting events to all buttons
+        
+    def sizeHint(self) -> QSize:
+        """Return a stable size hint so the layout doesn't resize with text changes."""
+        try:
+            s = self.size()
+            if s.width() > 0 and s.height() > 0:
+                return s
+        except Exception:
+            pass
+        return QSize(120, 120)
+
+    def minimumSizeHint(self) -> QSize:
+        """Keep minimum size tiny so the window never expands due to label/font."""
+        return QSize(1, 1)
     
     def subscribe_to_adapter(self, engine_adapter: EngineAdapter) -> None:
         """
@@ -341,6 +357,23 @@ class SoundFileButton(QPushButton):
         """Custom paint event showing playing indicator and button metadata."""
         super().paintEvent(event)
         painter = QPainter(self)
+
+        # Draw bank/button index in upper-left corner (e.g., "0-1" .. "9-24")
+        try:
+            bank_index = getattr(self, "bank_index", None)
+            index_in_bank = getattr(self, "index_in_bank", None)
+            if index_in_bank is not None:
+                label = f"{bank_index}-{index_in_bank}" if bank_index is not None else f"{index_in_bank}"
+                corner_font = QFont("Arial", 9)
+                corner_font.setBold(True)
+                painter.setFont(corner_font)
+                # Shadow + foreground for readability on any background
+                painter.setPen(QColor(0, 0, 0, 180))
+                painter.drawText(5, 13, label)
+                painter.setPen(QColor(255, 255, 255, 230))
+                painter.drawText(4, 12, label)
+        except Exception:
+            pass
 
         height = painter.device().height()
         width = painter.device().width()
@@ -1348,18 +1381,37 @@ class SoundFileButton(QPushButton):
                 buttons_to_fill.append(btn)
         
         # Assign files to buttons
-        buttons_to_warn = []
-        
+        buttons_to_warn: list[tuple[SoundFileButton, str]] = []
+
+        placed_count = 0
         for file_path, btn in zip(file_paths, buttons_to_fill):
+            placed_count += 1
             # Warn if button already has a file
             if btn.file_path:
                 buttons_to_warn.append((btn, btn.file_path))
-            
+
             # Update button with file
             btn.file_path = file_path
             btn._probe_file_async(file_path)
             btn._refresh_label()
-        
+
+        # If there are more files than remaining buttons in this bank,
+        # try to populate subsequent banks (if we're inside a BankSelectorWidget).
+        overflow_files = file_paths[placed_count:]
+        if overflow_files:
+            ancestor = self.parent()
+            while ancestor is not None:
+                distribute = getattr(ancestor, "distribute_overflow_files", None)
+                if callable(distribute):
+                    try:
+                        extra_warn = distribute(self, overflow_files)
+                        if extra_warn:
+                            buttons_to_warn.extend(extra_warn)
+                    except Exception:
+                        pass
+                    break
+                ancestor = ancestor.parent()
+
         # Show warning dialog if any buttons were overwritten
         if buttons_to_warn:
             self._show_overwrite_warning(buttons_to_warn)

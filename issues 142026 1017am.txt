@@ -9,6 +9,15 @@ issues 1/4/2026 10:17am
 
 4. soundfilebutton - need to debounce after the gesture slide out of gain slider and meter, sometimes accidentally trigger the cue to play
 
+5. pause - when paused playing a new should stop all active cues without fading and immediately start the new cue - and turn of pause state
+
+6. stop - should reset the pause state, and remove all active cues without fading or playing any of them
+
+7. sometimes loading settings window crashes the app
+
+8. populating over buttons that already have files assigned needs and option to cancel the operation
+
+9. On crashes, all background processes need to stop (maybe check for heartbeat?)
 
 new features
 1. number buttons in upper left

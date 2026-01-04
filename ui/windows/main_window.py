@@ -12,7 +12,7 @@ if TYPE_CHECKING:
 
 
 from ui.windows.log_dialogue import Log_Settings_Window
-from ui.widgets.button_bank_widget import ButtonBankWidget
+from ui.widgets.bank_selector_widget import BankSelectorWidget
 from ui.widgets.AudioLevelMeterHorizontal_LR import AudioLevelMeterHorizontal
 from ui.widgets.PlayControls import PlayControls
 from engine.audio_service import audio_service_main, AudioServiceConfig
@@ -39,12 +39,28 @@ class MainWindow(QMainWindow):
         self._audio_evt_q = ctx.Queue()
         
         # Audio service configuration
+        # Fade defaults can be overridden by persisted Settings.json (legacy settings window).
+        fade_in_ms = 100
+        fade_out_ms = 1000
+        try:
+            app_settings = SaveSettings("Settings.json").get_settings() or {}
+            if "play_fade_dur" in app_settings:
+                fade_in_ms = int(app_settings["play_fade_dur"])
+            elif "fade_in_duration" in app_settings:
+                fade_in_ms = int(app_settings["fade_in_duration"])
+            if "pause_fade_dur" in app_settings:
+                fade_out_ms = int(app_settings["pause_fade_dur"])
+            elif "fade_out_duration" in app_settings:
+                fade_out_ms = int(app_settings["fade_out_duration"])
+        except Exception:
+            pass
+
         audio_config = AudioServiceConfig(
             sample_rate=48000,
             channels=2,
             block_frames=2048,
-            fade_in_ms=100,
-            fade_out_ms=1000,
+            fade_in_ms=fade_in_ms,
+            fade_out_ms=fade_out_ms,
             fade_curve="equal_power",
             auto_fade_on_new=True,
         )
@@ -61,6 +77,26 @@ class MainWindow(QMainWindow):
             evt_q=self._audio_evt_q,
             parent=self,
         )
+
+        # Apply persisted main output device (if present) after adapter is ready.
+        try:
+            app_settings = SaveSettings("Settings.json").get_settings() or {}
+            main_out = app_settings.get("Main_Output")
+            if isinstance(main_out, (list, tuple)):
+                # new schema: [index, name, hostapi, sample_rate]
+                if len(main_out) >= 4 and main_out[0] is not None:
+                    device_index = main_out[0]
+                    sample_rate = int(main_out[3])
+                    self.engine_adapter.set_output_device(device_index)
+                    self.engine_adapter.set_output_config(sample_rate=sample_rate, channels=2, block_frames=2048)
+                # old schema: [name, hostapi, sample_rate]
+                elif len(main_out) >= 3:
+                    device_name = main_out[0]
+                    sample_rate = int(main_out[2])
+                    self.engine_adapter.set_output_device(device_name)
+                    self.engine_adapter.set_output_config(sample_rate=sample_rate, channels=2, block_frames=2048)
+        except Exception:
+            pass
         
         # Track auto-fade state in GUI for toggle
         self._auto_fade_enabled = audio_config.auto_fade_on_new
@@ -147,9 +183,9 @@ class MainWindow(QMainWindow):
 
         under_meters_row.addLayout(labels_and_toggles, 1)
 
-        # Create the button bank early so PlayControls can wire Next/Loop handlers
+        # Create the bank selector early so PlayControls can wire Next/Loop handlers
         # (layout placement still happens below)
-        self.bank = ButtonBankWidget(rows=3, cols=8, engine_adapter=self.engine_adapter)
+        self.bank = BankSelectorWidget(banks=10, rows=3, cols=8, engine_adapter=self.engine_adapter)
 
         self.play_controls = PlayControls(50, 400)
         self.play_controls.transport_play.connect(self.engine_adapter.transport_play)
@@ -183,6 +219,10 @@ class MainWindow(QMainWindow):
         log_action = QAction("Logging Settings", self)
         log_action.triggered.connect(self.open_logging_dialog)
         self.menuBar().addAction(log_action)
+        
+        setting_action = QAction("Settings", self)
+        setting_action.triggered.connect(self.open_settings_dialog)
+        self.menuBar().addAction(setting_action)
 
     def _on_loop_button_toggled(self, enabled: bool) -> None:
         """Update engine global loop state; optionally apply per-cue loop when not overriding."""
@@ -346,6 +386,27 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         self._logging_dialog.show()
+        
+    def open_settings_dialog(self):
+        from ui.windows.settings_window import SettingsWindow
+        try:
+            if getattr(self, "_settings_dialog", None) is None:
+                self._settings_dialog = SettingsWindow(
+                    self,
+                    height=500,
+                    width=400,
+                    pause=1000,
+                    play=100,
+                    engine_adapter=self.engine_adapter,
+                )
+            self._settings_dialog.show()
+            try:
+                self._settings_dialog.raise_()
+                self._settings_dialog.activateWindow()
+            except Exception:
+                pass
+        except Exception:
+            pass
     
     def _on_log_entry_added(self, log_data: dict) -> None:
         """Refresh the logging dialog when a new entry is logged to Excel."""

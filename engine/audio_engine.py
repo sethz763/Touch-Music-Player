@@ -39,6 +39,8 @@ from engine.commands import (
     OutputSetDevice,
     OutputSetConfig,
     OutputFadeTo,
+    OutputListDevices,
+    SetTransitionFadeDurations,
 )
 from engine.messages.events import (
     CueStartedEvent,
@@ -365,6 +367,42 @@ class AudioEngine:
                     # If override is enabled, this becomes authoritative for all cues.
                     for cue_id in list(self.active_cues.keys()):
                         self._send_loop_enabled_to_processes(cue_id, loop_enabled=bool(self._global_loop_enabled))
+                except Exception:
+                    pass
+                return
+
+            # Configuration commands
+            if isinstance(cmd, OutputSetDevice):
+                try:
+                    self.set_output_device(cmd.device)
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, OutputSetConfig):
+                try:
+                    self.set_output_config(cmd.sample_rate, cmd.channels, cmd.block_frames)
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, OutputListDevices):
+                try:
+                    # Forward directly to output process; response comes back via output events.
+                    self._out_cmd_q.put(cmd)
+                except Exception:
+                    pass
+                return
+
+            if isinstance(cmd, SetTransitionFadeDurations):
+                try:
+                    self.fade_in_ms = int(cmd.fade_in_ms)
+                    self.fade_out_ms = int(cmd.fade_out_ms)
+                    self.log.info(
+                        source="engine",
+                        message="transition_fade_durations_set",
+                        metadata={"fade_in_ms": self.fade_in_ms, "fade_out_ms": self.fade_out_ms},
+                    )
                 except Exception:
                     pass
                 return

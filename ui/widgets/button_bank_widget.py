@@ -4,6 +4,7 @@ from typing import TYPE_CHECKING, Dict, Optional
 from PySide6.QtWidgets import QWidget, QGridLayout
 from PySide6.QtCore import Signal, QTimer
 import time
+import warnings
 
 from engine.commands import PlayCueCommand, StopCueCommand, FadeCueCommand
 
@@ -27,7 +28,13 @@ class ButtonBankWidget(QWidget):
     - Improves GUI responsiveness with many concurrent cues
     """
 
-    def __init__(self, rows: int = 3, cols: int = 8, engine_adapter: EngineAdapter | None = None) -> None:
+    def __init__(
+        self,
+        rows: int = 3,
+        cols: int = 8,
+        engine_adapter: EngineAdapter | None = None,
+        bank_index: int | None = None,
+    ) -> None:
         """
         Initialize button bank with grid of sound file buttons and batching support.
         
@@ -41,6 +48,7 @@ class ButtonBankWidget(QWidget):
         self.buttons = []
         self._rows = int(rows)
         self._cols = int(cols)
+        self.bank_index: int | None = int(bank_index) if bank_index is not None else None
         self._last_started_button_index: int | None = None
         self.setFixedHeight(500)
         
@@ -69,6 +77,9 @@ class ButtonBankWidget(QWidget):
         for r in range(rows):
             for c in range(cols):
                 btn: SoundFileButton = SoundFileButton()
+                # Upper-left index label support (set here so it survives repaints)
+                btn.bank_index = self.bank_index
+                btn.index_in_bank = len(self.buttons) + 1  # 1..N in row-major order
                 # Connect button's playback request signals to ButtonBankWidget for routing
                 btn.request_play.connect(self._on_button_request_play)
                 btn.request_stop.connect(self._on_button_request_stop)
@@ -79,6 +90,16 @@ class ButtonBankWidget(QWidget):
         # Connect engine adapter signals to button bank's routing methods
         if engine_adapter:
             self.set_engine_adapter(engine_adapter)
+
+    def set_bank_index(self, bank_index: int | None) -> None:
+        """Update bank index for all buttons (affects the corner label)."""
+        self.bank_index = int(bank_index) if bank_index is not None else None
+        for btn in self.buttons:
+            try:
+                btn.bank_index = self.bank_index
+                btn.update()
+            except Exception:
+                continue
     
     def _queue_command(self, cmd: object) -> None:
         """
@@ -190,6 +211,10 @@ class ButtonBankWidget(QWidget):
         Args:
             engine_adapter (EngineAdapter): The engine adapter instance
         """
+        # Keep track of the adapter we previously subscribed buttons to, so we can
+        # disconnect cleanly without PySide6 emitting RuntimeWarnings.
+        prev_adapter = getattr(self, "_subscribed_adapter", None)
+
         self.engine_adapter = engine_adapter
         
         # Subscribe ButtonBankWidget (not individual buttons) to adapter signals
@@ -203,11 +228,26 @@ class ButtonBankWidget(QWidget):
         # in/out points, etc.) into the engine. We keep event routing centralized, but connect
         # each button's outbound update signal to the adapter.
         for btn in self.buttons:
+            # Disconnect from previous adapter if we had one.
+            if prev_adapter is not None:
+                with warnings.catch_warnings():
+                    warnings.filterwarnings(
+                        "ignore",
+                        message=r"Failed to disconnect.*update_cue_settings\(QString,PyObject\).*",
+                        category=RuntimeWarning,
+                    )
+                    try:
+                        btn.update_cue_settings.disconnect(prev_adapter.update_cue)
+                    except Exception:
+                        pass
+
+            # Connect to current adapter (best-effort; ignore if already connected).
             try:
-                btn.update_cue_settings.disconnect()
+                btn.update_cue_settings.connect(engine_adapter.update_cue)
             except Exception:
                 pass
-            btn.update_cue_settings.connect(engine_adapter.update_cue)
+
+        self._subscribed_adapter = engine_adapter
     
     def _on_adapter_cue_started(self, cue_id: str, cue_info: object) -> None:
         """

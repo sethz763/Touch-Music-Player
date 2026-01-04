@@ -1,0 +1,20 @@
+{
+    "Main_Output": [
+        15,
+        "Speaker (Realtek(R) Audio)",
+        "Windows DirectSound",
+        48000.0
+    ],
+    "Editor_Output": [
+        7,
+        "Speaker (Realtek(R) Audio)",
+        null,
+        null
+    ],
+    "fade_in_duration": 756,
+    "fade_out_duration": 723,
+    "play_fade_dur": 756,
+    "pause_fade_dur": 723,
+    "rows": 3,
+    "columns": 8
+}

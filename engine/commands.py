@@ -325,6 +325,22 @@ class OutputListDevices:
     pass
 
 
+@dataclass(frozen=True, slots=True)
+class SetTransitionFadeDurations:
+    """Set engine-wide default transition fade durations.
+
+    These durations are used as the default cue fade-in at start and the
+    auto-fade-out duration applied to other active cues when a new cue starts.
+
+    Fields:
+        fade_in_ms (int): Default fade-in duration in milliseconds.
+        fade_out_ms (int): Default fade-out duration in milliseconds.
+    """
+
+    fade_in_ms: int
+    fade_out_ms: int
+
+
 # ==============================================================================
 # BATCH COMMANDS (Performance Optimization)
 # ==============================================================================

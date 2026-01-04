@@ -1,4 +1,8 @@
 #settings
+from __future__ import annotations
+
+from typing import Optional
+
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox
 from PySide6.QtGui import QFont
 from PySide6 import QtCore
@@ -9,8 +13,10 @@ from PySide6.QtMultimedia import QMediaDevices
 
 from PySide6.QtCore import QObject, Signal, Qt
 
-from SaveSettings import SaveSettings
-from CheckSoundDevices import CheckSoundDevices
+from persistence.SaveSettings import SaveSettings
+from legacy.CheckSoundDevices import CheckSoundDevices
+
+from gui.engine_adapter import EngineAdapter
 
 import sounddevice as sd
 
@@ -28,7 +34,17 @@ class SettingsWindow(QWidget):
     
     save_output_settings_signal = Signal(dict)
     
-    def __init__(self, parent, height=500, width=450, pause=10, play=10, *args, **kwargs):
+    def __init__(
+        self,
+        parent: QWidget,
+        height: int = 500,
+        width: int = 450,
+        pause: int = 1000,
+        play: int = 100,
+        *args,
+        **kwargs,
+    ):
+        engine_adapter: Optional[EngineAdapter] = kwargs.pop("engine_adapter", None)
         super().__init__(*args, **kwargs)
         try:
             self.setSizePolicy(
@@ -47,15 +63,27 @@ class SettingsWindow(QWidget):
             self.settings = SaveSettings("Settings.json")
             self.app_settings = self.settings.get_settings()
             self.settings_signals = SettingSignals()
+
+            # Boundary layer to audio service (queue-based). Optional for now.
+            self.engine_adapter: Optional[EngineAdapter] = engine_adapter
   
-            self.fade_out_dur = pause
-            self.fade_in_dur = play
+            self.fade_out_dur = int(pause)
+            self.fade_in_dur = int(play)
             
             self.sample_rate = 48000
             
             self.usable_devices:dict = {}
-            self.devices = sd.query_devices()
-            self.apis = sd.query_hostapis()
+            try:
+                self.devices = sd.query_devices()
+            except Exception:
+                self.devices = []
+            try:
+                self.apis = sd.query_hostapis()
+            except Exception:
+                self.apis = ()
+
+            # Guard to prevent signal handlers from firing during initial population/restore.
+            self._initializing = True
 
             self.main_layout = QVBoxLayout()
             self.setLayout(self.main_layout)
@@ -87,6 +115,7 @@ class SettingsWindow(QWidget):
             self.fade_out_slider.setRange(1,2000)
             self.fade_out_slider.setValue(self.fade_out_dur)
             self.fade_out_slider.valueChanged.connect(self.update_fade_out_dur)
+            self.fade_out_slider.sliderReleased.connect(self._send_transition_fade_settings)
 
         
             self.fade_in_label = QLabel('FADE\nIN')
@@ -100,6 +129,7 @@ class SettingsWindow(QWidget):
             self.fade_in_slider.setRange(1,2000)
             self.fade_in_slider.valueChanged.connect(self.update_fade_in_dur)
             self.fade_in_slider.setValue(self.fade_in_dur)
+            self.fade_in_slider.sliderReleased.connect(self._send_transition_fade_settings)
 
             self.v_layoutL.addWidget(self.fade_in_label)
             self.v_layoutM.addWidget(self.fade_in_line_edit)
@@ -123,13 +153,9 @@ class SettingsWindow(QWidget):
             self.main_layout.addLayout(self.refresh_layout)
             self.refresh_outputs_button.clicked.connect(self.refresh_devices)
             
-            self.check_sound_devices_thread = QThread()
-            self.check_sound_devices = CheckSoundDevices()
-            self.check_sound_devices.moveToThread(self.check_sound_devices_thread)
-            
-            self.check_sound_devices.device_list_signal.connect(self.re_populate_audio_combo_box)
-            self.refresh_outputs_button.clicked.connect(self.check_sound_devices.get_devices)
-            self.check_sound_devices_thread.start()
+            # Lazily initialized on refresh to avoid extra threads and PortAudio churn on open.
+            self.check_sound_devices_thread = None
+            self.check_sound_devices = None
 
             main_output_label = QLabel('Main Output')
             self.main_layout.addWidget(main_output_label)
@@ -164,8 +190,22 @@ class SettingsWindow(QWidget):
             self.columns_spinbox.setFixedSize(60, 30)
             self.columns_spinbox.setFont(font)
             self.columns_spinbox.setRange(1,10)
-            self.rows_spinbox.setValue(self.parent.buttonBanksWidget.rows)
-            self.columns_spinbox.setValue(self.parent.buttonBanksWidget.columns)
+            # New UI uses MainWindow.bank (ButtonBankWidget). Legacy uses buttonBanksWidget.
+            try:
+                self.rows_spinbox.setValue(int(getattr(getattr(self.parent, "bank", None), "rows", 3)))
+            except Exception:
+                try:
+                    self.rows_spinbox.setValue(int(getattr(getattr(self.parent, "buttonBanksWidget", None), "rows", 3)))
+                except Exception:
+                    self.rows_spinbox.setValue(3)
+
+            try:
+                self.columns_spinbox.setValue(int(getattr(getattr(self.parent, "bank", None), "cols", 8)))
+            except Exception:
+                try:
+                    self.columns_spinbox.setValue(int(getattr(getattr(self.parent, "buttonBanksWidget", None), "columns", 8)))
+                except Exception:
+                    self.columns_spinbox.setValue(8)
             self.rows_spinbox.valueChanged.connect(self.change_row_columns)
             self.columns_spinbox.valueChanged.connect(self.change_row_columns)
             self.main_layout.addWidget(self.button_banks_setting_label)
@@ -182,6 +222,11 @@ class SettingsWindow(QWidget):
 
             self.update_fade_out_dur()
             self.update_fade_in_dur()
+
+            # Ensure engine receives the currently loaded transition fades.
+            self._send_transition_fade_settings()
+
+            self._initializing = False
             
         except Exception as e:
             print(e)
@@ -190,60 +235,96 @@ class SettingsWindow(QWidget):
         try:
             #recall settings
             if 'pause_fade_dur' in self.app_settings:
-                self.fade_out_dur = self.app_settings['pause_fade_dur']
+                self.fade_out_dur = int(self.app_settings['pause_fade_dur'])
+                self.fade_out_slider.setValue(self.fade_out_dur)
+                self.fade_out_line_edit.setText(str(self.fade_out_dur))
+            elif 'fade_out_duration' in self.app_settings:
+                self.fade_out_dur = int(self.app_settings['fade_out_duration'])
                 self.fade_out_slider.setValue(self.fade_out_dur)
                 self.fade_out_line_edit.setText(str(self.fade_out_dur))
 
             if 'play_fade_dur' in self.app_settings:
-                self.fade_in_dur = self.app_settings['play_fade_dur']
+                self.fade_in_dur = int(self.app_settings['play_fade_dur'])
+                self.fade_in_slider.setValue(self.fade_in_dur)
+                self.fade_in_line_edit.setText(str(self.fade_in_dur))
+            elif 'fade_in_duration' in self.app_settings:
+                self.fade_in_dur = int(self.app_settings['fade_in_duration'])
                 self.fade_in_slider.setValue(self.fade_in_dur)
                 self.fade_in_line_edit.setText(str(self.fade_in_dur))
 
             if 'Main_Output' in self.app_settings:
                 device = self.app_settings['Main_Output']
-                device_name = device[0]
-                device_hostapi = device[1] #MME, WINDOWS DIRECT SOUND, ASIO etc only the index number is saved
+                # Backward compat:
+                # - old: [name, hostapi_name, sample_rate]
+                # - new: [index, name, hostapi_name, sample_rate]
+                if isinstance(device, (list, tuple)) and len(device) >= 4:
+                    device_index = device[0]
+                    device_name = device[1]
+                    device_hostapi = device[2]
+                else:
+                    device_index = None
+                    device_name = device[0]
+                    device_hostapi = device[1]
                 
                 device_search_text = device_name + ', ' + device_hostapi
                 
                 selected_index = self.audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                self.audio_output_combo.setCurrentIndex(selected_index)
+                try:
+                    self.audio_output_combo.blockSignals(True)
+                    self.audio_output_combo.setCurrentIndex(selected_index)
+                finally:
+                    self.audio_output_combo.blockSignals(False)
                 # self.audio_output_combo.currentIndexChanged.emit(selected_index)
                 self.main_output_device = device
-                self.main_output_changed()
+                # Do NOT call main_output_changed() on open; that would restart audio.
             
             else:
                 index = sd.default.device[1]
                 device = sd.query_devices(index)
-                api = self.apis[device['hostapi']]
+                api = self.apis[device['hostapi']] if self.apis else {"name": ""}
                 
                 device_search_text = device['name'] + ', ' + api['name']
                 
                 selected_index = self.audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                self.audio_output_combo.setCurrentIndex(selected_index)
-                self.audio_output_combo.currentIndexChanged.emit(selected_index)
+                try:
+                    self.audio_output_combo.blockSignals(True)
+                    self.audio_output_combo.setCurrentIndex(selected_index)
+                finally:
+                    self.audio_output_combo.blockSignals(False)
                 self.main_output_device = device
 
             if 'Editor_Output' in self.app_settings:
                 device = self.app_settings['Editor_Output']
-                device_name = device[0]
-                device_hostapi = device[1]  #MME, WINDOWS DIRECT SOUND, ASIO etc
+                # Backward compat schema (see Main_Output)
+                if isinstance(device, (list, tuple)) and len(device) >= 4:
+                    device_name = device[1]
+                    device_hostapi = device[2]
+                else:
+                    device_name = device[0]
+                    device_hostapi = device[1]  #MME, WINDOWS DIRECT SOUND, ASIO etc
                 
                 device_search_text = device_name + ', ' + device_hostapi
                 selected_index = self.editor_audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                self.editor_audio_output_combo.setCurrentIndex(selected_index)
+                try:
+                    self.editor_audio_output_combo.blockSignals(True)
+                    self.editor_audio_output_combo.setCurrentIndex(selected_index)
+                finally:
+                    self.editor_audio_output_combo.blockSignals(False)
                 # self.editor_audio_output_combo.currentIndexChanged.emit(selected_index)
                 self.editor_output_device = device
-                self.editor_output_changed()
+                # Do NOT call editor_output_changed() on open.
                         
             else:
                 index = sd.default.device[1]
                 device = sd.query_devices(index)
-                api = self.apis[device['hostapi']]
+                api = self.apis[device['hostapi']] if self.apis else {"name": ""}
                 device_search_text = device['name'] + ', ' + api['name']
                 selected_index = self.editor_audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                self.editor_audio_output_combo.setCurrentIndex(selected_index)
-                self.editor_audio_output_combo.currentIndexChanged.emit(selected_index)
+                try:
+                    self.editor_audio_output_combo.blockSignals(True)
+                    self.editor_audio_output_combo.setCurrentIndex(selected_index)
+                finally:
+                    self.editor_audio_output_combo.blockSignals(False)
                 self.editor_output_device = device
 
             if 'rows' in self.app_settings:
@@ -341,7 +422,17 @@ class SettingsWindow(QWidget):
             
     def refresh_devices(self):
         self.refresh_outputs_button.setEnabled(False)
-        self.refresh_sound_devices_signal.emit()
+        # Kick off a safe refresh in a background thread (legacy helper does PortAudio re-init).
+        try:
+            if self.check_sound_devices_thread is None:
+                self.check_sound_devices_thread = QThread(self)
+                self.check_sound_devices = CheckSoundDevices()
+                self.check_sound_devices.moveToThread(self.check_sound_devices_thread)
+                self.check_sound_devices.device_list_signal.connect(self.re_populate_audio_combo_box)
+                self.check_sound_devices_thread.start()
+            self.check_sound_devices.get_devices()
+        except Exception:
+            self.refresh_outputs_button.setEnabled(True)
         
     def re_populate_audio_combo_box(self, device_list:list, api_dict:tuple):
         
@@ -386,27 +477,59 @@ class SettingsWindow(QWidget):
             
     def main_output_changed(self):
         try:
+            if getattr(self, "_initializing", False):
+                return
             index = self.audio_output_combo.currentIndex()
+            if index <= 0:
+                return
             device = self.audio_output_combo.itemData(index)
+            if not device:
+                return
             
             self.main_output_device = device
             print(f'main output: {device}')
             self.sample_rate = device['sample_rate']
-            self.settings.set_setting('Main_Output', [device['name'], device['hostapi_name'], device['sample_rate']])
+
+            # Persist new schema that includes index for reliable engine routing.
+            self.settings.set_setting('Main_Output', [device.get('index'), device['name'], device['hostapi_name'], device['sample_rate']])
             self.settings_signals.main_output_signal.emit(self.main_output_device['index'], self.main_output_device['sample_rate'])
             self.parent.main_output_device = self.audio_output_combo.currentData()
             self.settings.save_settings()
+
+            # Send to audio engine via queue boundary.
+            if self.engine_adapter is not None:
+                try:
+                    self.engine_adapter.set_output_device(device.get('index'))
+                except Exception:
+                    pass
+                try:
+                    # Re-open stream with sample rate known-good for this device.
+                    self.engine_adapter.set_output_config(
+                        sample_rate=int(device['sample_rate']),
+                        channels=2,
+                        block_frames=2048,
+                    )
+                except Exception:
+                    pass
         except Exception as e:
             info = getframeinfo(currentframe())
             print(f'{e}{info.filename}:{info.lineno}')
             
     def editor_output_changed(self):
         try:
+            if getattr(self, "_initializing", False):
+                return
             index = self.editor_audio_output_combo.currentIndex()
+            if index <= 0:
+                return
             device = self.editor_audio_output_combo.itemData(index)
+            if not device:
+                return
             
             self.editor_output_device = device
-            self.settings.set_setting('Editor_Output', [device['name'], device['hostapi_name'], device['sample_rate']])
+
+            # Persist new schema including index.
+            self.settings.set_setting('Editor_Output', [device.get('index'), device['name'], device['hostapi_name'], device['sample_rate']])
             self.settings_signals.editor_output_signal.emit(device['index'], device['sample_rate'])
             self.parent.editor_output_device = self.editor_audio_output_combo.currentData()
             self.settings.save_settings()
@@ -426,12 +549,25 @@ class SettingsWindow(QWidget):
         self.fade_in_dur = dur
         self.fade_in_line_edit.setText(str(dur))
 
+    def _send_transition_fade_settings(self):
+        """Send current fade durations to the audio engine via queued command."""
+        if self.engine_adapter is None:
+            return
+        try:
+            self.engine_adapter.set_transition_fade_durations(
+                fade_in_ms=int(self.fade_in_dur),
+                fade_out_ms=int(self.fade_out_dur),
+            )
+        except Exception:
+            pass
+
     def fade_in_line_edit_handler(self):
         text = self.fade_in_line_edit.text()
         try:
             t = int(text)
             self.fade_in_slider.setValue(t)
             self.fade_in_dur = t
+            self._send_transition_fade_settings()
 
         except:
             self.fade_in_line_edit.setText('10')
@@ -443,6 +579,7 @@ class SettingsWindow(QWidget):
             t = int(text)
             self.fade_out_slider.setValue(t)
             self.fade_out_dur=t
+            self._send_transition_fade_settings()
 
         except:
             self.fade_out_line_edit.setText('10')
@@ -457,36 +594,35 @@ class SettingsWindow(QWidget):
     def closeEvent(self,event): 
         try:
             #save settings on closing the settings window
-            self.settings.set_setting('fade_in_duration', self.fade_in_dur)
-            self.settings.set_setting('fade_out_duration', self.fade_out_dur)
-            self.settings.set_setting('Editor_Output', [self.editor_output_device['name'], self.editor_output_device['hostapi_name'], self.editor_output_device['sample_rate']])
-            self.settings.set_setting('Main_Output', [self.main_output_device['name'], self.main_output_device['hostapi_name'], self.main_output_device['sample_rate']])
+            # Maintain backward compatibility keys + the newer keys used by this window.
+            self.settings.set_setting('fade_in_duration', int(self.fade_in_dur))
+            self.settings.set_setting('fade_out_duration', int(self.fade_out_dur))
+            self.settings.set_setting('play_fade_dur', int(self.fade_in_dur))
+            self.settings.set_setting('pause_fade_dur', int(self.fade_out_dur))
+
+            if isinstance(self.editor_output_device, dict) and self.editor_output_device:
+                self.settings.set_setting('Editor_Output', [self.editor_output_device.get('index'), self.editor_output_device.get('name'), self.editor_output_device.get('hostapi_name'), self.editor_output_device.get('sample_rate')])
+            if isinstance(self.main_output_device, dict) and self.main_output_device:
+                self.settings.set_setting('Main_Output', [self.main_output_device.get('index'), self.main_output_device.get('name'), self.main_output_device.get('hostapi_name'), self.main_output_device.get('sample_rate')])
+
             self.settings.set_setting('rows', self.rows_spinbox.value())
             self.settings.set_setting('columns', self.columns_spinbox.value())
             self.settings.save_settings()
+
+            # Ensure engine has final values (in case the user typed values but didn't release slider).
+            self._send_transition_fade_settings()
         except Exception as e:
             info = getframeinfo(currentframe())
             print(f'{e}{info.filename}:{info.lineno}')
-        
 
-class MainWindow(QMainWindow):
-    def __init__(self):
-        super().__init__()
-        self.btn = QPushButton('Popup')
-        self.btn.clicked.connect(self.popup)
-        self.setCentralWidget(self.btn)
+        # Best-effort cleanup of refresh thread.
+        try:
+            if self.check_sound_devices_thread is not None:
+                self.check_sound_devices_thread.quit()
+                self.check_sound_devices_thread.wait(250)
+        except Exception:
+            pass
 
-    def popup(self):
-        self.settings_window = SettingsWindow(self)
-        self.settings_window.show()
-
-if __name__=='__main__':
-    app = QtWidgets.QApplication([])
-    main = MainWindow()
-    setting_win = SettingsWindow(main)
-    setting_win.show()
-    
-    main.show()
-    app.exec()
+        event.accept()
 
 

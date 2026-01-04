@@ -76,6 +76,7 @@ from engine.commands import (
     OutputSetDevice,
     OutputSetConfig,
     OutputListDevices,
+    SetTransitionFadeDurations,
     BatchCommandsCommand,
 )
 from engine.cue import Cue
@@ -541,6 +542,14 @@ class EngineAdapter(QObject):
             self._cmd_q.put(cmd)
         except Exception as e:
             print(f"[EngineAdapter.list_output_devices] Error: {e}")
+
+    def set_transition_fade_durations(self, *, fade_in_ms: int, fade_out_ms: int) -> None:
+        """Set engine-wide default transition fade durations (ms)."""
+        try:
+            cmd = SetTransitionFadeDurations(fade_in_ms=int(fade_in_ms), fade_out_ms=int(fade_out_ms))
+            self._cmd_q.put(cmd)
+        except Exception as e:
+            print(f"[EngineAdapter.set_transition_fade_durations] Error: {e}")
 
     def batch_commands(self, commands: list) -> None:
         """

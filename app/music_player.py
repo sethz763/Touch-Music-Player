@@ -13,6 +13,11 @@ def main() -> int:
     w = MainWindow()
     w.resize(900, 600)
     w.show()
+    try:
+        w.raise_()
+        w.activateWindow()
+    except Exception:
+        pass
     return app.exec()
 
 if __name__ == "__main__":

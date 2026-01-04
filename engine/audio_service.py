@@ -30,6 +30,10 @@ from engine.commands import (
     SetMasterGainCommand,
     TransportStop,
     BatchCommandsCommand,
+    OutputSetDevice,
+    OutputSetConfig,
+    OutputListDevices,
+    SetTransitionFadeDurations,
 )
 from engine.messages.events import (
     CueStartedEvent,
