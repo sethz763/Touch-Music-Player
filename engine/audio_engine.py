@@ -266,6 +266,14 @@ class AudioEngine:
                 # Stop all active cues immediately and emit CueFinishedEvent for each
                 # once output process reports "finished".
                 self.log.info(source="engine", message="transport_stop_requested", metadata={"active_cues": len(self.active_cues)})
+
+                # Reset pause state at the output stage (Stop should leave transport unpaused).
+                # This does not start any cue; it only clears transport_paused.
+                try:
+                    self._out_cmd_q.put(TransportPlay())
+                except Exception:
+                    pass
+
                 for cue_id in list(self.active_cues.keys()):
                     try:
                         self._removal_reasons[cue_id] = "transport_stop"

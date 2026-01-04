@@ -232,6 +232,10 @@ class EngineAdapter(QObject):
         super().__init__(parent=parent)
         self._cmd_q = cmd_q
         self._evt_q = evt_q
+
+        # Best-effort local transport state tracking.
+        # The engine currently does not emit TransportStateEvent reliably.
+        self.transport_state: str = "playing"  # "playing" | "paused" | "stopped"
         
         # Timing instrumentation
         self._slow_threshold_ms = 5.0
@@ -277,6 +281,7 @@ class EngineAdapter(QObject):
         """Request transport play (global)."""
         try:
             self._cmd_q.put(TransportPlay())
+            self.transport_state = "playing"
         except Exception as e:
             print(f"[EngineAdapter.transport_play] Error: {e}")
 
@@ -284,13 +289,19 @@ class EngineAdapter(QObject):
         """Request transport pause (global)."""
         try:
             self._cmd_q.put(TransportPause())
+            self.transport_state = "paused"
         except Exception as e:
             print(f"[EngineAdapter.transport_pause] Error: {e}")
 
     def transport_stop(self) -> None:
         """Request transport stop (global)."""
         try:
+            # Stop all cues immediately.
             self._cmd_q.put(TransportStop())
+            # IMPORTANT: Stop should also reset pause state so future plays are audible.
+            # (Pause is implemented at output stage.) This does not start playback.
+            self._cmd_q.put(TransportPlay())
+            self.transport_state = "stopped"
         except Exception as e:
             print(f"[EngineAdapter.transport_stop] Error: {e}")
 

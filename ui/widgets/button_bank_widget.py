@@ -126,6 +126,23 @@ class ButtonBankWidget(QWidget):
         """
         if not self._pending_commands or not self.engine_adapter:
             return
+
+        # UX: If transport is paused and the user clicks a cue button, they expect
+        # an immediate hard switch: clear all cues, unpause, and start the new cue.
+        try:
+            is_paused = getattr(self.engine_adapter, "transport_state", "") == "paused"
+        except Exception:
+            is_paused = False
+
+        if is_paused:
+            try:
+                self.engine_adapter.transport_stop()
+            except Exception:
+                pass
+            try:
+                self.engine_adapter.transport_play()
+            except Exception:
+                pass
         
         if len(self._pending_commands) == 1:
             # Single command: send directly without batching overhead
@@ -173,6 +190,24 @@ class ButtonBankWidget(QWidget):
             layered=params.get('layered', False),
             total_seconds=params.get('total_seconds'),
         )
+
+        # If paused, bypass the batching window so playback starts immediately.
+        try:
+            is_paused = bool(self.engine_adapter) and getattr(self.engine_adapter, "transport_state", "") == "paused"
+        except Exception:
+            is_paused = False
+
+        if is_paused:
+            try:
+                if self._batch_timer.isActive():
+                    self._batch_timer.stop()
+            except Exception:
+                pass
+            self._pending_commands.clear()
+            self._pending_commands.append(cmd)
+            self._flush_batch()
+            return
+
         self._queue_command(cmd)
     
     def _on_button_request_stop(self, cue_id: str, fade_out_ms: int) -> None:
