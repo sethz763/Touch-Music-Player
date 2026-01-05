@@ -382,6 +382,23 @@ class AsyncCsvExcelLogger(QObject):
         self._q.put(("set_paths", {"xlsx_path": filename, "csv_path": self._csv_path}))
         self._preload_snapshot()
 
+    def set_title(self, title: str) -> None:
+        """Update the title used for new/cleared logs and the dialog snapshot header.
+
+        Does not clear or rewrite existing log files.
+        """
+        self._title = str(title or self._title)
+        try:
+            if self.music_log_sheet.values and len(self.music_log_sheet.values) >= 1:
+                # Keep the merged-style row shape expected by Log_Settings_Window.
+                self.music_log_sheet.values[0] = (self._title, None, None, None, None, None)
+        except Exception:
+            pass
+        try:
+            self._q.put(("set_paths", {"title": self._title}))
+        except Exception:
+            pass
+
     def start_new_log(self, filename: str = "cue_log.xlsx", title: str = "Cue Log") -> None:
         self._title = title
         self._xlsx_path = filename

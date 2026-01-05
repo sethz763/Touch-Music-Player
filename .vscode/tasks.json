@@ -356,6 +356,30 @@
 			"isBackground": false,
 			"problemMatcher": [],
 			"group": "test"
+		},
+		{
+			"label": "Debug: launch app capture 5s",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\debug_gui_stdout.txt,.\\debug_gui_stderr.txt,.\\last_gui_crash.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('-m','app.music_player') -PassThru -WindowStyle Hidden -RedirectStandardOutput .\\debug_gui_stdout.txt -RedirectStandardError .\\debug_gui_stderr.txt; Start-Sleep -Seconds 5; if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }; '---last_gui_crash.txt---'; if (Test-Path .\\last_gui_crash.txt) { Get-Content .\\last_gui_crash.txt -Tail 120 } else { 'no crash file' }; '---STDERR tail---'; if (Test-Path .\\debug_gui_stderr.txt) { Get-Content .\\debug_gui_stderr.txt -Tail 120 } else { 'no stderr file' }; '---STDOUT tail---'; if (Test-Path .\\debug_gui_stdout.txt) { Get-Content .\\debug_gui_stdout.txt -Tail 80 } else { 'no stdout file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: launch app capture 8s (hang dump)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\debug_gui_stdout.txt,.\\debug_gui_stderr.txt,.\\last_gui_crash.txt,.\\last_gui_hang.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('-m','app.music_player') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\debug_gui_stdout.txt -RedirectStandardError .\\debug_gui_stderr.txt; Start-Sleep -Seconds 8; if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }; '---crash---'; if (Test-Path .\\last_gui_crash.txt) { Get-Content .\\last_gui_crash.txt -Tail 60 } else { 'no crash file' }; '---hang---'; if (Test-Path .\\last_gui_hang.txt) { Get-Content .\\last_gui_hang.txt -Tail 80 } else { 'no hang file' }; '---stderr---'; if (Test-Path .\\debug_gui_stderr.txt) { Get-Content .\\debug_gui_stderr.txt -Tail 80 } else { 'no stderr file' }"
+			],
+			"isBackground": false,
+			"group": "test"
 		}
 	]
 }

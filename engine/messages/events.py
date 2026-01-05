@@ -59,11 +59,13 @@ class CueStartedEvent:
         track_id: Application-provided track identifier (may be None).
         tod_start_iso: ISO 8601 timestamp when playback started (for logging/synchronization).
         file_path: Absolute path to the audio file being played.
+        total_seconds: Total duration of the cue in seconds (if known).
     """
     cue_id: str
     track_id: str
     tod_start_iso: str
     file_path: str
+    total_seconds: Optional[float] = None
 
 
 @dataclass(frozen=True, slots=True)

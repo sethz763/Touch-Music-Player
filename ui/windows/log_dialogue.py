@@ -41,8 +41,8 @@ class Log_Settings_Window(QWidget):
         # Store reference to Excel logger so we can get sheet data
         self.excel_logger = excel_logger
         
-        self.settings_obj = SaveSettings('log_settings.json')
-        self.settings = self.settings_obj.get_settings()
+        self.settings_obj = SaveSettings('log_settings.json', autosave=True, debounce_seconds=0.5)
+        self.settings = self.settings_obj.get_settings() or {}
         
 
         self.save_as_btn = QPushButton('Save As')
@@ -66,22 +66,10 @@ class Log_Settings_Window(QWidget):
         self.enable_logging_button = QPushButton()
         self.enable_logging_button.setFixedWidth(120)
         self.enable_logging_button.clicked.connect(self.enable_disable_logging)
-        if 'logging_enabled' in self.settings:
-            print(f"logging_enabled found, {self.settings['logging_enabled']}")
-            self.logging_enabled = self.settings['logging_enabled']
-            if self.logging_enabled:
-                self.enable_disable_logging_signal.emit(True)
-                self.enable_logging_button.setText('LOGGING ENABLED')
-            else:
-                self.enable_disable_logging_signal.emit(False)
-                self.enable_logging_button.setText('LOGGING DISABLED')
-        
-        else:
-            self.logging_enabled = False
-            self.enable_logging_button.setText('LOGGING DISABLED')
-            self.enable_disable_logging_signal.emit(False)
+        self.logging_enabled = bool(self.settings.get('logging_enabled', False))
+        self._apply_logging_enabled_ui(self.logging_enabled)
+        if 'logging_enabled' not in self.settings:
             self.settings_obj.set_setting('logging_enabled', self.logging_enabled)
-            self.settings_obj.save_settings()
             
         
         self.table_view = QTableView()
@@ -95,6 +83,9 @@ class Log_Settings_Window(QWidget):
                 self.num_entries = 0
             
         self.log_info = Log_Info()
+
+        # Restore persisted filename/title into UI.
+        self._restore_from_settings()
 
         self.main_layout = QVBoxLayout()
         self.top_layout = QHBoxLayout()
@@ -184,22 +175,29 @@ class Log_Settings_Window(QWidget):
     def save_as(self):
         filter = 'excel files (*.xlsx)'
         self.filename = QFileDialog().getSaveFileName(filter=filter)
+        if not self.filename or not self.filename[0]:
+            return
         self.file_name_label.setText(self.filename[0])
         self.log_info.filename = self.filename[0]
         self.create_sheet_btn.setEnabled(True)
+        self.settings_obj.set_setting('filename', self.log_info.filename)
         
     def load(self):
         filter = 'excel files (*.xlsx)'
         self.filename = QFileDialog().getOpenFileName(filter=filter)
+        if not self.filename or not self.filename[0]:
+            return
         self.file_name_label.setText(self.filename[0])
         self.log_info.filename = self.filename[0]
         self.load_sheet_signal.emit(self.log_info.filename)
         self.create_sheet_btn.setEnabled(False)
         self.clear_sheet_btn.setEnabled(True)
+        self.settings_obj.set_setting('filename', self.log_info.filename)
 
     def set_title(self):
         self.show_name_label = self.title_line_edit.text()
         self.log_info.title = self.title_line_edit.text()
+        self.settings_obj.set_setting('show_name', self.log_info.title)
 
     def create_sheet(self):
         try:
@@ -213,6 +211,8 @@ class Log_Settings_Window(QWidget):
         self.status_label.setText('New Log Created')
         self.log_info.title = self.title_line_edit.text()
         self.log_info.filename = self.filename[0]
+        self.settings_obj.set_setting('filename', self.log_info.filename)
+        self.settings_obj.set_setting('show_name', self.log_info.title)
     
     def clear_sheet(self):
         self.dialog_box = QDialog()
@@ -236,18 +236,51 @@ class Log_Settings_Window(QWidget):
             self.status_label.setText('All Log Entries Cleared')
         
     def enable_disable_logging(self):
-        if self.logging_enabled == False:
-            self.logging_enabled = True
+        self.logging_enabled = not bool(self.logging_enabled)
+        self._apply_logging_enabled_ui(self.logging_enabled)
+        self.settings_obj.set_setting('logging_enabled', self.logging_enabled)
+
+    def _apply_logging_enabled_ui(self, enabled: bool) -> None:
+        if enabled:
             self.enable_logging_button.setText('LOGGING ENABLED')
-            self.enable_disable_logging_signal.emit(True)
-            self.settings_obj.set_setting('logging_enabled', self.logging_enabled)
-            self.settings_obj.save_settings()
+            try:
+                self.enable_disable_logging_signal.emit(True)
+            except Exception:
+                pass
         else:
-            self.logging_enabled = False
             self.enable_logging_button.setText('LOGGING DISABLED')
-            self.enable_disable_logging_signal.emit(False)
-            self.settings_obj.set_setting('logging_enabled', self.logging_enabled)
-            self.settings_obj.save_settings()
+            try:
+                self.enable_disable_logging_signal.emit(False)
+            except Exception:
+                pass
+
+    def _restore_from_settings(self) -> None:
+        try:
+            filename = self.settings.get('filename') or ''
+            title = self.settings.get('show_name') or ''
+
+            if filename:
+                # Maintain existing code's expectation that self.filename is indexable.
+                self.filename = (filename, '')
+                self.file_name_label.setText(filename)
+                self.log_info.filename = filename
+
+            if title:
+                self.title_line_edit.setText(title)
+                self.log_info.title = title
+        except Exception:
+            pass
+
+    def load_from_settings(self) -> None:
+        """Re-read persisted settings and update UI fields."""
+        try:
+            self.settings_obj.load_settings()
+            self.settings = self.settings_obj.get_settings() or {}
+            self._restore_from_settings()
+            self.logging_enabled = bool(self.settings.get('logging_enabled', False))
+            self._apply_logging_enabled_ui(self.logging_enabled)
+        except Exception:
+            pass
             
     def show(self):
         self.refresh()

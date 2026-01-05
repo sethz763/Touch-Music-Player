@@ -232,6 +232,10 @@ class EngineAdapter(QObject):
         super().__init__(parent=parent)
         self._cmd_q = cmd_q
         self._evt_q = evt_q
+        # Duration tracking for accurate remaining-time UI.
+        # Populated from CueStartedEvent.total_seconds and CueFinishedEvent.cue_info.duration_seconds.
+        self._cue_total_seconds: dict[str, Optional[float]] = {}
+        self._last_started_cue_id: Optional[str] = None
 
         # Best-effort local transport state tracking.
         # The engine currently does not emit TransportStateEvent reliably.
@@ -879,11 +883,22 @@ class EngineAdapter(QObject):
         
         if isinstance(event, CueStartedEvent):
             # Lifecycle: guaranteed delivery
+            try:
+                self._last_started_cue_id = event.cue_id
+                self._cue_total_seconds[event.cue_id] = getattr(event, "total_seconds", None)
+            except Exception:
+                pass
             self.cue_started.emit(event.cue_id, None)  # cue_info not available yet
 
         elif isinstance(event, CueFinishedEvent):
             # Lifecycle: guaranteed delivery
             cue_info = event.cue_info  # CueInfo snapshot
+            try:
+                # CueInfo includes duration_seconds; keep in sync for any late time events.
+                dur = getattr(cue_info, "duration_seconds", None)
+                self._cue_total_seconds[getattr(cue_info, "cue_id", event.cue_info.cue_id)] = dur
+            except Exception:
+                pass
             self.cue_finished.emit(event.cue_info.cue_id, cue_info, event.reason)
 
         elif isinstance(event, BatchCueLevelsEvent):
@@ -908,11 +923,35 @@ class EngineAdapter(QObject):
                         self._last_cue_levels_emit[cue_id] = current_time
 
         elif isinstance(event, BatchCueTimeEvent):
-            # Batched telemetry: coalesce and emit in batch
-            # Store latest times and emit in _emit_pending_telemetry
-            for cue_id, (elapsed, remaining) in event.cue_times.items():
-                # Create a synthetic event for compatibility with existing code
-                self._pending_master_time = (cue_id, elapsed, remaining)
+            # Batched telemetry: pick a stable "master" cue (most recently started if active).
+            try:
+                cue_times = event.cue_times or {}
+            except Exception:
+                cue_times = {}
+            if cue_times:
+                master_id = None
+                try:
+                    if self._last_started_cue_id in cue_times:
+                        master_id = self._last_started_cue_id
+                except Exception:
+                    master_id = None
+                if master_id is None:
+                    try:
+                        master_id = next(iter(cue_times.keys()))
+                    except Exception:
+                        master_id = None
+
+                if master_id is not None:
+                    try:
+                        elapsed, remaining = cue_times[master_id]
+                    except Exception:
+                        elapsed, remaining = 0.0, 0.0
+
+                    total = self._cue_total_seconds.get(master_id)
+                    if isinstance(total, (int, float)):
+                        remaining = max(0.0, float(total) - float(elapsed))
+                    # Store for throttled emission
+                    self._pending_master_time = (master_id, float(elapsed), float(remaining), total)
 
         elif isinstance(event, CueLevelsEvent):
             # Legacy single-cue levels (for backward compatibility)
@@ -924,7 +963,14 @@ class EngineAdapter(QObject):
         elif isinstance(event, CueTimeEvent):
             # Legacy single-cue time (for backward compatibility)
             # Coalesce - emit at reduced frequency
-            self._pending_master_time = (event.cue_id, event.elapsed_seconds, event.remaining_seconds)
+            total = getattr(event, "total_seconds", None)
+            remaining = event.remaining_seconds
+            if isinstance(total, (int, float)):
+                try:
+                    remaining = max(0.0, float(total) - float(event.elapsed_seconds))
+                except Exception:
+                    remaining = event.remaining_seconds
+            self._pending_master_time = (event.cue_id, event.elapsed_seconds, remaining, total)
 
         elif isinstance(event, MasterLevelsEvent):
             # Telemetry: coalesce - emit at reduced frequency
@@ -989,8 +1035,11 @@ class EngineAdapter(QObject):
                 event = self._pending_master_time
                 # Handle both tuple format (cue_id, elapsed, remaining) and event object
                 if isinstance(event, tuple):
-                    cue_id, elapsed_seconds, remaining_seconds = event
-                    self.cue_time.emit(cue_id, elapsed_seconds, remaining_seconds, None)
+                    cue_id = event[0]
+                    elapsed_seconds = event[1] if len(event) > 1 else 0.0
+                    remaining_seconds = event[2] if len(event) > 2 else 0.0
+                    total_seconds = event[3] if len(event) > 3 else None
+                    self.cue_time.emit(cue_id, float(elapsed_seconds), float(remaining_seconds), total_seconds)
                 else:
                     self.cue_time.emit(
                         event.cue_id, event.elapsed_seconds, event.remaining_seconds, event.total_seconds

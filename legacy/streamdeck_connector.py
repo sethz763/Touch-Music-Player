@@ -10,7 +10,7 @@ from PySide6.QtWidgets import QApplication, QLabel, QWidget
 from PySide6.QtGui import QImage, QPainter, QFont, QColor
 from PySide6.QtCore import QSize, QPoint, Qt, QObject, Signal, Slot
 
-from SoundFileButton import SoundFileButton
+from ui.widgets.sound_file_button import SoundFileButton
 
 class StreamDeckConnector(QObject):
     key_pressed = Signal(int)
@@ -68,8 +68,9 @@ class StreamDeckConnector(QObject):
 
         # # 7. Send to Stream Deck
         deck.set_key_image(key, native_img)
-        
-    def sound_file_button_to_key(self, btn:SoundFileButton, deck, key):
+            
+    def sound_file_button_to_key(self, btn:SoundFileButton, deck, key): 
+        # converts sound file button to streamdeck key image by rendering text appropriately
     
         if btn.track_set:
             self.label.setText(btn.text())

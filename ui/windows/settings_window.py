@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox
+from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox, QMessageBox
 from PySide6.QtGui import QFont
 from PySide6 import QtCore
 from PySide6 import QtWidgets
@@ -252,80 +252,123 @@ class SettingsWindow(QWidget):
                 self.fade_in_slider.setValue(self.fade_in_dur)
                 self.fade_in_line_edit.setText(str(self.fade_in_dur))
 
-            if 'Main_Output' in self.app_settings:
-                device = self.app_settings['Main_Output']
-                # Backward compat:
-                # - old: [name, hostapi_name, sample_rate]
-                # - new: [index, name, hostapi_name, sample_rate]
-                if isinstance(device, (list, tuple)) and len(device) >= 4:
-                    device_index = device[0]
-                    device_name = device[1]
-                    device_hostapi = device[2]
-                else:
-                    device_index = None
-                    device_name = device[0]
-                    device_hostapi = device[1]
-                
-                device_search_text = device_name + ', ' + device_hostapi
-                
-                selected_index = self.audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                try:
-                    self.audio_output_combo.blockSignals(True)
-                    self.audio_output_combo.setCurrentIndex(selected_index)
-                finally:
-                    self.audio_output_combo.blockSignals(False)
-                # self.audio_output_combo.currentIndexChanged.emit(selected_index)
-                self.main_output_device = device
-                # Do NOT call main_output_changed() on open; that would restart audio.
-            
-            else:
-                index = sd.default.device[1]
-                device = sd.query_devices(index)
-                api = self.apis[device['hostapi']] if self.apis else {"name": ""}
-                
-                device_search_text = device['name'] + ', ' + api['name']
-                
-                selected_index = self.audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                try:
-                    self.audio_output_combo.blockSignals(True)
-                    self.audio_output_combo.setCurrentIndex(selected_index)
-                finally:
-                    self.audio_output_combo.blockSignals(False)
-                self.main_output_device = device
+            # ------------------------
+            # Output restore w/ fallback
+            # ------------------------
 
-            if 'Editor_Output' in self.app_settings:
-                device = self.app_settings['Editor_Output']
-                # Backward compat schema (see Main_Output)
-                if isinstance(device, (list, tuple)) and len(device) >= 4:
-                    device_name = device[1]
-                    device_hostapi = device[2]
-                else:
-                    device_name = device[0]
-                    device_hostapi = device[1]  #MME, WINDOWS DIRECT SOUND, ASIO etc
-                
-                device_search_text = device_name + ', ' + device_hostapi
-                selected_index = self.editor_audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
+            def _select_output(combo: QComboBox, saved: object, label: str) -> dict:
+                """Select saved output if available; else fall back and warn."""
+                saved_name = None
+                saved_hostapi = None
+                saved_index = None
+
+                if isinstance(saved, (list, tuple)) and saved:
+                    # Backward compat:
+                    # - old: [name, hostapi_name, sample_rate]
+                    # - new: [index, name, hostapi_name, sample_rate]
+                    if len(saved) >= 4:
+                        saved_index = saved[0]
+                        saved_name = saved[1]
+                        saved_hostapi = saved[2]
+                    elif len(saved) >= 2:
+                        saved_name = saved[0]
+                        saved_hostapi = saved[1]
+
+                def _find_by_index(idx: int | None) -> int:
+                    if idx is None:
+                        return -1
+                    try:
+                        idx = int(idx)
+                    except Exception:
+                        return -1
+                    for i in range(1, combo.count()):
+                        try:
+                            d = combo.itemData(i)
+                            if isinstance(d, dict) and int(d.get('index')) == idx:
+                                return i
+                        except Exception:
+                            continue
+                    return -1
+
+                def _find_by_text(name: str | None, hostapi: str | None) -> int:
+                    if not name or not hostapi:
+                        return -1
+                    search = f"{name}, {hostapi}"
+                    try:
+                        return combo.findText(search, flags=Qt.MatchFlag.MatchContains)
+                    except Exception:
+                        return -1
+
+                # Try to find the saved device
+                selected = _find_by_index(saved_index)
+                if selected < 1:
+                    selected = _find_by_text(saved_name, saved_hostapi)
+
+                missing_saved = False
+                if selected < 1:
+                    missing_saved = bool(saved_name)
+                    # Fall back to system default output
+                    try:
+                        default_idx = sd.default.device[1]
+                        default_dev = sd.query_devices(default_idx)
+                        api = self.apis[default_dev['hostapi']] if self.apis else {"name": ""}
+                        selected = combo.findText(default_dev['name'] + ', ' + api['name'], flags=Qt.MatchFlag.MatchContains)
+                    except Exception:
+                        selected = -1
+
+                # Last resort: first available device
+                if selected < 1 and combo.count() > 1:
+                    selected = 1
+
                 try:
-                    self.editor_audio_output_combo.blockSignals(True)
-                    self.editor_audio_output_combo.setCurrentIndex(selected_index)
+                    combo.blockSignals(True)
+                    combo.setCurrentIndex(selected)
                 finally:
-                    self.editor_audio_output_combo.blockSignals(False)
-                # self.editor_audio_output_combo.currentIndexChanged.emit(selected_index)
-                self.editor_output_device = device
-                # Do NOT call editor_output_changed() on open.
-                        
-            else:
-                index = sd.default.device[1]
-                device = sd.query_devices(index)
-                api = self.apis[device['hostapi']] if self.apis else {"name": ""}
-                device_search_text = device['name'] + ', ' + api['name']
-                selected_index = self.editor_audio_output_combo.findText(device_search_text , flags=Qt.MatchFlag.MatchContains)
-                try:
-                    self.editor_audio_output_combo.blockSignals(True)
-                    self.editor_audio_output_combo.setCurrentIndex(selected_index)
-                finally:
-                    self.editor_audio_output_combo.blockSignals(False)
-                self.editor_output_device = device
+                    combo.blockSignals(False)
+
+                chosen = combo.itemData(selected) if selected >= 1 else {}
+                if not isinstance(chosen, dict):
+                    chosen = {}
+
+                if missing_saved:
+                    try:
+                        QMessageBox.warning(
+                            self,
+                            "Output device unavailable",
+                            f"The previously saved {label} output device is not available.\n\n"
+                            f"Saved: {saved_name}, {saved_hostapi}\n"
+                            f"Using: {chosen.get('name', 'Unknown')}, {chosen.get('hostapi_name', 'Unknown')}",
+                        )
+                    except Exception:
+                        pass
+
+                    # Persist fallback so next launch is consistent.
+                    try:
+                        if chosen.get('index') is not None:
+                            self.settings.set_setting(label, [chosen.get('index'), chosen.get('name'), chosen.get('hostapi_name'), chosen.get('sample_rate')])
+                            self.settings.save_settings()
+                    except Exception:
+                        pass
+
+                return chosen
+
+            # Restore selections (no engine restart on open)
+            saved_main = self.app_settings.get('Main_Output')
+            saved_editor = self.app_settings.get('Editor_Output')
+
+            self.main_output_device = _select_output(self.audio_output_combo, saved_main, 'Main_Output')
+            self.editor_output_device = _select_output(self.editor_audio_output_combo, saved_editor, 'Editor_Output')
+
+            try:
+                self.parent.main_output_device = self.main_output_device
+            except Exception:
+                pass
+            try:
+                self.parent.editor_output_device = self.editor_output_device
+            except Exception:
+                pass
+
+            # (Editor output handled by _select_output above)
 
             if 'rows' in self.app_settings:
                 rows = self.app_settings['rows']

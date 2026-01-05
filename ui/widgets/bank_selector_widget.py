@@ -2,7 +2,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtCore import Slot
+from PySide6.QtCore import Slot, QTimer, Signal
 from PySide6.QtWidgets import (
 	QWidget,
 	QVBoxLayout,
@@ -13,6 +13,7 @@ from PySide6.QtWidgets import (
 )
 
 from ui.widgets.button_bank_widget import ButtonBankWidget
+from persistence.SaveSettings import SaveSettings
 
 
 class BankSelectorWidget(QWidget):
@@ -29,6 +30,8 @@ class BankSelectorWidget(QWidget):
 	  visible bank immediately reflects current active state.
 	"""
 
+	bank_changed = Signal(int)
+
 	def __init__(
 		self,
 		banks: int = 10,
@@ -43,6 +46,10 @@ class BankSelectorWidget(QWidget):
 		self.rows = int(rows)
 		self.cols = int(cols)
 		self.engine_adapter = engine_adapter
+
+		# Persist all button assignments/settings for all banks.
+		# Debounced writes prevent disk churn during rapid edits (multi-file drops, etc.).
+		self._button_settings = SaveSettings("ButtonSettings.json", autosave=True, debounce_seconds=0.5)
 
 		self._bank_buttons: list[QPushButton] = []
 		self._bank_widgets: list[ButtonBankWidget] = []
@@ -76,6 +83,7 @@ class BankSelectorWidget(QWidget):
 				cols=self.cols,
 				engine_adapter=self.engine_adapter,
 				bank_index=idx,
+				settings_store=self._button_settings,
 			)
 			self._bank_widgets.append(bank_widget)
 			self._stack.addWidget(bank_widget)
@@ -85,8 +93,74 @@ class BankSelectorWidget(QWidget):
 			self._bank_buttons[0].setChecked(True)
 		self._stack.setCurrentIndex(0)
 
-		# Ensure initial bank looks correct immediately.
-		self._refresh_visible_bank()
+		# Defer persistence population + restore until Qt has had a chance to paint.
+		# This avoids a white/unresponsive window during heavy restore (file probing, etc.).
+		try:
+			QTimer.singleShot(0, self._post_init_restore)
+		except Exception:
+			# Fall back to immediate behavior if timer isn't available.
+			self._post_init_restore()
+
+	def _post_init_restore(self) -> None:
+		try:
+			self._ensure_all_buttons_persisted()
+		except Exception:
+			pass
+		try:
+			self._refresh_visible_bank()
+		except Exception:
+			pass
+
+	def _ensure_all_buttons_persisted(self) -> None:
+		"""Populate ButtonSettings.json with entries for all banks/buttons.
+
+		We only fill missing entries; we never overwrite existing button state.
+		"""
+		store = getattr(self, "_button_settings", None)
+		if store is None:
+			return
+		try:
+			root = getattr(store, "settings", None)
+			if not isinstance(root, dict):
+				return
+			root.setdefault("schema", 1)
+			banks = root.setdefault("banks", {})
+			if not isinstance(banks, dict):
+				return
+
+			changed = False
+			for bank_widget in self._bank_widgets:
+				bank_idx = getattr(bank_widget, "bank_index", None)
+				bank_key = str(bank_idx)
+				bank_dict = banks.setdefault(bank_key, {})
+				if not isinstance(bank_dict, dict):
+					continue
+
+				for btn in getattr(bank_widget, "buttons", []) or []:
+					try:
+						idx = getattr(btn, "index_in_bank", None)
+						if idx is None:
+							continue
+						key = str(idx)
+						if key in bank_dict:
+							continue
+						get_state = getattr(btn, "get_persisted_state", None)
+						state = get_state() if callable(get_state) else {"file_path": None}
+						bank_dict[key] = state if isinstance(state, dict) else {"file_path": None}
+						changed = True
+					except Exception:
+						continue
+
+			if changed:
+				schedule = getattr(store, "schedule_save", None)
+				if callable(schedule):
+					schedule()
+				else:
+					save = getattr(store, "save_settings", None)
+					if callable(save):
+						save()
+		except Exception:
+			return
 
 	@Slot(int)
 	def set_current_bank(self, index: int) -> None:
@@ -106,6 +180,17 @@ class BankSelectorWidget(QWidget):
 
 		# Force the newly visible bank to repaint/refresh label/time state.
 		self._refresh_visible_bank()
+		try:
+			self.bank_changed.emit(int(index))
+		except Exception:
+			pass
+
+	def current_bank_index(self) -> int:
+		"""Return the currently visible bank index."""
+		try:
+			return int(self._current_bank_index)
+		except Exception:
+			return 0
 
 	def current_bank(self) -> ButtonBankWidget:
 		return self._bank_widgets[self._current_bank_index]
@@ -140,6 +225,14 @@ class BankSelectorWidget(QWidget):
 		except Exception:
 			return
 
+		# Lazy restore so we don't probe every bank's audio files on startup.
+		try:
+			ensure = getattr(bank, "ensure_restored", None)
+			if callable(ensure):
+				ensure()
+		except Exception:
+			pass
+
 		# Ensure the grid repaints.
 		try:
 			bank.update()
@@ -157,6 +250,33 @@ class BankSelectorWidget(QWidget):
 				btn.update()
 			except Exception:
 				pass
+
+	def flush_persistence(self) -> None:
+		"""Force any pending debounced button settings writes to disk."""
+		try:
+			self._button_settings.flush()
+		except Exception:
+			pass
+
+	def load_button_settings(self, settings_dict: dict) -> None:
+		"""Replace all button persistence (used by project load)."""
+		try:
+			self._button_settings.replace_settings(settings_dict or {}, save=True)
+		except Exception:
+			pass
+
+		# Make sure the loaded structure explicitly includes all buttons.
+		self._ensure_all_buttons_persisted()
+
+		# Force all banks to restore again from the new store.
+		for bank in self._bank_widgets:
+			try:
+				if hasattr(bank, "_restored"):
+					bank._restored = False
+			except Exception:
+				continue
+
+		self._refresh_visible_bank()
 
 	# ---------------------------------------------------------------------
 	# Drag/drop overflow support (multi-file drops)

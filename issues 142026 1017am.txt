@@ -1,16 +1,36 @@
 issues 1/4/2026 10:17am
 
+1. type checking dropping sound clips into buttons needs work
 
+2. saving / loading doesn't start in current file dir
 
-8. On crashes, all background processes need to stop (maybe check for heartbeat?)
+3. 
 
 new features
-1. number buttons in upper left
 
-2. banks
 
-3. settings window
+1. editor
 
-4. editor
+2. streamdeck
+
+3. number_pad support
+
+4. custom keyboard shortcuts/capture
+
+4b. add tabs to settings window Audio Engine/Keyboard Shortcuts/Streamdeck
+
+5. buttons need to option to a add background image
+
+6. filters?
+
+7. stream playback
+
+8. clip used markers + options to reset / enable in settings
+
+9. GPIs - Arduino
+
+10. output mapping for additional or larger soundcards
+
+11. drag select
 
 

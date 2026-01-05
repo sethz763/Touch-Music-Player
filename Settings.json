@@ -8,13 +8,13 @@
     "Editor_Output": [
         7,
         "Speaker (Realtek(R) Audio)",
-        null,
-        null
+        "MME",
+        48000.0
     ],
-    "fade_in_duration": 756,
-    "fade_out_duration": 723,
-    "play_fade_dur": 756,
-    "pause_fade_dur": 723,
+    "fade_in_duration": 141,
+    "fade_out_duration": 409,
+    "play_fade_dur": 141,
+    "pause_fade_dur": 409,
     "rows": 3,
     "columns": 8
 }

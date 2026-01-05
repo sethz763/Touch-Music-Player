@@ -41,7 +41,8 @@ class ButtonBanksWidget(QWidget):
         self.stream_deck = StreamDeckConnector()
         self.stream_deck.key_pressed.connect(self.streamdeck_button_handler)
 
-        self.settings = SaveSettings("Default_Button_File.json")
+        # Button edits can happen rapidly; debounce disk writes.
+        self.settings = SaveSettings("Default_Button_File.json", autosave=True, debounce_seconds=0.5)
         self.button_settings = self.settings.get_settings()
         self.emitter = Signals()
         self.save_signal = SaveSignal()
@@ -361,10 +362,11 @@ class ButtonBanksWidget(QWidget):
     def save_button_settings(self, key, value):
         print('trying to save...')
         self.settings.set_setting(key,value)
-        self.settings.save_settings()
+        # Debounced write (also triggered automatically when autosave=True).
+        self.settings.schedule_save()
         
     def save_new_buttons_file(self, file_path):
-        self.settings = SaveSettings(file_path)
+        self.settings = SaveSettings(file_path, autosave=True, debounce_seconds=0.5)
         self.button_settings = self.settings.get_settings()
         
         for bank_num in range(self.num_of_banks):
@@ -376,7 +378,7 @@ class ButtonBanksWidget(QWidget):
                     button.save_settings()
                     
     def save_as_buttons_file(self, file_path):
-        self.settings = SaveSettings(file_path)
+        self.settings = SaveSettings(file_path, autosave=True, debounce_seconds=0.5)
         self.button_settings = self.settings.get_settings()
         
         for bank_num in range(self.num_of_banks):
@@ -387,7 +389,7 @@ class ButtonBanksWidget(QWidget):
                     button.save_settings()
                     
     def change_buttons_file(self, file_path):
-        self.settings = SaveSettings(file_path)
+        self.settings = SaveSettings(file_path, autosave=True, debounce_seconds=0.5)
         self.button_settings = self.settings.get_settings()
 
     def stop_flashing_all(self):

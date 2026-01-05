@@ -147,6 +147,10 @@ class SoundFileButton(QPushButton):
     
     update_cue_settings = Signal(str, CueInfo)  # cue_id: str, cue_info: CueInfo
 
+    # Emitted whenever user-visible/persistable state changes (file assignment, loop, gain, colors, etc.).
+    # Payload is best-effort and may change; consumers should treat it as a dict.
+    state_changed = Signal(object)
+
     # Class variables for drag control
     _dragging_button: Optional[SoundFileButton] = None
     drag_enabled: bool = True  # Global toggle for drag and drop functionality
@@ -315,6 +319,7 @@ class SoundFileButton(QPushButton):
         try:
             self.loop_enabled = bool(enabled)
             self._refresh_label()
+            self._notify_state_changed()
         except Exception:
             pass
     
@@ -326,6 +331,7 @@ class SoundFileButton(QPushButton):
             ms (int): Fade-in duration in milliseconds (will be used on next playback)
         """
         self.fade_in_ms = max(0, ms)
+        self._notify_state_changed()
     
     def set_fade_out_duration(self, ms: int) -> None:
         """
@@ -335,6 +341,131 @@ class SoundFileButton(QPushButton):
             ms (int): Fade-out duration in milliseconds (will be used on next transition)
         """
         self.fade_out_ms = max(0, ms)
+        self._notify_state_changed()
+
+    # ------------------------------------------------------------------
+    # Persistence helpers
+    # ------------------------------------------------------------------
+
+    def get_persisted_state(self) -> dict:
+        """Return a JSON-serializable snapshot of this button's persistable state."""
+        try:
+            bg = None
+            try:
+                bg = self.bg_color.name() if self.bg_color is not None else None
+            except Exception:
+                bg = None
+
+            text = None
+            try:
+                text = self.text_color.name() if self.text_color is not None else None
+            except Exception:
+                text = None
+
+            return {
+                "file_path": self.file_path,
+                "in_frame": int(getattr(self, "in_frame", 0) or 0),
+                "out_frame": getattr(self, "out_frame", None),
+                "loop_enabled": bool(getattr(self, "loop_enabled", False)),
+                "auto_fade_enabled": bool(getattr(self, "auto_fade_enabled", False)),
+                "gain_db": float(getattr(self, "gain_db", 0.0) or 0.0),
+                "fade_in_ms": int(getattr(self, "fade_in_ms", 0) or 0),
+                "fade_out_ms": int(getattr(self, "fade_out_ms", 0) or 0),
+                "bg_color": bg,
+                "text_color": text,
+            }
+        except Exception:
+            return {"file_path": getattr(self, "file_path", None)}
+
+    def apply_persisted_state(self, state: dict) -> None:
+        """Apply previously persisted state to this button (best-effort)."""
+        if not isinstance(state, dict):
+            return
+
+        # Avoid emitting state_changed during initial restore.
+        self._restoring = True
+        try:
+            fp = state.get("file_path")
+            if fp:
+                try:
+                    self._set_new_file(fp)
+                except Exception:
+                    # As a fallback, set file_path directly.
+                    self.file_path = fp
+                    try:
+                        self._refresh_label()
+                    except Exception:
+                        pass
+            else:
+                try:
+                    self._clear_button()
+                except Exception:
+                    pass
+
+            # Apply per-cue parameters after file assignment.
+            try:
+                self.in_frame = int(state.get("in_frame") or 0)
+            except Exception:
+                self.in_frame = 0
+            try:
+                self.out_frame = state.get("out_frame")
+            except Exception:
+                self.out_frame = None
+            try:
+                self.loop_enabled = bool(state.get("loop_enabled", False))
+            except Exception:
+                self.loop_enabled = False
+            try:
+                self.auto_fade_enabled = bool(state.get("auto_fade_enabled", False))
+            except Exception:
+                self.auto_fade_enabled = False
+            try:
+                self.gain_db = float(state.get("gain_db", 0.0) or 0.0)
+            except Exception:
+                self.gain_db = 0.0
+            try:
+                self.fade_in_ms = int(state.get("fade_in_ms", self.fade_in_ms) or 0)
+            except Exception:
+                pass
+            try:
+                self.fade_out_ms = int(state.get("fade_out_ms", self.fade_out_ms) or 0)
+            except Exception:
+                pass
+
+            # Apply colors.
+            try:
+                bg = state.get("bg_color")
+                self.bg_color = QColor(bg) if bg else None
+            except Exception:
+                self.bg_color = None
+            try:
+                tc = state.get("text_color")
+                self.text_color = QColor(tc) if tc else None
+            except Exception:
+                self.text_color = None
+
+            try:
+                self._apply_stylesheet()
+            except Exception:
+                pass
+            try:
+                self._refresh_label()
+            except Exception:
+                pass
+        finally:
+            self._restoring = False
+
+    def _notify_state_changed(self) -> None:
+        """Emit state_changed unless we're currently restoring."""
+        try:
+            if getattr(self, "_restoring", False):
+                return
+        except Exception:
+            pass
+        try:
+            self.state_changed.emit(self.get_persisted_state())
+        except Exception:
+            pass
     
     def get_fade_in_duration(self) -> int:
         """Get current fade-in duration in milliseconds."""
@@ -430,7 +561,7 @@ class SoundFileButton(QPushButton):
         Text wraps within the button; button size is not affected by text length.
         """
         if not self.file_path:
-            self.setText(self._auto_wrap_text("Choose Sound"))
+            self.setText(self._auto_wrap_text(""))
             self.setStyleSheet("")
             return
         
@@ -734,9 +865,19 @@ class SoundFileButton(QPushButton):
             self.loop_enabled = not self.loop_enabled
             self._update_cue_settings()
             self.setToolTip(f"Loop: {self._get_loop_status()}")
+            try:
+                self._refresh_label()
+            except Exception:
+                pass
+            self._notify_state_changed()
         elif action == auto_fade_action:
             self.auto_fade_enabled = not self.auto_fade_enabled
             self.setToolTip(f"Auto-Fade: {self._get_auto_fade_status()}")
+            try:
+                self._refresh_label()
+            except Exception:
+                pass
+            self._notify_state_changed()
         elif action == reset_colors:
             self._reset_colors()
         elif action == clear:
@@ -793,6 +934,7 @@ class SoundFileButton(QPushButton):
         self.file_path = file_path
         self._probe_file_async(file_path)
         self._refresh_label()
+        self._notify_state_changed()
     
     def _clear_file(self) -> None:
         """Clear the file path and reset button."""
@@ -801,6 +943,7 @@ class SoundFileButton(QPushButton):
         self.sample_rate = None
         self.channels = None
         self._refresh_label()
+        self._notify_state_changed()
     
     def _clear_button(self) -> None:
         """Clear button completely: reset to blank default state."""
@@ -825,8 +968,9 @@ class SoundFileButton(QPushButton):
         self.is_playing = False
         self.bg_color = None
         self.text_color = None
-        self.setText(self._auto_wrap_text("Choose Sound"))
+        self.setText("")
         self.setStyleSheet("")
+        self._notify_state_changed()
     
     def _probe_file_async(self, path: str) -> None:
         """
@@ -963,6 +1107,7 @@ class SoundFileButton(QPushButton):
         if color.isValid():
             self.bg_color = color
             self._refresh_label()
+            self._notify_state_changed()
     
     def _set_text_color_dialog(self) -> None:
         """Open color picker dialog for text color."""
@@ -974,12 +1119,14 @@ class SoundFileButton(QPushButton):
         if color.isValid():
             self.text_color = color
             self._refresh_label()
+            self._notify_state_changed()
     
     def _reset_colors(self) -> None:
         """Reset colors to defaults."""
         self.bg_color = None
         self.text_color = None
         self._refresh_label()
+        self._notify_state_changed()
     
     def _open_editor(self) -> None:
         """Open audio editor for this file"""
@@ -1181,7 +1328,23 @@ class SoundFileButton(QPushButton):
             return
         
         self.elapsed_seconds = elapsed
-        self.remaining_seconds = self.duration_seconds - elapsed
+        # Prefer engine-provided total duration (handles trimmed cues/outpoints).
+        dur = None
+        try:
+            if isinstance(total, (int, float)):
+                dur = float(total)
+        except Exception:
+            dur = None
+        if dur is None:
+            try:
+                if self.duration_seconds is not None:
+                    dur = float(self.duration_seconds)
+            except Exception:
+                dur = None
+        if dur is not None:
+            self.remaining_seconds = max(0.0, dur - float(elapsed))
+        else:
+            self.remaining_seconds = remaining
         self._update_time_display()
         
         elapsed_ms = (time.perf_counter() - start) * 1000
@@ -1683,6 +1846,7 @@ class SoundFileButton(QPushButton):
         
         # Refresh display
         self._refresh_label()
+        self._notify_state_changed()
 
     # ==========================================================================
     # RESIZE HANDLING FOR FADE BUTTON POSITIONING
@@ -1716,7 +1880,8 @@ class SoundFileButton(QPushButton):
             display_name = self.song_title or self.file_path.split("/")[-1].split("\\")[-1]
             self.setText(self._auto_wrap_text(display_name))
         else:
-            self.setText(self._auto_wrap_text("Choose Sound"))
+            # Keep unassigned buttons blank even when resized/maximized.
+            self.setText("")
 
     # ==========================================================================
     # GESTURE HANDLING FOR GAIN SLIDER (SWIPE LEFT/RIGHT)
@@ -2092,9 +2257,13 @@ class SoundFileButton(QPushButton):
         
         # Send update to engine using the same signal as loop state updates
         self._update_cue_settings()
+
+        # Persist updated gain.
+        self._notify_state_changed()
         
         # Update display to show current gain value
         self.update()
+
     def _on_reset_gain(self) -> None:
         """Reset the gain to 0 dB when reset button is clicked."""
         self.gain_db = 0.0
@@ -2112,6 +2281,9 @@ class SoundFileButton(QPushButton):
         
         # Send update to engine
         self._update_cue_settings()
+
+        # Persist reset.
+        self._notify_state_changed()
         
         # Update display
         self.update()

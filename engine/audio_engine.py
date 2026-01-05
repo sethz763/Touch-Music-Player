@@ -666,7 +666,13 @@ class AudioEngine:
         if not layered:
             self.primary_cue_id = cue.cue_id
 
-        evt = CueStartedEvent(cue_id=cue.cue_id, track_id=cue.track.track_id, tod_start_iso=tod_start.isoformat(), file_path=cmd.file_path)
+        evt = CueStartedEvent(
+            cue_id=cue.cue_id,
+            track_id=cue.track.track_id,
+            tod_start_iso=tod_start.isoformat(),
+            file_path=cmd.file_path,
+            total_seconds=(total_seconds if total_seconds is not None else None),
+        )
         # Queue event to be returned by pump()
         self._pending_events.append(evt)
         return evt

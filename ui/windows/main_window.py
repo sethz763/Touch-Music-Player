@@ -4,9 +4,9 @@ import multiprocessing as mp
 import os
 import time
 from typing import Optional, TYPE_CHECKING
-from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout
-from PySide6.QtCore import QTimer, QThread, Signal
-from PySide6.QtGui import QAction
+from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout, QFileDialog, QMessageBox
+from PySide6.QtCore import QTimer, QThread, Signal, QEvent, Qt
+from PySide6.QtGui import QAction, QFont
 
 if TYPE_CHECKING:
     from engine.commands import PlayCueCommand
@@ -39,12 +39,18 @@ class MainWindow(QMainWindow):
         self._audio_cmd_q = ctx.Queue()
         self._audio_evt_q = ctx.Queue()
         
+        # Load persisted application settings.
+        app_settings = {}
+        try:
+            app_settings = SaveSettings("Settings.json").get_settings() or {}
+        except Exception:
+            app_settings = {}
+
         # Audio service configuration
         # Fade defaults can be overridden by persisted Settings.json (legacy settings window).
         fade_in_ms = 100
         fade_out_ms = 1000
         try:
-            app_settings = SaveSettings("Settings.json").get_settings() or {}
             if "play_fade_dur" in app_settings:
                 fade_in_ms = int(app_settings["play_fade_dur"])
             elif "fade_in_duration" in app_settings:
@@ -82,7 +88,6 @@ class MainWindow(QMainWindow):
 
         # Apply persisted main output device (if present) after adapter is ready.
         try:
-            app_settings = SaveSettings("Settings.json").get_settings() or {}
             main_out = app_settings.get("Main_Output")
             if isinstance(main_out, (list, tuple)):
                 # new schema: [index, name, hostapi, sample_rate]
@@ -170,11 +175,15 @@ class MainWindow(QMainWindow):
         labels_and_toggles.setSpacing(4)
 
         self.status = QLabel("Ready")
-        labels_and_toggles.addWidget(self.status)
+        # labels_and_toggles.addWidget(self.status)
 
-        self.master_time_display = QLabel("Master Time: 00:00.000")
+        self.master_time_display = QLabel("00:00.000")
+        self.master_time_display.setFont(QFont('Courier', 20))
+        # Click to toggle elapsed vs remaining.
+        self.master_time_display.installEventFilter(self)
         labels_and_toggles.addWidget(self.master_time_display)
         self.view_elapsed_time = True  # Toggle for elapsed vs remaining time display
+        self._last_master_time: Optional[tuple[str, float, float, Optional[float]]] = None
 
         # Drag and drop toggle (start with gestures enabled, dragging disabled)
         self.drag_enabled_chk = QCheckBox("Enable button dragging (gestures disabled)")
@@ -184,9 +193,19 @@ class MainWindow(QMainWindow):
 
         under_meters_row.addLayout(labels_and_toggles, 1)
 
+        # Restore persisted grid size (rows/cols).
+        try:
+            persisted_rows = int(app_settings.get("rows", 3))
+        except Exception:
+            persisted_rows = 3
+        try:
+            persisted_cols = int(app_settings.get("columns", 8))
+        except Exception:
+            persisted_cols = 8
+
         # Create the bank selector early so PlayControls can wire Next/Loop handlers
         # (layout placement still happens below)
-        self.bank = BankSelectorWidget(banks=10, rows=3, cols=8, engine_adapter=self.engine_adapter)
+        self.bank = BankSelectorWidget(banks=10, rows=persisted_rows, cols=persisted_cols, engine_adapter=self.engine_adapter)
 
         self.play_controls = PlayControls(50, 400)
         self.play_controls.transport_play.connect(self.engine_adapter.transport_play)
@@ -211,19 +230,170 @@ class MainWindow(QMainWindow):
         self._on_toggle_drag(False)
         layout.addWidget(self.bank)
 
+        # Optional Stream Deck XL integration (hardware I/O stays off the Qt thread).
+        self._streamdeck = None
+        try:
+            from gui.streamdeck_xl import StreamDeckXLBridge
+
+            self._streamdeck = StreamDeckXLBridge(
+                bank_selector=self.bank,
+                engine_adapter=self.engine_adapter,
+                play_controls=self.play_controls,
+                mode=StreamDeckXLBridge.BankMode.SYNC,
+                parent=self,
+            )
+            self._streamdeck._show_corner_label = True
+            self._streamdeck.start()
+        except Exception:
+            self._streamdeck = None
+
         # Connect to engine adapter signals instead of polling queue directly
         # (EngineAdapter handles all event routing via Qt signals)
         self.engine_adapter.cue_finished.connect(self._on_cue_finished)
         self.engine_adapter.cue_time.connect(self._on_master_time_update)
         self.engine_adapter.master_levels.connect(self._on_master_levels_update)
         
+        # Menus
+        file_menu = self.menuBar().addMenu("File")
+        save_project_action = QAction("Save Project...", self)
+        save_project_action.triggered.connect(self.save_project)
+        file_menu.addAction(save_project_action)
+
+        load_project_action = QAction("Load Project...", self)
+        load_project_action.triggered.connect(self.load_project)
+        file_menu.addAction(load_project_action)
+
         log_action = QAction("Logging Settings", self)
         log_action.triggered.connect(self.open_logging_dialog)
         self.menuBar().addAction(log_action)
-        
+
         setting_action = QAction("Settings", self)
         setting_action.triggered.connect(self.open_settings_dialog)
         self.menuBar().addAction(setting_action)
+
+    def _collect_project_dict(self) -> dict:
+        """Collect a user-saveable project snapshot."""
+        try:
+            if getattr(self, "bank", None) is not None:
+                self.bank.flush_persistence()
+        except Exception:
+            pass
+
+        try:
+            app_settings = SaveSettings("Settings.json").get_settings() or {}
+        except Exception:
+            app_settings = {}
+
+        try:
+            button_settings = SaveSettings("ButtonSettings.json").get_settings() or {}
+        except Exception:
+            button_settings = {}
+
+        try:
+            log_settings = SaveSettings("log_settings.json").get_settings() or {}
+        except Exception:
+            log_settings = {}
+
+        return {
+            "schema": 1,
+            "settings": app_settings,
+            "button_settings": button_settings,
+            "log_settings": log_settings,
+        }
+
+    def save_project(self) -> None:
+        """Save a portable project JSON containing app/button/log settings."""
+        filename, _filter = QFileDialog.getSaveFileName(
+            self,
+            "Save Project",
+            "",
+            "Project Files (*.json)",
+        )
+        if not filename:
+            return
+
+        project_dict = self._collect_project_dict()
+        try:
+            store = SaveSettings(filename)
+            store.replace_settings(project_dict, save=True)
+            QMessageBox.information(self, "Project Saved", f"Saved project to:\n{filename}")
+        except Exception as e:
+            QMessageBox.warning(self, "Save Failed", f"Failed to save project:\n{e}")
+
+    def load_project(self) -> None:
+        """Load a project JSON and apply settings immediately where possible."""
+        filename, _filter = QFileDialog.getOpenFileName(
+            self,
+            "Load Project",
+            "",
+            "Project Files (*.json)",
+        )
+        if not filename:
+            return
+
+        try:
+            project = SaveSettings(filename).get_settings() or {}
+        except Exception as e:
+            QMessageBox.warning(self, "Load Failed", f"Failed to read project file:\n{e}")
+            return
+
+        app_settings = project.get("settings") if isinstance(project, dict) else None
+        button_settings = project.get("button_settings") if isinstance(project, dict) else None
+        log_settings = project.get("log_settings") if isinstance(project, dict) else None
+
+        if not isinstance(app_settings, dict) or not isinstance(button_settings, dict) or not isinstance(log_settings, dict):
+            QMessageBox.warning(self, "Load Failed", "Invalid project file (missing settings sections).")
+            return
+
+        # Persist into the app's normal storage locations.
+        try:
+            SaveSettings("Settings.json").replace_settings(app_settings, save=True)
+        except Exception:
+            pass
+        try:
+            SaveSettings("ButtonSettings.json").replace_settings(button_settings, save=True)
+        except Exception:
+            pass
+        try:
+            SaveSettings("log_settings.json").replace_settings(log_settings, save=True)
+        except Exception:
+            pass
+
+        # Apply button settings immediately.
+        try:
+            if getattr(self, "bank", None) is not None:
+                self.bank.load_button_settings(button_settings)
+        except Exception:
+            pass
+
+        # Apply logging settings immediately.
+        try:
+            xlsx_path = log_settings.get("filename") or "cue_log.xlsx"
+            title = log_settings.get("show_name") or "Cue Log"
+            enabled = bool(log_settings.get("logging_enabled", True))
+            if getattr(self, "save_to_excel", None) is not None:
+                self.save_to_excel.set_logging_enabled(enabled)
+                try:
+                    self.save_to_excel.set_title(title)
+                except Exception:
+                    pass
+                # Switch to the project's current log files (do not clear).
+                self.save_to_excel.load(xlsx_path)
+        except Exception:
+            pass
+
+        # If the logging dialog is open, update its fields.
+        try:
+            if getattr(self, "_logging_dialog", None) is not None and self._logging_dialog.isVisible():
+                try:
+                    self._logging_dialog.load_from_settings()
+                    self._logging_dialog.refresh()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        QMessageBox.information(self, "Project Loaded", f"Loaded project from:\n{filename}")
 
     def _on_loop_button_toggled(self, enabled: bool) -> None:
         """Update engine global loop state; optionally apply per-cue loop when not overriding."""
@@ -267,8 +437,33 @@ class MainWindow(QMainWindow):
         except Exception as e:
             print(f"[MainWindow.resizeEvent] Error: {e}")
 
+    def eventFilter(self, watched, event):
+        try:
+            if watched is self.master_time_display and event.type() == QEvent.MouseButtonRelease:
+                if getattr(event, "button", None) is not None and event.button() == Qt.LeftButton:
+                    self.view_elapsed_time = not self.view_elapsed_time
+                    # Refresh immediately using the most recent update.
+                    if self._last_master_time is not None:
+                        cue_id, elapsed, remaining, total = self._last_master_time
+                        self._on_master_time_update(cue_id, elapsed, remaining, total)
+                    return True
+        except Exception:
+            pass
+        return super().eventFilter(watched, event)
+
     def closeEvent(self, event):
         """Clean shutdown of audio service when window closes."""
+        try:
+            if getattr(self, "_streamdeck", None) is not None:
+                self._streamdeck.stop()
+        except Exception:
+            pass
+        try:
+            # Flush any pending debounced button persistence.
+            if getattr(self, "bank", None) is not None:
+                self.bank.flush_persistence()
+        except Exception:
+            pass
         try:
             # Send None to signal audio service to stop
             self._audio_cmd_q.put(None)
@@ -324,16 +519,24 @@ class MainWindow(QMainWindow):
         
     def _on_master_time_update(self, cue_id: str, elapsed: float, remaining: float, total: Optional[float]) -> None:
         """Update master time display with remaining and elapsed time optional"""
+        self._last_master_time = (cue_id, elapsed, remaining, total)
         if self.view_elapsed_time:
             minutes = int(elapsed // 60)
             seconds = int(elapsed % 60)
             milliseconds = int((elapsed - int(elapsed)) * 1000)
-            self.master_time_display.setText(f"Master Time: {minutes:02}:{seconds:02}.{milliseconds:03}")
+            self.master_time_display.setText(f"{minutes:02}:{seconds:02}.{milliseconds:03}")
         else:   
-            minutes = int(remaining // 60)
-            seconds = int(remaining % 60)
-            milliseconds = int((remaining - int(remaining)) * 1000)
-            self.master_time_display.setText(f"Master Time: -{minutes:02}:{seconds:02}.{milliseconds:03}")
+            # Prefer duration-based remaining when available.
+            rem = remaining
+            try:
+                if isinstance(total, (int, float)):
+                    rem = max(0.0, float(total) - float(elapsed))
+            except Exception:
+                rem = remaining
+            minutes = int(rem // 60)
+            seconds = int(rem % 60)
+            milliseconds = int((rem - int(rem)) * 1000)
+            self.master_time_display.setText(f"{minutes:02}:{seconds:02}.{milliseconds:03}")
     
     def _on_master_levels_update(self, rms_db: list, peak_db: list) -> None:
         """Update master output level meters with per-channel levels in dB."""

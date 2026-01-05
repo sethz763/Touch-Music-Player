@@ -34,6 +34,7 @@ class ButtonBankWidget(QWidget):
         cols: int = 8,
         engine_adapter: EngineAdapter | None = None,
         bank_index: int | None = None,
+        settings_store: object | None = None,
     ) -> None:
         """
         Initialize button bank with grid of sound file buttons and batching support.
@@ -49,6 +50,8 @@ class ButtonBankWidget(QWidget):
         self._rows = int(rows)
         self._cols = int(cols)
         self.bank_index: int | None = int(bank_index) if bank_index is not None else None
+        self._settings_store = settings_store
+        self._restored_from_disk = False
         self._last_started_button_index: int | None = None
         self.setFixedHeight(500)
         
@@ -84,12 +87,107 @@ class ButtonBankWidget(QWidget):
                 btn.request_play.connect(self._on_button_request_play)
                 btn.request_stop.connect(self._on_button_request_stop)
                 btn.request_fade.connect(self._on_button_request_fade)
+
+                # Persistence: save any state changes (file assignment, loop/gain edits, colors, etc.)
+                try:
+                    btn.state_changed.connect(self._on_button_state_changed)
+                except Exception:
+                    pass
                 self.buttons.append(btn)
                 layout.addWidget(btn, r, c)
         
         # Connect engine adapter signals to button bank's routing methods
         if engine_adapter:
             self.set_engine_adapter(engine_adapter)
+
+    # ---------------------------------------------------------------------
+    # Persistence: restore + save button state
+    # ---------------------------------------------------------------------
+
+    def ensure_restored(self) -> None:
+        """Restore this bank's button state from disk once (lazy)."""
+        if self._restored_from_disk:
+            return
+        self._restored_from_disk = True
+        self._restore_buttons_from_settings()
+
+    def _restore_buttons_from_settings(self) -> None:
+        store = self._settings_store
+        if store is None:
+            return
+
+        try:
+            settings = getattr(store, "settings", {}) or {}
+            banks = settings.get("banks") or {}
+            bank_state = banks.get(str(self.bank_index)) or {}
+        except Exception:
+            return
+
+        for btn in self.buttons:
+            try:
+                key = str(getattr(btn, "index_in_bank", ""))
+                if not key:
+                    continue
+
+                state = bank_state.get(key)
+
+                apply_fn = getattr(btn, "apply_persisted_state", None)
+                if not callable(apply_fn):
+                    continue
+
+                # If there is no state (or it is invalid), treat it as an explicit clear.
+                # This ensures project loads can clear buttons that previously had cues.
+                if not isinstance(state, dict):
+                    apply_fn({"file_path": None})
+                    continue
+
+                apply_fn(state)
+            except Exception:
+                continue
+
+    def _on_button_state_changed(self, _state: object) -> None:
+        """Persist a button's state using the shared store."""
+        store = self._settings_store
+        if store is None:
+            return
+
+        try:
+            btn = self.sender()
+        except Exception:
+            btn = None
+        if btn is None:
+            return
+
+        try:
+            idx = getattr(btn, "index_in_bank", None)
+            if idx is None:
+                return
+
+            get_state = getattr(btn, "get_persisted_state", None)
+            if not callable(get_state):
+                return
+            state = get_state()
+            if not isinstance(state, dict):
+                return
+
+            # Mutate nested dict in-place to avoid rewriting the entire structure.
+            root = getattr(store, "settings", None)
+            if not isinstance(root, dict):
+                return
+            root.setdefault("schema", 1)
+            banks = root.setdefault("banks", {})
+            bank_dict = banks.setdefault(str(self.bank_index), {})
+            bank_dict[str(idx)] = state
+
+            schedule = getattr(store, "schedule_save", None)
+            if callable(schedule):
+                schedule()
+            else:
+                save = getattr(store, "save_settings", None)
+                if callable(save):
+                    save()
+        except Exception:
+            return
 
     def set_bank_index(self, bank_index: int | None) -> None:
         """Update bank index for all buttons (affects the corner label)."""
