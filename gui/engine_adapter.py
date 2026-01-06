@@ -54,6 +54,7 @@ import multiprocessing as mp
 import traceback
 import uuid
 import time
+import os
 from collections import deque
 
 from PySide6.QtCore import QObject, Signal, QTimer
@@ -245,7 +246,11 @@ class EngineAdapter(QObject):
         self._slow_threshold_ms = 5.0
         self._poll_event_times = []
         self._dispatch_event_times = []
-        self._poll_debug_logging = True  # Temporary verbose logging for queue analysis
+        # Very chatty; opt-in only (helps avoid terminal I/O becoming a bottleneck).
+        try:
+            self._poll_debug_logging = bool(int(os.environ.get("STEPD_POLL_DEBUG", "0")))
+        except Exception:
+            self._poll_debug_logging = False
 
         # Poll jitter / backlog diagnostics
         self._poll_interval_ms = int(poll_interval_ms)
@@ -600,7 +605,6 @@ class EngineAdapter(QObject):
             return  # Silently ignore empty batches
         
         try:
-            from engine.commands import BatchCommandsCommand
             cmd = BatchCommandsCommand(commands=commands)
             self._cmd_q.put(cmd)
         except Exception as e:

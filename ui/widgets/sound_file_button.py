@@ -40,6 +40,7 @@ import time
 import uuid
 from typing import Optional, TYPE_CHECKING, Callable
 import threading
+import os
 
 import numpy as np
 
@@ -1198,7 +1199,11 @@ class SoundFileButton(QPushButton):
             "out_frame": self.out_frame,
             "fade_in_ms": self.fade_in_ms,
             "loop_enabled": self.loop_enabled,
-            "layered": True,
+            # Per-cue layered should default to False.
+            # Global auto-fade-on-new (MainWindow toggle) controls whether existing cues
+            # are faded when a new cue starts. Setting layered=True here would override
+            # and suppress that global behavior.
+            "layered": False,
             "total_seconds": self.duration_seconds,
         }
         
@@ -1315,6 +1320,9 @@ class SoundFileButton(QPushButton):
     
     def _hide_fade_button(self) -> None:
         """Deferred fade button hide to batch layout updates."""
+        """make sure there are no other active cues before hiding"""
+        if len(self._active_cue_ids) > 0:
+            return  
         self.fade_button.setEnabled(False)
         self.fade_button.hide()
     

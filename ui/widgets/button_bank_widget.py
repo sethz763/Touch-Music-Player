@@ -5,6 +5,7 @@ from PySide6.QtWidgets import QWidget, QGridLayout
 from PySide6.QtCore import Signal, QTimer
 import time
 import warnings
+import os
 
 from engine.commands import PlayCueCommand, StopCueCommand, FadeCueCommand
 
@@ -242,6 +243,7 @@ class ButtonBankWidget(QWidget):
             except Exception:
                 pass
         
+
         if len(self._pending_commands) == 1:
             # Single command: send directly without batching overhead
             cmd = self._pending_commands[0]
@@ -263,8 +265,26 @@ class ButtonBankWidget(QWidget):
             elif isinstance(cmd, FadeCueCommand):
                 self.engine_adapter.fade_cue(cmd.cue_id, cmd.target_db, cmd.duration_ms, cmd.curve)
         else:
-            # Multiple commands: send as batch for efficiency
-            self.engine_adapter.batch_commands(self._pending_commands)
+            # Multiple commands: send as batch for efficiency.
+            #
+            # Empirically on Windows (spawn), batching *only* StopCueCommand objects
+            # can fail to reach AudioService in the real GUI, even though individual
+            # StopCueCommand put() calls work reliably. Since the Fade button can
+            # generate a stop-only batch (one stop per active cue), special-case it
+            # and send the stops individually.
+            try:
+                stop_only = all(isinstance(c, StopCueCommand) for c in self._pending_commands)
+            except Exception:
+                stop_only = False
+
+            if stop_only:
+                for c in list(self._pending_commands):
+                    try:
+                        self.engine_adapter.stop_cue(c.cue_id, c.fade_out_ms)
+                    except Exception:
+                        pass
+            else:
+                self.engine_adapter.batch_commands(self._pending_commands)
         
         self._pending_commands.clear()
     

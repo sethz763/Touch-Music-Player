@@ -380,6 +380,18 @@
 			],
 			"isBackground": false,
 			"group": "test"
+		},
+		{
+			"label": "Debug: launch app capture 8s (bufreq debug)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$env:STEPD_BUFREQ_DEBUG='1'; Remove-Item -Force .\\debug_gui_stdout.txt,.\\debug_gui_stderr.txt,.\\last_gui_crash.txt,.\\last_gui_hang.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('-m','app.music_player') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\debug_gui_stdout.txt -RedirectStandardError .\\debug_gui_stderr.txt; Start-Sleep -Seconds 8; if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }; '---stderr---'; if (Test-Path .\\debug_gui_stderr.txt) { Get-Content .\\debug_gui_stderr.txt -Tail 120 } else { 'no stderr file' }; '---stdout---'; if (Test-Path .\\debug_gui_stdout.txt) { Get-Content .\\debug_gui_stdout.txt -Tail 120 } else { 'no stdout file' }"
+			],
+			"isBackground": false,
+			"group": "test"
 		}
 	]
 }

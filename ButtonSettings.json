@@ -20,7 +20,7 @@
                 "out_frame": null,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
-                "gain_db": 0.0,
+                "gain_db": -2.9,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#0000ff",

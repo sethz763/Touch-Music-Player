@@ -860,7 +860,7 @@ class StreamDeckXLBridge(QObject):
 
         # Key 31: gui sync mode (dynamic)
         sync_on = self._mode == self.BankMode.SYNC
-        sync_text = "GUI\nSYNC" if sync_on else "INDEP"
+        sync_text = "GUI\nSYNC\nON" if sync_on else "GUI\nSYNC\nOFF"
         prev = self._last_snapshot.get(31)
         if self._force_full_redraw or prev is None or prev[0] != sync_text:
             self._enqueue_render(_KeyRender(key=31, text=sync_text, active_level=0.6 if sync_on else 0.0))

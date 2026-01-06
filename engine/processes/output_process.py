@@ -118,6 +118,11 @@ class _Ring:
         self.eof = False
         self.request_pending = False
         self.request_started_at = None  # timestamp when current buffer request was made
+        self.request_started_mono: float | None = None  # monotonic timestamp for request latency diagnostics
+        self.request_seq = 0
+        self.last_request_credit = 0
+        self.last_request_low_water_frames = 0
+        self.last_request_target_frames = 0
         self.last_pcm_time = None  # timestamp when last PCM was pushed to this ring
         self.finished_pending = False  # set by callback when cue is done; main loop emits event
         # If True, treat the next loop-restart boundary as end-of-cue.
@@ -131,6 +136,16 @@ class _Ring:
         self.partial_fill_count = 0
         self.partial_padded_frames_total = 0
         self.last_partial_padded_frames = 0
+
+        # Glitch diagnostics (updated in RT callback; reported outside callback)
+        self.last_partial_step_to_zero = 0.0
+        self.last_out_sample: np.ndarray | None = None
+        self.loop_restart_jump_count = 0
+        self.last_loop_restart_jump = 0.0
+        self.max_loop_restart_jump = 0.0
+
+        # Scratch buffer reused by pull() to avoid per-callback allocations.
+        self._scratch: np.ndarray | None = None
 
     def push(self, a: np.ndarray, eof: bool, *, is_loop_restart: bool = False):
         if a.size:
@@ -170,8 +185,16 @@ class _Ring:
         return dropped
 
     def pull(self, n: int, channels: int):
-        out = np.zeros((n, channels), dtype=np.float32)
+        # Reuse a scratch buffer to avoid per-callback allocations (helps prevent
+        # periodic clicks from GC/allocator jitter).
+        out = self._scratch
+        if out is None or out.shape != (n, channels):
+            out = np.zeros((n, channels), dtype=np.float32)
+            self._scratch = out
+        else:
+            out.fill(0.0)
         filled = 0
+        restart_index: int | None = None
         while filled < n and self.q:
             # If loop disable was requested, stop cleanly at the loop boundary.
             # The first chunk of the next loop iteration is tagged is_restart=True.
@@ -188,6 +211,8 @@ class _Ring:
                     pass
             a, is_restart = self.q[0]
             take = min(n - filled, a.shape[0])
+            if is_restart and take > 0 and restart_index is None:
+                restart_index = filled
             out[filled:filled+take] = a[:take]
             if take == a.shape[0]:
                 self.q.popleft()
@@ -200,7 +225,7 @@ class _Ring:
             filled += take
         done = (filled == 0 and self.eof and self.frames == 0 and not self.q)
 
-        return out, done, filled
+        return out, done, filled, restart_index
 
 def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, event_q: mp.Queue, decode_cmd_q:mp.Queue) -> None:
     import sounddevice as sd
@@ -237,7 +262,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     _pending_probe_payload: str | None = None
     _last_starvation_report = time.time()
     _starvation_report_interval = 0.5
-    _starvation_reported: Dict[str, tuple[int, int]] = {}  # cue_id -> (underflow_count, partial_fill_count)
+    _starvation_reported: Dict[str, tuple[int, int, int]] = {}  # cue_id -> (underflow_count, partial_fill_count, loop_restart_jump_count)
     _last_heartbeat_report: Dict[str, float] = {}
     _last_chunk_produced_mono: Dict[str, float] = {}
     _heartbeat_report_interval = 0.5
@@ -328,6 +353,20 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                 if prev is not None:
                     produced_gap_ms = (produced_mono - prev) * 1000.0
 
+            # Compute an expected gap based on the low-water refill policy.
+            # When we request more audio only once ring_frames drops below low_water,
+            # the time between produced chunks is expected to be roughly:
+            #   (prev_ring_after_push - low_water) / sample_rate
+            expected_gap_ms = None
+            try:
+                # Prefer the last-request policy for this cue (tracks any dynamic target changes).
+                low_water_frames = int(getattr(ring, "last_request_low_water_frames", 0) or 0)
+                target_frames = int(getattr(ring, "last_request_target_frames", 0) or 0)
+                if low_water_frames > 0 and target_frames > 0 and cfg.sample_rate > 0:
+                    expected_gap_ms = max(0.0, (float(target_frames) - float(low_water_frames)) / float(cfg.sample_rate) * 1000.0)
+            except Exception:
+                expected_gap_ms = None
+
             # Only log when something looks suspicious, to avoid log spam.
             suspicious = False
             if decode_work_ms is not None and decode_work_ms > 50.0:
@@ -342,8 +381,15 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                 suspicious = True
             if engine_to_output_ms is not None and engine_to_output_ms > 50.0:
                 suspicious = True
-            if produced_gap_ms is not None and produced_gap_ms > 200.0:
-                suspicious = True
+            if produced_gap_ms is not None:
+                # produced_gap_ms by itself isn't necessarily suspicious with large buffers.
+                # Only flag if it exceeds the expected policy-driven gap by a margin.
+                if expected_gap_ms is None:
+                    if produced_gap_ms > 2000.0:
+                        suspicious = True
+                else:
+                    if produced_gap_ms > (expected_gap_ms + 250.0):
+                        suspicious = True
             if ring.frames < 2048:
                 suspicious = True
 
@@ -365,7 +411,8 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                 f"decode_to_engine_ms={decode_to_engine_ms if decode_to_engine_ms is not None else 'NA'} "
                 f"engine_internal_ms={engine_internal_ms if engine_internal_ms is not None else 'NA'} "
                 f"engine_to_output_ms={engine_to_output_ms if engine_to_output_ms is not None else 'NA'} "
-                f"produced_gap_ms={produced_gap_ms if produced_gap_ms is not None else 'NA'}"
+                f"produced_gap_ms={produced_gap_ms if produced_gap_ms is not None else 'NA'} "
+                f"expected_gap_ms={expected_gap_ms if expected_gap_ms is not None else 'NA'}"
             )
 
             _last_heartbeat_report[cue_id] = now_mono
@@ -457,12 +504,13 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
 
         any_reported = False
         for cue_id, ring in list(rings.items()):
-            prev_under, prev_partial = _starvation_reported.get(cue_id, (0, 0))
+            prev_under, prev_partial, prev_loop_jumps = _starvation_reported.get(cue_id, (0, 0, 0))
             cur_under = getattr(ring, "underflow_count", 0)
             cur_partial = getattr(ring, "partial_fill_count", 0)
-            if cur_under != prev_under or cur_partial != prev_partial:
+            cur_loop_jumps = getattr(ring, "loop_restart_jump_count", 0)
+            if cur_under != prev_under or cur_partial != prev_partial or cur_loop_jumps != prev_loop_jumps:
                 any_reported = True
-                _starvation_reported[cue_id] = (cur_under, cur_partial)
+                _starvation_reported[cue_id] = (cur_under, cur_partial, cur_loop_jumps)
                 _log(
                     "[STARVATION] cue="
                     f"{cue_id[:8]} underflows={cur_under}"
@@ -471,6 +519,10 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     f" partials={cur_partial}"
                     f" padded_total={getattr(ring, 'partial_padded_frames_total', 0)}"
                     f" last_padded={getattr(ring, 'last_partial_padded_frames', 0)}"
+                    f" step_to_zero={getattr(ring, 'last_partial_step_to_zero', 0.0):.4f}"
+                    f" loop_jumps={cur_loop_jumps}"
+                    f" last_loop_jump={getattr(ring, 'last_loop_restart_jump', 0.0):.4f}"
+                    f" max_loop_jump={getattr(ring, 'max_loop_restart_jump', 0.0):.4f}"
                     f" ring_frames={ring.frames} eof={ring.eof}"
                     f"{_format_hb_snapshot(cue_id)}"
                 )
@@ -543,16 +595,78 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     cue_samples_consumed[pcm.cue_id] = 0
                 frames_in_chunk = pcm.pcm.shape[0]
                 _log(f"[DECODE-CHUNK] cue={pcm.cue_id[:8]} received {frames_in_chunk} frames, eof={pcm.eof}")
+                was_started = bool(getattr(ring, "started", False))
+
+                # Optional: detect discontinuities between decoded chunks (non-RT).
+                if enable_pcm_jump_diag and frames_in_chunk > 0:
+                    try:
+                        prev_tail = _pcm_prev_tail.get(pcm.cue_id)
+
+                        def _local_max_delta(block: np.ndarray) -> float:
+                            try:
+                                if block.shape[0] < 2:
+                                    return 0.0
+                                d = np.diff(block, axis=0)
+                                return float(np.max(np.abs(d)))
+                            except Exception:
+                                return 0.0
+
+                        window = 32
+                        cur_start_max_delta = _local_max_delta(pcm.pcm[: min(frames_in_chunk, window)])
+                        prev_end_max_delta = float(_pcm_prev_end_max_delta.get(pcm.cue_id, 0.0))
+
+                        if prev_tail is not None:
+                            jump = float(np.max(np.abs(pcm.pcm[0] - prev_tail)))
+                            if jump >= pcm_jump_thresh:
+                                try:
+                                    prev_abs = float(np.max(np.abs(prev_tail)))
+                                    cur_abs = float(np.max(np.abs(pcm.pcm[0])))
+                                except Exception:
+                                    prev_abs = 0.0
+                                    cur_abs = 0.0
+                                zeroish = (prev_abs <= 1e-6) or (cur_abs <= 1e-6)
+
+                                denom = max(1e-6, prev_end_max_delta, cur_start_max_delta)
+                                ratio = float(jump / denom)
+                                _log(
+                                    "[PCM-JUMP] cue="
+                                    f"{pcm.cue_id[:8]} jump={jump:.4f}"
+                                    f" prev0={float(prev_tail[0]) if prev_tail.size else 0.0:.4f}"
+                                    f" cur0={float(pcm.pcm[0][0]) if pcm.pcm.shape[1] > 0 else 0.0:.4f}"
+                                    f" prev_end_delta={prev_end_max_delta:.4f}"
+                                    f" cur_start_delta={cur_start_max_delta:.4f}"
+                                    f" ratio={ratio:.2f}"
+                                    f" zeroish={int(bool(zeroish))}"
+                                    f" loop_restart={int(bool(getattr(pcm, 'is_loop_restart', False)))}"
+                                    f" eof={int(bool(pcm.eof))}"
+                                    f" frames={frames_in_chunk}"
+                                )
+
+                        # Update previous-tail state for next chunk.
+                        try:
+                            _pcm_prev_tail[pcm.cue_id] = np.array(pcm.pcm[frames_in_chunk - 1], dtype=np.float32)
+                        except Exception:
+                            pass
+                        try:
+                            _pcm_prev_end_max_delta[pcm.cue_id] = _local_max_delta(
+                                pcm.pcm[max(0, frames_in_chunk - window) : frames_in_chunk]
+                            )
+                        except Exception:
+                            pass
+                    except Exception:
+                        pass
                 ring.push(pcm.pcm, pcm.eof, is_loop_restart=bool(pcm.is_loop_restart))
                 # PCM received, buffered in ring
                 # arrival of PCM clears any outstanding request state
                 ring.request_pending = False
                 ring.request_started_at = None
+                ring.request_started_mono = None
                 ring.last_pcm_time = time.time()  # record when PCM arrived
                 if frames_in_chunk > 0:
                     old_frames = ring.frames - frames_in_chunk  # what it was before push
-                    # CRITICAL: Log if buffer had dropped dangerously low before this chunk arrived
-                    if old_frames < 2048:  # Less than ~42ms of audio at 48kHz
+                    # Only treat this as starvation if we had already started playing this cue.
+                    # For the first PCM arrival, old_frames is expected to be 0.
+                    if was_started and old_frames < 2048:  # Less than ~42ms of audio at 48kHz
                         _log(
                             f"[BUFFER-STARVING] cue={pcm.cue_id[:8]} CRITICAL: buffer was at {old_frames}fr before receiving {frames_in_chunk}fr chunk! This may cause ticking."
                             f"{_format_hb_snapshot(pcm.cue_id)}"
@@ -564,13 +678,20 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             except Exception as ex:
                 _log(f"[DRAIN-EXCEPTION] cue={pcm.cue_id[:8]}: {type(ex).__name__}")
 
-    def callback(outdata, frames, time, status):
+    def callback(outdata, frames, t, status):
         # STRICTLY REAL-TIME SAFE:
         # - No blocking IPC (only put_nowait for telemetry, silently drop on full)
         # - No logging or prints
         # - No exception handling with side effects
         # - Only audio mixing and state updates
         # - Set finished_pending flag; main loop handles event emission
+
+        cb_start_perf = None
+        if enable_rt_timing:
+            try:
+                cb_start_perf = time.perf_counter()
+            except Exception:
+                cb_start_perf = None
         
         try:
             # Telemetry/status: cache in-process; main loop emits at a steady rate.
@@ -584,7 +705,11 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             # This keeps cue position stable so TransportPlay resumes instantly.
             if transport_paused:
                 # Still mark EOF rings as finished_pending so Stop works while paused.
-                for cue_id, ring in list(rings.items()):
+                cue_ids = getattr(callback, "_cue_ids_snapshot", ())
+                for cue_id in cue_ids:
+                    ring = rings.get(cue_id)
+                    if ring is None:
+                        continue
                     try:
                         if ring.frames <= 0 and ring.eof:
                             ring.finished_pending = True
@@ -600,9 +725,12 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     pass
                 return
 
-            mix = np.zeros((frames, cfg.channels), dtype=np.float32)
+            # Mix directly into outdata to avoid per-callback allocations.
+            outdata.fill(0.0)
             active_envelopes = len(envelopes)  # Check concurrency level
             skip_telemetry = active_envelopes > 6  # Skip telemetry during bulk fades to reduce CPU load
+
+            # Optional glitch diagnostics (RT-safe: compute + cache only; no I/O).
             
             # Accumulate telemetry for batching - send once per callback instead of per-cue
             batch_levels = {}  # {cue_id: (rms, peak), ...}
@@ -612,7 +740,16 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             if not hasattr(callback, '_batch_levels_per_channel'):
                 callback._batch_levels_per_channel = {}
             
-            for cue_id, ring in list(rings.items()):
+            cue_ids = getattr(callback, "_cue_ids_snapshot", ())
+            cues_total = 0
+            cues_with_pcm = 0
+            cues_starved = 0
+            cues_partial = 0
+            for cue_id in cue_ids:
+                ring = rings.get(cue_id)
+                if ring is None:
+                    continue
+                cues_total += 1
                 try:
                     # If we have never received PCM for this cue yet, don't pull/mix at all.
                     # This avoids injecting silence mid-buffer and reduces chance of a start click.
@@ -625,9 +762,12 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                             ring.underflow_count += 1
                             ring.underflow_missing_frames_total += int(missing)
                             ring.last_underflow_missing_frames = int(missing)
+                            cues_starved += 1
                         continue
 
-                    chunk, done, filled = ring.pull(frames, cfg.channels)
+                    cues_with_pcm += 1
+
+                    chunk, done, filled, restart_index = ring.pull(frames, cfg.channels)
 
                     # Track partial fills (padding happens inside ring.pull via zero-filled remainder)
                     if filled < frames and not done:
@@ -635,6 +775,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         ring.partial_fill_count += 1
                         ring.partial_padded_frames_total += padded
                         ring.last_partial_padded_frames = padded
+                        cues_partial += 1
                     
                     env = envelopes.get(cue_id)
                     if env:
@@ -663,7 +804,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                                 g = env.next_gain()
                                 chunk[i] *= g
                                 gains[cue_id] = g
-                                if env.frames_left <= 1000:
+                                if env.frames_left <= 0:
                                     gains[cue_id] = env.target
                                     envelopes.pop(cue_id, None)
                                     if env.target == 0.0:
@@ -680,8 +821,64 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     else:
                         gain_val = gains.get(cue_id, 1.0)
                         chunk *= gain_val
+
+                    # If this is the final audio block for this cue (EOF reached and no buffered
+                    # frames remain after this pull), apply a short fade-to-zero at the end of the
+                    # block. This avoids a hard step to silence on the next callback.
+                    if eof_fade_frames > 0 and filled > 0:
+                        try:
+                            is_final_block = bool(ring.eof and ring.frames == 0 and (not ring.q))
+                        except Exception:
+                            is_final_block = False
+                        if is_final_block:
+                            fade_n = int(min(filled, eof_fade_frames))
+                            if fade_n > 1:
+                                start = int(filled - fade_n)
+                                inv = 1.0 / float(fade_n - 1)
+                                for i in range(fade_n):
+                                    g = 1.0 - (float(i) * inv)
+                                    chunk[start + i] *= g
+                            else:
+                                chunk[filled - 1] *= 0.0
+
+                    # Glitch diagnostics (per-cue): loop restart discontinuity.
+                    if enable_glitch_diag and restart_index is not None and filled > 0:
+                        try:
+                            if restart_index == 0:
+                                prev = ring.last_out_sample
+                                if prev is not None:
+                                    jump = float(np.max(np.abs(chunk[0] - prev)))
+                                else:
+                                    jump = 0.0
+                            else:
+                                jump = float(np.max(np.abs(chunk[restart_index] - chunk[restart_index - 1])))
+
+                            if jump >= glitch_jump_thresh:
+                                ring.loop_restart_jump_count += 1
+                                ring.last_loop_restart_jump = jump
+                                if jump > ring.max_loop_restart_jump:
+                                    ring.max_loop_restart_jump = jump
+                        except Exception:
+                            pass
+
+                    # Glitch diagnostics (per-cue): partial-fill step to zero padding.
+                    if enable_glitch_diag and filled > 0 and filled < frames:
+                        try:
+                            ring.last_partial_step_to_zero = float(np.max(np.abs(chunk[filled - 1])))
+                        except Exception:
+                            pass
+
+                    # Track last output sample for this cue (post-gain) for boundary comparisons.
+                    if filled > 0:
+                        try:
+                            if ring.last_out_sample is None:
+                                ring.last_out_sample = np.array(chunk[filled - 1], dtype=np.float32)
+                            else:
+                                ring.last_out_sample[:] = chunk[filled - 1]
+                        except Exception:
+                            pass
                     
-                    mix += chunk
+                    outdata += chunk
 
                     # Telemetry: accumulate for batching - send one batch message per callback
                     # Skip entirely during bulk fades (>6 concurrent envelopes) to prevent event queue congestion
@@ -693,7 +890,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         # Accumulate time for this cue
                         batch_times[cue_id] = (elapsed_seconds, remaining_seconds)
                         
-                        if not skip_telemetry:
+                        if (not skip_telemetry) and (not disable_rt_meters):
                             # Normal case: accumulate level data for this cue (both overall and per-channel)
                             segment = chunk[:filled]
                             try:
@@ -746,40 +943,144 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             # Clear per-channel cache for next cycle.
             callback._batch_levels_per_channel = {}
             
-            np.clip(mix, -1.0, 1.0, out=mix)
-            outdata[:] = mix
-            
-            # Calculate and emit master output levels (per-channel RMS and peak)
-            master_event = None
-            try:
-                master_rms_per_channel = []
-                master_peak_per_channel = []
-                for ch in range(cfg.channels):
-                    channel_data = mix[:, ch]
-                    rms = float(np.sqrt(np.mean(np.square(channel_data))))
-                    peak = float(np.max(np.abs(channel_data)))
-                    master_rms_per_channel.append(rms)
-                    master_peak_per_channel.append(peak)
+            np.clip(outdata, -1.0, 1.0, out=outdata)
 
-                # Convert linear RMS/peak to dB (avoid log(0))
-                master_rms_db = []
-                master_peak_db = []
-                for rms, peak in zip(master_rms_per_channel, master_peak_per_channel):
-                    rms_db = 20 * np.log10(rms) if rms > 0 else -120.0
-                    peak_db = 20 * np.log10(peak) if peak > 0 else -120.0
-                    master_rms_db.append(float(rms_db))
-                    master_peak_db.append(float(peak_db))
-
-                master_event = MasterLevelsEvent(rms=master_rms_db, peak=master_peak_db)
-            except Exception:
-                master_event = None
-            if master_event is not None:
+            # Glitch diagnostics (master): detect large block-boundary jumps.
+            # NOTE: A simple absolute threshold can false-positive on normal high-frequency content.
+            # We therefore gate logging to either:
+            #   - step-to-(near)-zero, OR
+            #   - a boundary jump that is large relative to local sample-to-sample deltas near the boundary.
+            if enable_glitch_diag and frames > 0:
                 try:
-                    callback._latest_master_event = master_event
+                    if not hasattr(callback, "_prev_out_last"):
+                        callback._prev_out_last = np.zeros((cfg.channels,), dtype=np.float32)
+                        callback._have_prev_out_last = False
+
+                    # Helper: local max |delta| within a small window (RT-safe; tiny slices only).
+                    def _local_max_delta(block: np.ndarray) -> float:
+                        try:
+                            if block.shape[0] < 2:
+                                return 0.0
+                            d = np.diff(block, axis=0)
+                            return float(np.max(np.abs(d)))
+                        except Exception:
+                            return 0.0
+
+                    window = 32
+                    start_n = int(min(frames, window))
+                    end_n = int(min(frames, window))
+                    cur_start_max_delta = _local_max_delta(outdata[:start_n])
+                    cur_end_max_delta = _local_max_delta(outdata[max(0, frames - end_n):frames])
+                    prev_end_max_delta = float(getattr(callback, "_prev_end_max_delta", 0.0))
+
+                    if getattr(callback, "_have_prev_out_last", False):
+                        jump = float(np.max(np.abs(outdata[0] - callback._prev_out_last)))
+                        if jump >= glitch_jump_thresh:
+                            # Step-to-zero detection (common signature of silence insertion).
+                            try:
+                                prev_abs = float(np.max(np.abs(callback._prev_out_last)))
+                                cur_abs = float(np.max(np.abs(outdata[0])))
+                            except Exception:
+                                prev_abs = 0.0
+                                cur_abs = 0.0
+                            zeroish = (prev_abs <= 1e-6) or (cur_abs <= 1e-6)
+
+                            denom = max(1e-6, prev_end_max_delta, cur_start_max_delta)
+                            ratio = float(jump / denom)
+
+                            # Only compute expensive per-block peak when we intend to report.
+                            should_report = bool(zeroish or (ratio >= 3.0))
+                            if should_report:
+                                try:
+                                    block_peak = float(np.max(np.abs(outdata)))
+                                except Exception:
+                                    block_peak = 0.0
+                                callback._latest_glitch = (
+                                    "master_boundary_jump",
+                                    jump,
+                                    float(callback._prev_out_last[0]) if cfg.channels > 0 else 0.0,
+                                    float(outdata[0][0]) if cfg.channels > 0 else 0.0,
+                                    int(cues_total),
+                                    int(cues_with_pcm),
+                                    int(cues_starved),
+                                    int(cues_partial),
+                                    int(bool(status)),
+                                    float(block_peak),
+                                    float(prev_end_max_delta),
+                                    float(cur_start_max_delta),
+                                    float(ratio),
+                                    int(bool(zeroish)),
+                                )
+
+                    callback._prev_out_last[:] = outdata[frames - 1]
+                    callback._have_prev_out_last = True
+                    callback._prev_end_max_delta = float(cur_end_max_delta)
                 except Exception:
                     pass
-        except Exception:
-            pass
+            
+            # Calculate and emit master output levels (per-channel RMS and peak)
+            if not disable_rt_meters:
+                master_event = None
+                try:
+                    master_rms_per_channel = []
+                    master_peak_per_channel = []
+                    for ch in range(cfg.channels):
+                        channel_data = outdata[:, ch]
+                        rms = float(np.sqrt(np.mean(np.square(channel_data))))
+                        peak = float(np.max(np.abs(channel_data)))
+                        master_rms_per_channel.append(rms)
+                        master_peak_per_channel.append(peak)
+
+                    # Convert linear RMS/peak to dB (avoid log(0))
+                    master_rms_db = []
+                    master_peak_db = []
+                    for rms, peak in zip(master_rms_per_channel, master_peak_per_channel):
+                        rms_db = 20 * np.log10(rms) if rms > 0 else -120.0
+                        peak_db = 20 * np.log10(peak) if peak > 0 else -120.0
+                        master_rms_db.append(float(rms_db))
+                        master_peak_db.append(float(peak_db))
+
+                    master_event = MasterLevelsEvent(rms=master_rms_db, peak=master_peak_db)
+                except Exception:
+                    master_event = None
+                if master_event is not None:
+                    try:
+                        callback._latest_master_event = master_event
+                    except Exception:
+                        pass
+            else:
+                try:
+                    callback._latest_master_event = None
+                except Exception:
+                    pass
+        except Exception as ex:
+            # RT-safe observability: record that something went wrong in the callback.
+            # The main loop can log this at telemetry rate.
+            try:
+                callback._rt_exception_count = int(getattr(callback, "_rt_exception_count", 0)) + 1
+                callback._rt_last_exception = type(ex).__name__
+            except Exception:
+                pass
+            try:
+                outdata[:] = 0
+            except Exception:
+                pass
+
+        if cb_start_perf is not None:
+            try:
+                cb_ms = (time.perf_counter() - cb_start_perf) * 1000.0
+                callback._rt_last_ms = float(cb_ms)
+                prev_max = float(getattr(callback, "_rt_max_ms", 0.0))
+                if cb_ms > prev_max:
+                    callback._rt_max_ms = float(cb_ms)
+                if cfg.sample_rate > 0 and frames > 0:
+                    budget_ms = (float(frames) / float(cfg.sample_rate)) * 1000.0
+                    callback._rt_budget_ms = float(budget_ms)
+                    if cb_ms > budget_ms:
+                        callback._rt_over_budget = int(getattr(callback, "_rt_over_budget", 0)) + 1
+            except Exception:
+                pass
+
 
     # -------------------------------------------------
     # Telemetry emission pacing
@@ -794,11 +1095,93 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     telemetry_interval = 1.0 / telemetry_hz
     telemetry_next_mono = time.monotonic()
 
-    # Create/open output stream with ability to re-open on device/config change
+    # Optional glitch diagnostics.
+    # - Enable with STEPD_GLITCH_DIAG=1
+    # - Threshold in full-scale float units (default 0.20) via STEPD_GLITCH_JUMP
+    try:
+        enable_glitch_diag = bool(int(os.environ.get("STEPD_GLITCH_DIAG", "0")))
+    except Exception:
+        enable_glitch_diag = False
+    try:
+        glitch_jump_thresh = float(os.environ.get("STEPD_GLITCH_JUMP", "0.20"))
+    except Exception:
+        glitch_jump_thresh = 0.20
+
+    # Optional RT callback timing instrumentation and A/B load shedding.
+    # - Enable timing with STEPD_RT_TIMING=1 (reports outside the callback)
+    # - Disable meters with STEPD_RT_DISABLE_METERS=1 (skips RMS/peak work in callback)
+    try:
+        enable_rt_timing = bool(int(os.environ.get("STEPD_RT_TIMING", "0")))
+    except Exception:
+        enable_rt_timing = False
+    try:
+        disable_rt_meters = bool(int(os.environ.get("STEPD_RT_DISABLE_METERS", "0")))
+    except Exception:
+        disable_rt_meters = False
+    last_rt_timing_report_mono = 0.0
+
+    # Optional decoded-PCM boundary diagnostics (outside RT callback).
+    # Detect discontinuities between consecutive decoded chunks for a cue.
+    try:
+        enable_pcm_jump_diag = bool(int(os.environ.get("STEPD_PCM_JUMP_DIAG", "0")))
+    except Exception:
+        enable_pcm_jump_diag = False
+    try:
+        pcm_jump_thresh = float(os.environ.get("STEPD_PCM_JUMP_THRESH", "0.20"))
+    except Exception:
+        pcm_jump_thresh = 0.20
+    _pcm_prev_tail: dict[str, np.ndarray] = {}
+    _pcm_prev_end_max_delta: dict[str, float] = {}
+
+    # Click-free natural EOF handling.
+    # When a cue ends exactly on a block boundary, the following callback outputs silence.
+    # If the last sample of the previous block was non-zero, that hard step can sound like a click.
+    # We apply a tiny fade-to-zero on the final audio block for that cue.
+    try:
+        eof_fade_ms = float(os.environ.get("STEPD_EOF_FADE_MS", "5").strip() or "5")
+    except Exception:
+        eof_fade_ms = 5.0
+    eof_fade_ms = max(0.0, min(50.0, eof_fade_ms))
+    eof_fade_frames = int(cfg.sample_rate * eof_fade_ms / 1000.0) if (eof_fade_ms > 0 and cfg.sample_rate > 0) else 0
+
+    # Buffer sizing (in units of output blocks). Defaults are conservative to hide
+    # occasional multi-second decoder gaps without adding excessive memory use.
+    # - Target 192 blocks ~= 4 seconds at 48kHz, 2ch, block=2048 (when "frames" means interleaved samples)
+    # - Low-water 96 blocks ~= 2 seconds
+    try:
+        target_blocks = int(os.environ.get("STEPD_OUTPUT_TARGET_BLOCKS", "192"))
+    except Exception:
+        target_blocks = 192
+    try:
+        low_water_blocks = int(os.environ.get("STEPD_OUTPUT_LOW_WATER_BLOCKS", "96"))
+    except Exception:
+        low_water_blocks = 96
+    # Keep sane ordering.
+    if target_blocks < 24:
+        target_blocks = 24
+    if low_water_blocks < 12:
+        low_water_blocks = 12
+    if low_water_blocks >= target_blocks:
+        low_water_blocks = max(12, target_blocks // 2)
+
+    # Non-RT diagnostics: log status changes immediately, and also re-log notable
+    # (under/over/xrun) statuses periodically so repeated underruns remain visible.
+    last_logged_status: str | None = None
+    last_logged_status_mono: float = 0.0
+    last_notable_status: str | None = None
+    last_notable_status_count: int = 0
+
+    # Create/open output stream with ability to re-open on device/config change.
+    # Defer opening until first cue to avoid startup churn (device/config messages
+    # often arrive immediately and would otherwise trigger multiple opens).
     stream = None
+    current_device = None
+    stream_needs_open = True
 
     def open_stream(device=None):
-        nonlocal stream, cfg
+        nonlocal stream, cfg, current_device
+        if device is None:
+            device = current_device
         try:
             if stream is not None:
                 try:
@@ -822,8 +1205,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
         except Exception as ex:
             _log(f"EXCEPTION opening output stream device={device}: {type(ex).__name__}: {ex}")
 
-    # Open initial stream with default device
-    open_stream()
+    # Defer initial stream open until first cue.
 
     try:
         transport_paused = False
@@ -870,6 +1252,13 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             _drain_pcm()
             _report_starvation()
 
+            # Provide the RT callback a stable, non-iterating view of active cue ids.
+            # (Avoids dict-iteration races between main thread and PortAudio callback thread.)
+            try:
+                callback._cue_ids_snapshot = tuple(rings.keys())
+            except Exception:
+                pass
+
             # -------------------------------------------------
             # Emit cached telemetry at ~60Hz (outside RT callback)
             # -------------------------------------------------
@@ -881,12 +1270,122 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     latest_status = getattr(callback, "_latest_status", None)
                     if latest_status:
                         try:
+                            # Always forward raw status telemetry; only log notable statuses.
+                            lowered = str(latest_status).lower()
+                            is_notable = ("under" in lowered) or ("over" in lowered) or ("xrun" in lowered)
+
+                            if is_notable:
+                                if latest_status == last_notable_status:
+                                    last_notable_status_count += 1
+                                else:
+                                    last_notable_status = latest_status
+                                    last_notable_status_count = 1
+
+                                # Log immediately on change, and then at most once per second
+                                # while the same notable status repeats.
+                                should_log = False
+                                if latest_status != last_logged_status:
+                                    should_log = True
+                                elif (now_mono - last_logged_status_mono) >= 1.0:
+                                    should_log = True
+
+                                if should_log:
+                                    suffix = "" if last_notable_status_count <= 1 else f" (x{last_notable_status_count})"
+                                    _log(f"[PA-STATUS] {latest_status}{suffix}")
+                                    last_logged_status = latest_status
+                                    last_logged_status_mono = now_mono
+                        except Exception:
+                            pass
+                        try:
                             event_q.put_nowait(("status", latest_status))
                             telemetry_probe["status_sent"] += 1
                         except Exception:
                             telemetry_probe["status_dropped"] += 1
                         try:
                             callback._latest_status = None
+                        except Exception:
+                            pass
+
+                    # Non-RT diagnostics: log cached master glitch events.
+                    latest_glitch = getattr(callback, "_latest_glitch", None)
+                    if latest_glitch:
+                        try:
+                            kind, jump, prev0, cur0, *rest = latest_glitch
+                            extra = ""
+                            # rest layout (current): cues_total, cues_with_pcm, cues_starved, cues_partial, had_status, block_peak
+                            if len(rest) >= 2:
+                                cues_total = int(rest[0])
+                                cues_with_pcm = int(rest[1])
+                                extra += f" cues={cues_total}/{cues_with_pcm}"
+                            if len(rest) >= 4:
+                                cues_starved = int(rest[2])
+                                cues_partial = int(rest[3])
+                                extra += f" starved={cues_starved} partial={cues_partial}"
+                            if len(rest) >= 5:
+                                had_status = int(rest[4])
+                                extra += f" status={had_status}"
+                            if len(rest) >= 6:
+                                block_peak = float(rest[5])
+                                extra += f" block_peak={block_peak:.4f}"
+                            # Optional anomaly context (new): prev_end_delta, cur_start_delta, ratio, zeroish
+                            if len(rest) >= 10:
+                                prev_end_delta = float(rest[6])
+                                cur_start_delta = float(rest[7])
+                                ratio = float(rest[8])
+                                zeroish = int(rest[9])
+                                extra += (
+                                    f" prev_end_delta={prev_end_delta:.4f}"
+                                    f" cur_start_delta={cur_start_delta:.4f}"
+                                    f" ratio={ratio:.2f}"
+                                    f" zeroish={zeroish}"
+                                )
+                            _log(f"[GLITCH] kind={kind} jump={jump:.4f} prev0={prev0:.4f} cur0={cur0:.4f}{extra}")
+                        except Exception:
+                            pass
+                        try:
+                            callback._latest_glitch = None
+                        except Exception:
+                            pass
+
+                    # Non-RT diagnostics: surface RT callback exceptions (should never happen).
+                    try:
+                        rt_exc_count = int(getattr(callback, "_rt_exception_count", 0))
+                        if rt_exc_count:
+                            rt_exc_name = str(getattr(callback, "_rt_last_exception", ""))
+                            _log(f"[RT-EXC] count={rt_exc_count} last={rt_exc_name}")
+                            callback._rt_exception_count = 0
+                            callback._rt_last_exception = ""
+                    except Exception:
+                        pass
+
+                    # Non-RT diagnostics: RT callback runtime vs budget.
+                    if enable_rt_timing:
+                        try:
+                            if (now_mono - last_rt_timing_report_mono) >= 1.0:
+                                last_ms = getattr(callback, "_rt_last_ms", None)
+                                max_ms = getattr(callback, "_rt_max_ms", None)
+                                budget_ms = getattr(callback, "_rt_budget_ms", None)
+                                over_budget = int(getattr(callback, "_rt_over_budget", 0))
+
+                                if last_ms is not None:
+                                    if budget_ms is not None and max_ms is not None:
+                                        _log(
+                                            f"[RT-TIMING] last_ms={float(last_ms):.3f} max_ms={float(max_ms):.3f} "
+                                            f"budget_ms={float(budget_ms):.3f} over_budget={over_budget}"
+                                        )
+                                    else:
+                                        _log(
+                                            f"[RT-TIMING] last_ms={float(last_ms):.3f} max_ms={float(max_ms or 0.0):.3f} "
+                                            f"over_budget={over_budget}"
+                                        )
+
+                                try:
+                                    callback._rt_max_ms = 0.0
+                                    callback._rt_over_budget = 0
+                                except Exception:
+                                    pass
+
+                                last_rt_timing_report_mono = now_mono
                         except Exception:
                             pass
 
@@ -944,19 +1443,24 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             # -------------------------------------------------
             # Buffer threshold check (OUTSIDE callback)
             # -------------------------------------------------
-            # Use fixed, generous buffers for all cues to prevent starvation
-            # Simpler and more stable than dynamic sizing
+            # Use fixed, generous buffers for all cues to prevent starvation.
             active_rings = len([r for r in rings.values() if not r.eof and r.frames >= 0])
             
-            # Fixed buffer sizing for stable concurrent playback
-            # CRITICAL: PyAV file decoding is slow and I/O bound, with gaps up to 6+ seconds
-            # between chunks. We need MASSIVE buffers to hide these decode delays.
-            low_water = cfg.block_frames * 48       # ~1000ms (was 12)
-            block_frames = cfg.block_frames * 96    # Request ~2000ms per refill (was 24)
+            # Fixed buffer sizing for stable concurrent playback.
+            # Note: decoder/file I/O can occasionally stall for seconds; keeping a few
+            # seconds of buffered audio drastically reduces audible underrun clicks.
+            low_water = cfg.block_frames * low_water_blocks
+            block_frames = cfg.block_frames * target_blocks
             request_retry_secs = 0.5  # resend credit if request seems stuck (no PCM arriving)
             
             current_time = time.time()
+            current_mono = time.monotonic()
             stuck_timeout_secs = 30.0  # 30s timeout for stuck pending cues (very long to handle high concurrency without prematurely timing out active playback)
+
+            try:
+                log_bufreq = bool(int(os.environ.get("STEPD_BUFREQ_DEBUG", "0")))
+            except Exception:
+                log_bufreq = False
 
             for cue_id, ring in list(rings.items()):
                 try:
@@ -1012,18 +1516,32 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                         # and decoder scheduling/IPC pressure.
                         target_frames = block_frames
                         if active_rings > 8:
-                            # Default target is ~2000ms. Increase to ~4000ms when many cues are active.
-                            target_frames = cfg.block_frames * 192
+                            # Increase target further under high concurrency to reduce request churn.
+                            target_frames = cfg.block_frames * max(target_blocks, 192)
                         needed = target_frames - ring.frames
                         if needed > 0:
                             try:
                                 # If this is a retry, don't re-credit the full amount again.
                                 # Keep it bounded to avoid runaway credit during slow decodes.
-                                retry_cap = cfg.block_frames * (192 if active_rings > 8 else 96)
+                                retry_cap = cfg.block_frames * (max(target_blocks, 192) if active_rings > 8 else target_blocks)
                                 credit = needed if not should_retry else min(needed, retry_cap)
                                 decode_cmd_q.put_nowait(BufferRequest(cue_id, int(credit)))
                                 ring.request_pending = True
                                 ring.request_started_at = current_time
+                                ring.request_started_mono = current_mono
+                                ring.request_seq = int(getattr(ring, "request_seq", 0)) + 1
+                                ring.last_request_credit = int(credit)
+                                ring.last_request_low_water_frames = int(low_water)
+                                ring.last_request_target_frames = int(target_frames)
+
+                                if log_bufreq:
+                                    try:
+                                        _log(
+                                            f"[BUFREQ] cue={cue_id[:8]} seq={ring.request_seq} credit={int(credit)} "
+                                            f"ring_frames={int(ring.frames)} low_water={int(low_water)} target={int(target_frames)} retry={bool(should_retry)}"
+                                        )
+                                    except Exception:
+                                        pass
                             except Exception as ex:
                                 pass
                 except AssertionError as ex:
@@ -1055,6 +1573,11 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             
             if isinstance(msg, OutputStartCue):
                 try:
+                    # Ensure we have an output stream before starting audio.
+                    if stream is None and stream_needs_open:
+                        open_stream(device=current_device)
+                        stream_needs_open = False
+
                     existing_ring = rings.get(msg.cue_id)
                     if existing_ring:
                         _log(f"[START-CUE-REUSE] Ring exists for cue={msg.cue_id[:8]} eof={existing_ring.eof} frames={existing_ring.frames} finished={existing_ring.finished_pending}")
@@ -1086,15 +1609,30 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                             ring.request_started_at = None
                     
                     try:
-                        # Request MASSIVE initial buffer to handle slow I/O from file decoding
-                        # Initial request: 96 blocks (~2000ms) to give decoder time to warm up
-                        # This is critical because PyAV file I/O can have 6+ second gaps
-                        initial_needed = cfg.block_frames * 96
+                        # Initial request: fill to the target buffer immediately so the
+                        # output callback has headroom before any subsequent decode stalls.
+                        initial_needed = cfg.block_frames * target_blocks
                         decode_cmd_q.put_nowait(BufferRequest(msg.cue_id, initial_needed))
                         ring.request_pending = True
                         ring.request_started_at = current_time
+                        ring.request_started_mono = current_mono
+                        ring.request_seq = int(getattr(ring, "request_seq", 0)) + 1
+                        ring.last_request_credit = int(initial_needed)
+                        ring.last_request_low_water_frames = int(low_water)
+                        ring.last_request_target_frames = int(cfg.block_frames * target_blocks)
+                        if log_bufreq:
+                            try:
+                                _log(
+                                    f"[BUFREQ] cue={msg.cue_id[:8]} seq={ring.request_seq} credit={int(initial_needed)} "
+                                    f"ring_frames={int(ring.frames)} low_water={int(low_water)} target={int(cfg.block_frames * target_blocks)} initial=True"
+                                )
+                            except Exception:
+                                pass
                         pending_starts[msg.cue_id] = msg
-                        _log(f"[START-CUE-BUFFER] cue={msg.cue_id[:8]} BufferRequest sent for {initial_needed} frames (~2000ms)")
+                        _log(
+                            f"[START-CUE-BUFFER] cue={msg.cue_id[:8]} BufferRequest sent for {initial_needed} frames "
+                            f"(target_blocks={target_blocks} low_water_blocks={low_water_blocks})"
+                        )
                     except Exception as ex:
                         _log(f"[START-CUE-ERROR] cue={msg.cue_id[:8]}: {type(ex).__name__}")
                 except Exception as ex:
@@ -1104,12 +1642,55 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     ring = rings.get(msg.cue_id)
                     if ring:
                         _log(f"[STOP-CUE] cue={msg.cue_id[:8]} BEFORE: eof={ring.eof} frames={ring.frames} finished_pending={ring.finished_pending}")
-                        ring.eof = True
-                        ring.q.clear()
-                        ring.frames = 0
-                        ring.request_pending = False  # clear pending flag when eof is set
-                        ring.request_started_at = None
-                        _log(f"[STOP-CUE] cue={msg.cue_id[:8]} AFTER: eof={ring.eof} cleared and marked EOF")
+
+                        # Avoid audible clicks: don't hard-cut to silence.
+                        # Keep a short tail of already-buffered audio and fade it to 0.
+                        try:
+                            stop_fade_ms = int(os.environ.get("STEPD_STOP_FADE_MS", "10"))
+                        except Exception:
+                            stop_fade_ms = 10
+                        stop_fade_ms = max(0, min(250, stop_fade_ms))
+
+                        # Mark for correct lifecycle reason (OutputStopCue is a forced stop).
+                        removal_reasons[msg.cue_id] = "output_stop"
+
+                        if ring.frames > 0 and stop_fade_ms > 0:
+                            fade_frames = int(cfg.sample_rate * (stop_fade_ms / 1000.0))
+                            fade_frames = max(1, min(int(ring.frames), fade_frames))
+
+                            # Truncate ring to the first `fade_frames` frames.
+                            kept_q: deque[tuple[np.ndarray, bool]] = deque()
+                            kept = 0
+                            while ring.q and kept < fade_frames:
+                                pcm, is_restart = ring.q.popleft()
+                                take = min(int(pcm.shape[0]), fade_frames - kept)
+                                if take <= 0:
+                                    break
+                                if take == int(pcm.shape[0]):
+                                    kept_q.append((pcm, bool(is_restart)))
+                                else:
+                                    kept_q.append((pcm[:take].copy(), bool(is_restart)))
+                                kept += take
+                            ring.q = kept_q
+                            ring.frames = kept
+
+                            # Fade current gain to zero over the remaining frames.
+                            cur = float(gains.get(msg.cue_id, 1.0))
+                            envelopes[msg.cue_id] = _FadeEnv(cur, 0.0, fade_frames, "equal_power")
+                            gains[msg.cue_id] = cur
+                            ring.eof = True
+                            ring.request_pending = False
+                            ring.request_started_at = None
+                            _log(f"[STOP-CUE] cue={msg.cue_id[:8]} fade_out_ms={stop_fade_ms} truncated_frames={fade_frames}")
+                        else:
+                            # No audio buffered (or fade disabled): stop immediately.
+                            ring.eof = True
+                            ring.q.clear()
+                            ring.frames = 0
+                            ring.request_pending = False
+                            ring.request_started_at = None
+                            ring.finished_pending = True
+                            _log(f"[STOP-CUE] cue={msg.cue_id[:8]} immediate stop (no buffered audio or fade disabled)")
                     else:
                         _log(f"[STOP-CUE] cue={msg.cue_id[:8]} RING_NOT_FOUND (ring doesn't exist yet)")
                     # Remove from looping cues so finish event will be emitted (not suppressed)
@@ -1207,7 +1788,12 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             elif isinstance(msg, OutputSetDevice):
                 try:
                     _log(f"OutputSetDevice received: {msg.device}")
-                    open_stream(device=msg.device)
+                    current_device = msg.device
+                    # If stream is active, reopen immediately. Otherwise, defer until first cue.
+                    if stream is not None:
+                        open_stream(device=msg.device)
+                    else:
+                        stream_needs_open = True
                     try:
                         event_q.put_nowait(("device_changed", msg.device))
                     except Exception:
@@ -1219,7 +1805,11 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     _log(f"OutputSetConfig received: sr={msg.sample_rate} ch={msg.channels} block={msg.block_frames}")
                     # update cfg and reopen stream
                     cfg = OutputConfig(sample_rate=msg.sample_rate, channels=msg.channels, block_frames=msg.block_frames)
-                    open_stream()
+                    # If stream is active, reopen immediately. Otherwise, defer until first cue.
+                    if stream is not None:
+                        open_stream(device=current_device)
+                    else:
+                        stream_needs_open = True
                     try:
                         event_q.put_nowait(("config_changed", {"sample_rate": msg.sample_rate, "channels": msg.channels, "block_frames": msg.block_frames}))
                     except Exception:

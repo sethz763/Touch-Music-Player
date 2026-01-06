@@ -8,6 +8,17 @@
       "module": "app.music_player",
       "console": "integratedTerminal",
       "justMyCode": false
+    },
+    {
+      "name": "Touch Music Player (bufreq debug)",
+      "type": "python",
+      "request": "launch",
+      "module": "app.music_player",
+      "console": "integratedTerminal",
+      "justMyCode": false,
+      "env": {
+        "STEPD_BUFREQ_DEBUG": "1"
+      }
     }
   ]
 }

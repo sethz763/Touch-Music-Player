@@ -120,6 +120,7 @@ class _JobState:
     resampler: Optional[object] = None
     packet_iter: Optional[object] = None
     frame_iter: Optional[object] = None
+    pending_pcm: Optional[np.ndarray] = None
     
     decoded_frames: int = 0
     credit_frames: int = 0
@@ -268,6 +269,26 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                             work_start = time.monotonic()
                             
                             while frames_out < decode_target and job.credit_frames > 0:
+                                # Drain any pending remainder first (from a previous slice) so we
+                                # never drop samples when slicing to decode_target/credit.
+                                if job.pending_pcm is not None and job.pending_pcm.size:
+                                    remaining_needed = min(job.credit_frames, decode_target - frames_out)
+                                    if remaining_needed <= 0:
+                                        break
+
+                                    if job.pending_pcm.shape[0] > remaining_needed:
+                                        pcm = job.pending_pcm[:remaining_needed, :]
+                                        job.pending_pcm = job.pending_pcm[remaining_needed:, :]
+                                    else:
+                                        pcm = job.pending_pcm
+                                        job.pending_pcm = None
+
+                                    job.decoded_frames += pcm.shape[0]
+                                    frames_out += pcm.shape[0]
+                                    job.credit_frames -= pcm.shape[0]
+                                    pcm_chunks.append(pcm)
+                                    continue
+
                                 # Apply any pending per-cue updates promptly so loop toggles
                                 # take effect before we decide to restart at EOF.
                                 while True:
@@ -277,7 +298,7 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                         break
                                     try:
                                         if isinstance(pending_cmd, DecodeStop):
-                                            cleanup_job(job.cue_id)
+                                            cleanup_job(cue_id)
                                             job = None  # type: ignore
                                             break
                                         if UpdateCueCommand is not None and isinstance(pending_cmd, UpdateCueCommand):
@@ -333,43 +354,62 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                 
                                 frame.pts = None
                                 resampled = job.resampler.resample(frame)
-                                if resampled:
-                                    pcm = _normalize_audio(resampled[0].to_ndarray())
+                                if not resampled:
+                                    continue
+
+                                reached_target = False
+                                for out_frame in resampled:
+                                    pcm = _normalize_audio(out_frame.to_ndarray())
                                     pcm = _ensure_channels(pcm, job.cmd.target_channels)
-                                    
+
                                     if job.discard_frames > 0:
                                         discard = min(job.discard_frames, pcm.shape[0])
                                         pcm = pcm[discard:, :]
                                         job.discard_frames -= discard
-                                    
+
                                     if pcm.size == 0:
                                         continue
-                                    
+
                                     if job.cmd.out_frame is not None:
                                         # out_frame is treated as an absolute frame index in the source.
                                         # decoded_frames tracks frames produced since in_frame.
                                         remaining = int(job.cmd.out_frame) - (int(job.cmd.in_frame) + int(job.decoded_frames))
                                         if remaining <= 0:
                                             job.eof = True
+                                            reached_target = True
                                             break
                                         if pcm.shape[0] > remaining:
                                             pcm = pcm[:remaining, :]
-                                    
-                                    # Cap PCM to not exceed remaining credit
-                                    if pcm.shape[0] > job.credit_frames:
-                                        pcm = pcm[:job.credit_frames, :]
-                                    
+
                                     if pcm.size == 0:
                                         continue
-                                    
+
+                                    # Emit up to what's needed for this slice; carry remainder.
+                                    remaining_needed = min(job.credit_frames, decode_target - frames_out)
+                                    if remaining_needed <= 0:
+                                        job.pending_pcm = pcm if pcm.size else job.pending_pcm
+                                        reached_target = True
+                                        break
+
+                                    if pcm.shape[0] > remaining_needed:
+                                        job.pending_pcm = pcm[remaining_needed:, :]
+                                        pcm = pcm[:remaining_needed, :]
+
+                                    if pcm.size == 0:
+                                        continue
+
                                     job.decoded_frames += pcm.shape[0]
                                     frames_out += pcm.shape[0]
                                     job.credit_frames -= pcm.shape[0]
                                     pcm_chunks.append(pcm)
-                                    
+
                                     # Send immediately when we reach decode_target
                                     if frames_out >= decode_target or (frames_out >= 4096 and not job.eof):
+                                        reached_target = True
                                         break
+
+                                if reached_target:
+                                    break
                             
                             if pcm_chunks:
                                 work_end = time.monotonic()
@@ -466,6 +506,7 @@ def _decode_worker_thread(
         credit_frames = 0
         eof = False
         is_loop_restart = False
+        pending_pcm: np.ndarray | None = None
 
         # Larger chunks reduce IPC/message overhead under high concurrency.
         # Keep configurable so we can tune fairness vs overhead.
@@ -549,6 +590,25 @@ def _decode_worker_thread(
 
             try:
                 while frames_out < decode_target and credit_frames > 0:
+                    # Drain any pending remainder first so we never drop samples when slicing.
+                    if pending_pcm is not None and pending_pcm.size:
+                        remaining_needed = min(credit_frames, decode_target - frames_out)
+                        if remaining_needed <= 0:
+                            break
+
+                        if pending_pcm.shape[0] > remaining_needed:
+                            pcm = pending_pcm[:remaining_needed, :]
+                            pending_pcm = pending_pcm[remaining_needed:, :]
+                        else:
+                            pcm = pending_pcm
+                            pending_pcm = None
+
+                        decoded_frames += pcm.shape[0]
+                        frames_out += pcm.shape[0]
+                        credit_frames -= pcm.shape[0]
+                        pcm_chunks.append(pcm)
+                        continue
+
                     # Apply pending updates promptly so loop toggles take effect before EOF handling.
                     while True:
                         try:
@@ -624,39 +684,57 @@ def _decode_worker_thread(
                     if not resampled:
                         continue
 
-                    pcm = _normalize_audio(resampled[0].to_ndarray())
-                    pcm = _ensure_channels(pcm, start_cmd.target_channels)
+                    reached_target = False
+                    for out_frame in resampled:
+                        pcm = _normalize_audio(out_frame.to_ndarray())
+                        pcm = _ensure_channels(pcm, start_cmd.target_channels)
 
-                    if discard_frames > 0:
-                        discard = min(discard_frames, pcm.shape[0])
-                        pcm = pcm[discard:, :]
-                        discard_frames -= discard
+                        if discard_frames > 0:
+                            discard = min(discard_frames, pcm.shape[0])
+                            pcm = pcm[discard:, :]
+                            discard_frames -= discard
 
-                    if pcm.size == 0:
-                        continue
+                        if pcm.size == 0:
+                            continue
 
-                    if start_cmd.out_frame is not None:
-                        # out_frame is treated as an absolute frame index in the source.
-                        # decoded_frames tracks frames produced since in_frame.
-                        remaining = int(start_cmd.out_frame) - (int(start_cmd.in_frame) + int(decoded_frames))
-                        if remaining <= 0:
-                            eof = True
+                        if start_cmd.out_frame is not None:
+                            # out_frame is treated as an absolute frame index in the source.
+                            # decoded_frames tracks frames produced since in_frame.
+                            remaining = int(start_cmd.out_frame) - (int(start_cmd.in_frame) + int(decoded_frames))
+                            if remaining <= 0:
+                                eof = True
+                                reached_target = True
+                                break
+                            if pcm.shape[0] > remaining:
+                                pcm = pcm[:remaining, :]
+
+                        if pcm.size == 0:
+                            continue
+
+                        remaining_needed = min(credit_frames, decode_target - frames_out)
+                        if remaining_needed <= 0:
+                            pending_pcm = pcm
+                            reached_target = True
                             break
-                        if pcm.shape[0] > remaining:
-                            pcm = pcm[:remaining, :]
 
-                    if pcm.shape[0] > credit_frames:
-                        pcm = pcm[:credit_frames, :]
-                    if pcm.size == 0:
-                        continue
+                        if pcm.shape[0] > remaining_needed:
+                            pending_pcm = pcm[remaining_needed:, :]
+                            pcm = pcm[:remaining_needed, :]
 
-                    decoded_frames += pcm.shape[0]
-                    frames_out += pcm.shape[0]
-                    credit_frames -= pcm.shape[0]
-                    pcm_chunks.append(pcm)
+                        if pcm.size == 0:
+                            continue
 
-                    # Send one chunk per slice.
-                    if frames_out >= decode_target:
+                        decoded_frames += pcm.shape[0]
+                        frames_out += pcm.shape[0]
+                        credit_frames -= pcm.shape[0]
+                        pcm_chunks.append(pcm)
+
+                        # Send one chunk per slice.
+                        if frames_out >= decode_target:
+                            reached_target = True
+                            break
+
+                    if reached_target:
                         break
 
                 if pcm_chunks:

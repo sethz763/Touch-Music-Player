@@ -1,110 +1,17 @@
-[GUI] QApplication created
-[POLL-DEBUG] drained=1 drain=0.72ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=1.68ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.85ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.72ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.85ms
-[POLL-DEBUG] drained=1 drain=0.13ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.19ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.13ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.14ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.22ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.14ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.15ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.13ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.13ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.11ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.24ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.08ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.11ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.08ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.17ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.20ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.17ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.17ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.21ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.17ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.15ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.32ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.13ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.15ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.13ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.41ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.44ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.41ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.55ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.59ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.55ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.08ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.08ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.13ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.14ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.13ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.15ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.13ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.18ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.22ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.18ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.19ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.25ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.19ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.10ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.13ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.10ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.13ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.17ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.13ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.15ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.21ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.01ms
-[POLL-DEBUG] stages drain=0.15ms lifecycle=0.00ms telemetry=0.01ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.09ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.12ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.09ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.08ms lifecycle=0 telemetry=1 diag=0
-[POLL-DEBUG] total=0.11ms lifecycle=0/0 telemetry=1/1 other=0 emit_pending=0.00ms max_event=0.00ms
-[POLL-DEBUG] stages drain=0.08ms lifecycle=0.00ms telemetry=0.00ms diag=0.00ms emit_pending=0.00ms
-[POLL-DEBUG] drained=1 drain=0.12ms lifecycle=0 telemetry=1 diag=0
-[2026-01-05T11:58:14.097] [engine] cue= track= set_output_device_requested {'device': '15'}
-[2026-01-05T11:58:14.097] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[2026-01-05T11:58:14.097] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
-[2026-01-05T11:58:15.629] [engine] cue= track= output_debug {'msg': '[1767632295.627] Opened output stream device=None sr=48000 ch=2 block=2048'}
-[2026-01-05T11:58:15.629] [engine] cue= track= output_debug {'msg': '[1767632295.628] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice'}
-[2026-01-05T11:58:15.629] [engine] cue= track= output_debug {'msg': '[1767632295.628] OutputSetDevice received: 15'}
-[2026-01-05T11:58:16.788] [engine] cue= track= output_debug {'msg': '[1767632296.784] Opened output stream device=15 sr=48000 ch=2 block=2048'}
-[2026-01-05T11:58:16.788] [engine] cue= track= output_device_changed {'device': 15}
-[2026-01-05T11:58:16.788] [engine] cue= track= output_debug {'msg': '[1767632296.784] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig'}
-[2026-01-05T11:58:16.788] [engine] cue= track= output_debug {'msg': '[1767632296.784] OutputSetConfig received: sr=48000 ch=2 block=2048'}
-[2026-01-05T11:58:17.511] [engine] cue= track= output_debug {'msg': '[1767632297.507] Opened output stream device=None sr=48000 ch=2 block=2048'}
-[2026-01-05T11:58:17.511] [engine] cue= track= output_config_changed {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[2026-01-05T11:58:17.523] [engine] cue= track= output_status {'status': 'output underflow'}
-[2026-01-05T11:58:18.023] [engine] cue= track= output_debug {'msg': '[1767632298.022] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=17/0 finished=0/0'}
-[2026-01-05T11:58:18.524] [engine] cue= track= output_debug {'msg': '[1767632298.524] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0'}
-[2026-01-05T11:58:19.029] [engine] cue= track= output_debug {'msg': '[1767632299.027] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0'}
-[2026-01-05T11:58:19.532] [engine] cue= track= output_debug {'msg': '[1767632299.530] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0'}
-[2026-01-05T11:58:20.036] [engine] cue= track= output_debug {'msg': '[1767632300.033] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0'}
+[2026-01-05T13:17:35.427] [engine] cue= track= set_output_device_requested {'device': '15'}
+[2026-01-05T13:17:35.427] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
+[2026-01-05T13:17:35.427] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
+[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice'}
+[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] OutputSetDevice received: 15'}
+[2026-01-05T13:17:35.998] [engine] cue= track= output_device_changed {'device': 15}
+[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig'}
+[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] OutputSetConfig received: sr=48000 ch=2 block=2048'}
+[2026-01-05T13:17:35.998] [engine] cue= track= output_config_changed {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
+[AUDIO-ENGINE] cue=893b2926 FINAL: out_frame=10982016 (from total_seconds=228.792 sample_rate=48000)
+[2026-01-05T13:17:38.270] [engine] cue=893b292667784fea9cb50da685902ef7 track=7ef84e2d-5e6e-4f34-b46d-e832e17caaed cue_start_requested {'file_path': 'C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3', 'gain_db': 0.0, 'loop': False, 'fade_in_ms': 141}
+[AUTO-FADE-INIT] new_cue=893b2926 fade_others=True old_cues_to_fade=0 auto_fade_on_new=True
+[AUTO-FADE-COMPLETE] new_cue=893b2926 sent=0 failed=0
+[ENGINE-PLAY-CUE] cue=893b2926 sending DecodeStart
+[2026-01-05T13:17:38.274] [engine] cue= track= output_debug {'msg': '[1767637058.274] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue'}
+[2026-01-05T13:17:38.415] [engine] cue= track= engine_heartbeat {'active_cues': 1, 'pump_dt_ms': 16.00000006146729, 'pump_work_ms': 0.04229997284710407, 'out_events_drained': 0, 'decode_chunks_drained': 0, 'decode_events_drained': 0, 'max_engine_hold_ms': 0.0, 'max_decoder_age_ms': 0.0, 'max_decode_to_engine_ms': 0.0, 'max_engine_internal_ms': 0.0, 'max_pump_dt_ms_run': 16.00000006146729, 'max_engine_hold_ms_run': 0.0, 'max_decoder_age_ms_run': 0.0, 'max_decode_to_engine_ms_run': 0.0, 'max_engine_internal_ms_run': 0.0}
+[2026-01-05T13:17:38.915] [engine] cue= track= engine_heartbeat {'active_cues': 1, 'pump_dt_ms': 16.00000006146729, 'pump_work_ms': 0.04179996903985739, 'out_events_drained': 0, 'decode_chunks_drained': 0, 'decode_events_drained': 0, 'max_engine_hold_ms': 0.0, 'max_decoder_age_ms': 0.0, 'max_decode_to_engine_ms': 0.0, 'max_engine_internal_ms': 0.0, 'max_pump_dt_ms_run': 16.00000006146729, 'max_engine_hold_ms_run': 0.0, 'max_decoder_age_ms_run': 0.0, 'max_decode_to_engine_ms_run': 0.0, 'max_engine_internal_ms_run': 0.0}

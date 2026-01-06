@@ -36,6 +36,8 @@ from engine.commands import (
     OutputListDevices,
     SetTransitionFadeDurations,
 )
+
+import os
 from engine.messages.events import (
     CueStartedEvent,
     CueFinishedEvent, 
@@ -177,7 +179,10 @@ def audio_service_main(
                             for batched_cmd in cmd.commands:
                                 if isinstance(batched_cmd, PlayCueCommand):
                                     try:
-                                        cue_started_event = engine.play_cue(batched_cmd)
+                                        cue_started_event = engine.play_cue(
+                                            batched_cmd,
+                                            layered=bool(getattr(batched_cmd, "layered", False)),
+                                        )
                                         if cue_started_event:
                                             try:
                                                 evt_q.put_nowait(cue_started_event)
@@ -198,7 +203,10 @@ def audio_service_main(
                     # PlayCueCommand is special - route to play_cue()
                     if isinstance(cmd, PlayCueCommand):
                         try:
-                            cue_started_event = engine.play_cue(cmd)
+                            cue_started_event = engine.play_cue(
+                                cmd,
+                                layered=bool(getattr(cmd, "layered", False)),
+                            )
                             # Queue the CueStartedEvent immediately to GUI
                             if cue_started_event:
                                 try:

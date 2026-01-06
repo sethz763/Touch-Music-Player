@@ -67,8 +67,30 @@ class AudioEngine:
         self.fade_curve = str(fade_curve)
 
         self.log = LogManager()
+        self._debug_prints = os.environ.get("STEPD_ENGINE_DEBUG_PRINTS", "0").strip().lower() in ("1", "true", "yes", "on")
         # Dedicated debug log for high-signal engine diagnostics (separate from the user XLSX cue log)
         self._engine_debug_log_path = Path.cwd() / "engine_debug.log"
+        # Heartbeat mirroring into engine_debug.log can generate large files quickly.
+        # Default behavior: only mirror *warning/suspicious* heartbeats.
+        # Set STEPD_ENGINE_DEBUG_HEARTBEAT=1 to mirror all heartbeats.
+        self._engine_debug_heartbeat_all = os.environ.get("STEPD_ENGINE_DEBUG_HEARTBEAT", "0").strip().lower() in (
+            "1",
+            "true",
+            "yes",
+            "on",
+        )
+        # Simple log rotation for engine_debug.log to prevent unbounded growth.
+        # Defaults: 10MB max, keep 3 backups.
+        try:
+            self._engine_debug_log_max_bytes = int(float(os.environ.get("STEPD_ENGINE_DEBUG_LOG_MAX_MB", "10")) * 1024 * 1024)
+        except Exception:
+            self._engine_debug_log_max_bytes = 10 * 1024 * 1024
+        try:
+            self._engine_debug_log_backups = int(os.environ.get("STEPD_ENGINE_DEBUG_LOG_BACKUPS", "3"))
+        except Exception:
+            self._engine_debug_log_backups = 3
+        if self._engine_debug_log_backups < 0:
+            self._engine_debug_log_backups = 0
         self._ctx = mp.get_context("spawn")
 
         self._decode_cmd_q = self._ctx.Queue()
@@ -113,6 +135,9 @@ class AudioEngine:
         self._fade_requested: set[str] = set()
         # track cues pending force-stop: {cue_id: stop_time_unix}
         self._pending_stops: Dict[str, float] = {}
+        # track cues for which we've already sent the stop commands (after fade elapsed)
+        # so we don't spam DecodeStop/OutputStopCue every pump()
+        self._stop_sent: set[str] = set()
 
         # rate-limit refade checks to avoid spamming every pump call
         self._last_refade_check: float = time.time()
@@ -135,8 +160,74 @@ class AudioEngine:
         self._hb_out_events_drained: int = 0
         self._hb_decode_events_drained: int = 0
 
+    def _dbg_print(self, msg: str) -> None:
+        if self._debug_prints:
+            print(msg)
+
+    def _rotate_engine_debug_log_if_needed(self) -> None:
+        """Best-effort size-based rotation for engine_debug.log.
+
+        Rotation scheme:
+        - engine_debug.log -> engine_debug.1.log
+        - engine_debug.1.log -> engine_debug.2.log
+        - ... up to N backups
+
+        Never raises; intended to be safe in real-time-ish contexts.
+        """
+        try:
+            max_bytes = int(getattr(self, "_engine_debug_log_max_bytes", 0) or 0)
+            backups = int(getattr(self, "_engine_debug_log_backups", 0) or 0)
+            if max_bytes <= 0:
+                return
+
+            path = self._engine_debug_log_path
+            try:
+                if not path.exists():
+                    return
+                size = path.stat().st_size
+            except Exception:
+                return
+
+            if size <= max_bytes:
+                return
+
+            # backups == 0 means truncate (remove) the current log.
+            if backups <= 0:
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                return
+
+            base = path.with_suffix("")  # '.../engine_debug'
+            suffix = path.suffix  # '.log'
+
+            # Shift older backups up (N-1 -> N)
+            for i in range(backups, 1, -1):
+                src = Path(f"{base}.{i-1}{suffix}")
+                dst = Path(f"{base}.{i}{suffix}")
+                try:
+                    if src.exists():
+                        os.replace(src, dst)
+                except Exception:
+                    pass
+
+            # Current -> .1
+            try:
+                os.replace(path, Path(f"{base}.1{suffix}"))
+            except Exception:
+                # If we can't rename (e.g. locked), fall back to truncation.
+                try:
+                    path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
     def _append_engine_debug(self, *, level: str, message: str, metadata: dict) -> None:
         try:
+            # Keep the debug log bounded so long sessions don't create huge files.
+            self._rotate_engine_debug_log_if_needed()
             # Format: one record per line for easy grep/correlation with output_process_debug.log
             record = {
                 "ts_unix": time.time(),
@@ -327,7 +418,7 @@ class AudioEngine:
             if isinstance(cmd, PlayCueCommand):
                 # Route to play_cue directly
                 try:
-                    self.play_cue(cmd)
+                    self.play_cue(cmd, layered=bool(getattr(cmd, "layered", False)))
                 except Exception:
                     pass
                 return
@@ -337,10 +428,14 @@ class AudioEngine:
                     # If caller requested a fade-out, issue OutputFadeTo and schedule cleanup
                     if getattr(cmd, "fade_out_ms", 0) and cmd.fade_out_ms > 0:
                         try:
+                            # Mark as a manual stop so GUI/export reasons are consistent.
+                            # (We still wait for output to report finished before removing.)
+                            self._removal_reasons[cmd.cue_id] = "manual_stop"
                             self._out_cmd_q.put(OutputFadeTo(cue_id=cmd.cue_id, target_db=-120.0, duration_ms=int(cmd.fade_out_ms), curve=getattr(cmd, "fade_curve", "linear")))
                             # schedule pending stop after fade duration
                             self._pending_stops[cmd.cue_id] = time.time() + (int(cmd.fade_out_ms) / 1000.0)
                             self._fade_requested.add(cmd.cue_id)
+                            self._stop_sent.discard(cmd.cue_id)
                             self.log.info(cue_id=cmd.cue_id, source="engine", message="stop_with_fade_requested", metadata={"fade_out_ms": cmd.fade_out_ms})
                         except Exception:
                             pass
@@ -367,7 +462,7 @@ class AudioEngine:
 
             if isinstance(cmd, UpdateCueCommand):
                 try:
-                    print(f"[AUDIO-ENGINE] Updating cue {cmd.cue_id}: in_frame={cmd.in_frame} out_frame={cmd.out_frame} gain_db={cmd.gain_db} loop_enabled={cmd.loop_enabled}")
+                    self._dbg_print(f"[AUDIO-ENGINE] Updating cue {cmd.cue_id}: in_frame={cmd.in_frame} out_frame={cmd.out_frame} gain_db={cmd.gain_db} loop_enabled={cmd.loop_enabled}")
                     self.update_cue(
                         cue_id=cmd.cue_id,
                         in_frame=cmd.in_frame,
@@ -377,7 +472,7 @@ class AudioEngine:
                     )
                     self.log.info(cue_id=cmd.cue_id, source="engine", message="cue_update_requested", metadata={"in_frame": cmd.in_frame, "out_frame": cmd.out_frame, "gain_db": cmd.gain_db, "loop_enabled": cmd.loop_enabled})
                 except Exception as e:
-                    print(f"[AUDIO-ENGINE] Error updating cue {cmd.cue_id}: {e}")
+                    self._dbg_print(f"[AUDIO-ENGINE] Error updating cue {cmd.cue_id}: {e}")
                     pass
                 return
 
@@ -548,7 +643,7 @@ class AudioEngine:
                 except Exception:
                     out_frame_val = None
 
-        print(f"[AUDIO-ENGINE] cue={cue_id[:8]} FINAL: out_frame={out_frame_val} (from total_seconds={total_seconds} sample_rate={self.sample_rate})")
+        self._dbg_print(f"[AUDIO-ENGINE] cue={cue_id[:8]} FINAL: out_frame={out_frame_val} (from total_seconds={total_seconds} sample_rate={self.sample_rate})")
         
         track = Track(track_id=str(uuid.uuid4()), file_path=cmd.file_path, channels=self.channels, sample_rate=self.sample_rate, duration_frames=(out_frame_val if out_frame_val is not None else None))
         cue = Cue(
@@ -592,7 +687,7 @@ class AudioEngine:
             # The output process will handle duplicate fade commands gracefully
             old_cues = [c for c in list(self.active_cues.keys()) if c != cue_id]
             
-            print(f"[AUTO-FADE-INIT] new_cue={cue_id[:8]} fade_others={fade_others} old_cues_to_fade={len(old_cues)} auto_fade_on_new={self.auto_fade_on_new}")
+            self._dbg_print(f"[AUTO-FADE-INIT] new_cue={cue_id[:8]} fade_others={fade_others} old_cues_to_fade={len(old_cues)} auto_fade_on_new={self.auto_fade_on_new}")
             
             # Send fade commands for all active cues (with timeout, non-blocking)
             # Use put() with timeout=0.1s to prevent indefinite blocking
@@ -612,20 +707,20 @@ class AudioEngine:
                     self._pending_stops[old_cid] = stop_time
                     fade_sent_count += 1
                     self.log.info(cue_id=old_cid, source="engine", message="fade_requested_on_new_cue", metadata={"new_cue": cue_id, "removal_reason": "auto_fade"})
-                    print(f"[FADE-QUEUED] cue={old_cid[:8]} -> output queue (sent={fade_sent_count})")
+                    self._dbg_print(f"[FADE-QUEUED] cue={old_cid[:8]} -> output queue (sent={fade_sent_count})")
                 except queue.Full:
                     # Queue full - still mark as pending so refade will retry
                     fade_failed_count += 1
                     self._fade_requested.add(old_cid)
                     self._pending_stops[old_cid] = stop_time
                     self.log.warning(cue_id=old_cid, source="engine", message="fade_queue_timeout_will_retry", metadata={"new_cue": cue_id})
-                    print(f"[FADE-QUEUE-TIMEOUT] cue={old_cid[:8]} queue full, will retry (failures={fade_failed_count})")
+                    self._dbg_print(f"[FADE-QUEUE-TIMEOUT] cue={old_cid[:8]} queue full, will retry (failures={fade_failed_count})")
                 except Exception as e:
                     fade_failed_count += 1
                     self.log.error(cue_id=old_cid, source="engine", message="fade_queue_error", metadata={"error": str(e)})
-                    print(f"[FADE-QUEUE-ERROR] cue={old_cid[:8]} {type(e).__name__}: {e}")
+                    self._dbg_print(f"[FADE-QUEUE-ERROR] cue={old_cid[:8]} {type(e).__name__}: {e}")
             
-            print(f"[AUTO-FADE-COMPLETE] new_cue={cue_id[:8]} sent={fade_sent_count} failed={fade_failed_count}")
+            self._dbg_print(f"[AUTO-FADE-COMPLETE] new_cue={cue_id[:8]} sent={fade_sent_count} failed={fade_failed_count}")
 
         # If fading in, start silent and specify fade-in duration in the start command (atomic)
         start_gain_db = cue.gain_db
@@ -633,7 +728,7 @@ class AudioEngine:
             start_gain_db = -120.0
 
         # CRITICAL: Send DecodeStart FIRST so decoder is ready before output process sends BufferRequest
-        print(f"[ENGINE-PLAY-CUE] cue={cue.cue_id[:8]} sending DecodeStart")
+        self._dbg_print(f"[ENGINE-PLAY-CUE] cue={cue.cue_id[:8]} sending DecodeStart")
         self._decode_cmd_q.put(DecodeStart(
             cue_id=cue.cue_id,
             track_id=cue.track.track_id,
@@ -691,6 +786,7 @@ class AudioEngine:
         try:
             self._fade_requested.discard(cmd.cue_id)
             self._pending_stops.pop(cmd.cue_id, None)
+            self._stop_sent.discard(cmd.cue_id)
         except Exception:
             pass
         try:
@@ -720,13 +816,13 @@ class AudioEngine:
         Only provided parameters will be updated; others remain unchanged.
         Changes are applied immediately in the decoder and output processes.
         """
-        print(f"[AudioEngine.update_cue] CALLED with cue_id={cue_id}, in_frame={in_frame}, out_frame={out_frame}, gain_db={gain_db}, loop_enabled={loop_enabled}")
+        self._dbg_print(f"[AudioEngine.update_cue] CALLED with cue_id={cue_id}, in_frame={in_frame}, out_frame={out_frame}, gain_db={gain_db}, loop_enabled={loop_enabled}")
         cue = self.active_cues.get(cue_id)
         if not cue:
-            print(f"[AudioEngine.update_cue] Cue {cue_id} not found in active_cues")
+            self._dbg_print(f"[AudioEngine.update_cue] Cue {cue_id} not found in active_cues")
             return
         
-        print(f"[AudioEngine.update_cue] Found cue {cue_id}, updating properties")
+        self._dbg_print(f"[AudioEngine.update_cue] Found cue {cue_id}, updating properties")
         
         # Update cue object for tracking
         if in_frame is not None:
@@ -749,11 +845,11 @@ class AudioEngine:
             gain_db=gain_db,
             loop_enabled=effective_loop_enabled,
         )
-        print(f"[AudioEngine.update_cue] Sending UpdateCueCommand to both queues: {cmd}")
+        self._dbg_print(f"[AudioEngine.update_cue] Sending UpdateCueCommand to both queues: {cmd}")
         # Send to output first so loop toggles take effect before any queued PCM is drained.
         self._out_cmd_q.put(cmd)
         self._decode_cmd_q.put(cmd)
-        print(f"[AudioEngine.update_cue] Commands queued")
+        self._dbg_print(f"[AudioEngine.update_cue] Commands queued")
 
     def pump(self) -> List[object]:
         evts: List[object] = []
@@ -805,6 +901,7 @@ class AudioEngine:
                 self._output_started.discard(cue_id)
                 self._fade_requested.discard(cue_id)
                 self._pending_stops.pop(cue_id, None)
+                self._stop_sent.discard(cue_id)
             except Exception:
                 pass
             if self.primary_cue_id == cue_id:
@@ -854,6 +951,37 @@ class AudioEngine:
                 stopped_at = datetime.now()
                 final_cue_info = replace(cue_info, stopped_at=stopped_at, removal_reason=removal_reason)
                 evts.append(CueFinishedEvent(cue_info=final_cue_info, reason=removal_reason))
+
+        # Dispatch any pending fade-outs whose stop time has elapsed.
+        # This is the missing step that turns a "fade to silence" into an actual stop.
+        # We send DecodeStop + OutputStopCue once per cue and then wait for output to emit "finished".
+        current_time = time.time()
+        for cue_id, stop_time in list(self._pending_stops.items()):
+            if cue_id not in self.active_cues:
+                self._pending_stops.pop(cue_id, None)
+                self._stop_sent.discard(cue_id)
+                continue
+            if cue_id in self._stop_sent:
+                continue
+            if current_time < float(stop_time):
+                continue
+            try:
+                # If the caller didn't set an explicit removal reason, treat this as a stop.
+                self._removal_reasons.setdefault(cue_id, "manual_stop")
+            except Exception:
+                pass
+            try:
+                self._decode_cmd_q.put(DecodeStop(cue_id=cue_id))
+            except Exception:
+                pass
+            try:
+                self._out_cmd_q.put(OutputStopCue(cue_id=cue_id))
+            except Exception:
+                pass
+            # Mark stop as sent, and reset the timer base so the stuck-safety window is
+            # measured from *after* we've issued the explicit stop commands.
+            self._stop_sent.add(cue_id)
+            self._pending_stops[cue_id] = current_time
         
         # Safety check: if a cue is in pending_stops for too long (>5 seconds), force-remove it
         # This should be a rare safety valve - fades should complete naturally and emit finished events
@@ -973,7 +1101,7 @@ class AudioEngine:
             elif isinstance(msg, DecodeError):
                 cue = self.active_cues.pop(msg.cue_id, None)
                 if cue:
-                    print(f"[ENGINE-DECODE-ERROR] cue={msg.cue_id[:8]} DecodeError: {msg.error}, sending OutputStopCue")
+                    self._dbg_print(f"[ENGINE-DECODE-ERROR] cue={msg.cue_id[:8]} DecodeError: {msg.error}, sending OutputStopCue")
                     self._removal_reasons[msg.cue_id] = f"decode_error: {msg.error}"  # Track error as removal reason
                     self._out_cmd_q.put(OutputStopCue(cue_id=msg.cue_id))
                     try:
@@ -1056,11 +1184,11 @@ class AudioEngine:
                 cue_id = m[1] if len(m) > 1 else None
                 track_id = m[2] if len(m) > 2 else None
                 file_path = m[3] if len(m) > 3 else None
-                print(f"[DEBUG-LOOP-ENGINE] Received looped event for cue {cue_id}")
+                self._dbg_print(f"[DEBUG-LOOP-ENGINE] Received looped event for cue {cue_id}")
                 
                 if cue_id and cue_id in self.active_cues:
                     cue = self.active_cues.get(cue_id)
-                    print(f"[DEBUG-LOOP-ENGINE] Sending OutputStartCue with is_loop_restart=True for cue {cue_id}, gain={cue.gain_db}dB")                    
+                    self._dbg_print(f"[DEBUG-LOOP-ENGINE] Sending OutputStartCue with is_loop_restart=True for cue {cue_id}, gain={cue.gain_db}dB")                    
                     self._out_cmd_q.put(OutputStartCue(
                         cue_id=cue_id,
                         track_id=track_id,
@@ -1072,7 +1200,7 @@ class AudioEngine:
                         is_loop_restart=True,
                     ))
                 else:
-                    print(f"[DEBUG-LOOP-ENGINE] Looped event for cue {cue_id}: cue not in active_cues")
+                    self._dbg_print(f"[DEBUG-LOOP-ENGINE] Looped event for cue {cue_id}: cue not in active_cues")
 
         self._hb_decode_events_drained += decode_events_drained_this_pump
 
@@ -1114,10 +1242,13 @@ class AudioEngine:
                     if level == "warning":
                         self.log.warning(source="engine", message="engine_heartbeat", metadata=meta)
                     else:
-                        self.log.info(source="engine", message="engine_heartbeat", metadata=meta)
+                        # Heartbeat is very spammy; keep it opt-in on stdout.
+                        self.log.debug(source="engine", message="engine_heartbeat", metadata=meta)
 
-                    # Always mirror heartbeat to a dedicated debug file for correlation.
-                    self._append_engine_debug(level=level, message="engine_heartbeat", metadata=meta)
+                    # Mirror heartbeat to a dedicated debug file for correlation.
+                    # Keep the file high-signal by default: mirror only suspicious heartbeats.
+                    if level == "warning" or self._engine_debug_heartbeat_all:
+                        self._append_engine_debug(level=level, message="engine_heartbeat", metadata=meta)
 
                 # Reset running counters each emit window (keep maxima)
                 self._hb_decode_chunks_drained = 0
@@ -1192,7 +1323,8 @@ class AudioEngine:
                         pass
                 elif tag == "debug":
                     try:
-                        self.log.info(source="engine", message="output_debug", metadata={"msg": m[1]})
+                        # Output process probe/debug messages are opt-in on stdout.
+                        self.log.debug(source="engine", message="output_debug", metadata={"msg": m[1]})
                     except Exception:
                         pass
 

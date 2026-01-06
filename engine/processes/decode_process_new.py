@@ -172,32 +172,47 @@ def _decode_worker(cue_id: str, msg: DecodeStart, worker_q: mp.Queue, out_q: mp.
                         # Resample
                         frame.pts = None
                         resampled = resampler.resample(frame)
-                        if resampled:
-                            pcm = _normalize_audio(resampled[0].to_ndarray())
+                        if not resampled:
+                            continue
+
+                        reached_target = False
+                        for out_frame in resampled:
+                            pcm = _normalize_audio(out_frame.to_ndarray())
                             pcm = _ensure_channels(pcm, msg.target_channels)
-                            
+
                             # Discard frames after seek
                             if discard_frames > 0:
                                 discard = min(discard_frames, pcm.shape[0])
                                 pcm = pcm[discard:, :]
                                 discard_frames -= discard
-                            
+
                             if pcm.size == 0:
                                 continue
-                            
+
                             # Check boundary
                             if msg.out_frame is not None:
                                 remaining = msg.out_frame - decoded_frames
                                 if remaining <= 0:
                                     eof = True
+                                    reached_target = True
                                     break
                                 if pcm.shape[0] > remaining:
                                     pcm = pcm[:remaining, :]
-                            
+
+                            if pcm.size == 0:
+                                continue
+
                             decoded_frames += pcm.shape[0]
                             frames_out += pcm.shape[0]
                             credit_frames -= pcm.shape[0]
                             chunks.append(pcm)
+
+                            if frames_out >= TARGET_CHUNK_SIZE or credit_frames <= 0:
+                                reached_target = True
+                                break
+
+                        if reached_target:
+                            break
                     
                     # Send chunk
                     if chunks:
