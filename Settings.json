@@ -11,10 +11,10 @@
         "MME",
         48000.0
     ],
-    "fade_in_duration": 182,
-    "fade_out_duration": 502,
-    "play_fade_dur": 182,
-    "pause_fade_dur": 502,
+    "fade_in_duration": 516,
+    "fade_out_duration": 1245,
+    "play_fade_dur": 516,
+    "pause_fade_dur": 1245,
     "rows": 3,
     "columns": 8
 }

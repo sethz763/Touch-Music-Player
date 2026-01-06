@@ -219,6 +219,10 @@ class SoundFileButton(QPushButton):
         self.is_playing: bool = False
         self.current_cue_id: Optional[str] = None
         self._active_cue_ids: set[str] = set()  # Track all cue_ids created by this button
+        # Track cues that have actually started (we received CueStartedEvent).
+        # Under heavy GUI activity, a play request can be dropped before reaching the engine.
+        # Those "phantom" cue_ids must not keep the button flashing.
+        self._started_cue_ids: set[str] = set()
         self._adapter_subscribed: bool = False  # Track if we've subscribed to avoid double-subscription
         
         # Clip parameters (per-button settings)
@@ -943,6 +947,25 @@ class SoundFileButton(QPushButton):
         self.duration_seconds = None
         self.sample_rate = None
         self.channels = None
+        self.current_cue_id = None
+        self.is_playing = False
+        try:
+            self._active_cue_ids.clear()
+        except Exception:
+            pass
+        try:
+            self._started_cue_ids.clear()
+        except Exception:
+            pass
+        try:
+            self._stop_flash()
+        except Exception:
+            pass
+        try:
+            self.fade_button.setEnabled(False)
+            self.fade_button.hide()
+        except Exception:
+            pass
         self._refresh_label()
         self._notify_state_changed()
     
@@ -967,10 +990,27 @@ class SoundFileButton(QPushButton):
         self.peak_level = 0.0
         self.current_cue_id = None
         self.is_playing = False
+        try:
+            self._active_cue_ids.clear()
+        except Exception:
+            pass
+        try:
+            self._started_cue_ids.clear()
+        except Exception:
+            pass
         self.bg_color = None
         self.text_color = None
         self.setText("")
         self.setStyleSheet("")
+        try:
+            self._stop_flash()
+        except Exception:
+            pass
+        try:
+            self.fade_button.setEnabled(False)
+            self.fade_button.hide()
+        except Exception:
+            pass
         self._notify_state_changed()
     
     def _probe_file_async(self, path: str) -> None:
@@ -1248,6 +1288,7 @@ class SoundFileButton(QPushButton):
         
         # This cue belongs to us; mark button as playing
         self.current_cue_id = cue_id
+        self._started_cue_ids.add(cue_id)
         self.is_playing = True
         self.fade_button.setEnabled(True)
         self.fade_button.show()
@@ -1271,15 +1312,23 @@ class SoundFileButton(QPushButton):
         
         # Remove this cue from our active set
         self._active_cue_ids.discard(cue_id)
+        self._started_cue_ids.discard(cue_id)
         
-        # If all our cues have finished, reset the button state
-        if not self._active_cue_ids:
+        # If no started cues remain, reset the button state.
+        # Note: _active_cue_ids can contain "phantom" cue_ids from dropped play requests.
+        if not self._started_cue_ids:
             # Update state immediately (fast)
             self.is_playing = False
             self.elapsed_seconds = 0.0
             self.remaining_seconds = self.duration_seconds
             self.light_level = 0.0
             self.current_cue_id = None
+
+            # Ensure flashing is cleared even if centralized/batched cleanup is delayed.
+            try:
+                QTimer.singleShot(0, self._finish_cleanup)
+            except Exception:
+                pass
         
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > 1.0:
@@ -1291,7 +1340,7 @@ class SoundFileButton(QPushButton):
         with other finish events, so multiple button repaints happen together instead of sequentially.
         Batches all UI updates into single stylesheet set + single repaint.
         """
-        if not self._active_cue_ids:
+        if not self._started_cue_ids:
             start = time.perf_counter()
             # Stop flash animation without triggering extra stylesheet work mid-cleanup
             if self.flash_anim is not None:
@@ -1321,7 +1370,7 @@ class SoundFileButton(QPushButton):
     def _hide_fade_button(self) -> None:
         """Deferred fade button hide to batch layout updates."""
         """make sure there are no other active cues before hiding"""
-        if len(self._active_cue_ids) > 0:
+        if len(self._started_cue_ids) > 0:
             return  
         self.fade_button.setEnabled(False)
         self.fade_button.hide()
@@ -1332,7 +1381,7 @@ class SoundFileButton(QPushButton):
         Updates time display for owned cues.
         """
         start = time.perf_counter()
-        if cue_id not in self._active_cue_ids:
+        if cue_id not in self._started_cue_ids:
             return
         
         self.elapsed_seconds = elapsed
@@ -1371,7 +1420,7 @@ class SoundFileButton(QPushButton):
         Also updates the audio level meters if they are visible.
         """
         start = time.perf_counter()
-        if cue_id not in self._active_cue_ids:
+        if cue_id not in self._started_cue_ids:
             return
         
         # Determine if we have per-channel or mixed levels

@@ -72,6 +72,13 @@ class ButtonBankWidget(QWidget):
         # Timing instrumentation
         self._slow_threshold_ms = 2.0
         self._event_times = {}  # Track timing per event type
+
+        # Robust cue routing: map cue_id -> owning button.
+        # Searching all buttons by membership in `_active_cue_ids` is normally fine,
+        # but under high UI churn (rapid presses / clears / state restoration) that
+        # set can temporarily diverge from reality. This mapping is established at
+        # play-request time and used to route lifecycle and telemetry events reliably.
+        self._cue_to_button: dict[str, object] = {}
         
         # Import here to avoid module-level import in subprocess (avoids pickling issues)
         from ui.widgets.sound_file_button import SoundFileButton
@@ -309,6 +316,15 @@ class ButtonBankWidget(QWidget):
             total_seconds=params.get('total_seconds'),
         )
 
+        # Remember which button owns this cue so we can route events deterministically.
+        try:
+            cue_id = cmd.cue_id
+            btn = self.sender()
+            if isinstance(cue_id, str) and cue_id and btn is not None:
+                self._cue_to_button[cue_id] = btn
+        except Exception:
+            pass
+
         # If paused, bypass the batching window so playback starts immediately.
         try:
             is_paused = bool(self.engine_adapter) and getattr(self.engine_adapter, "transport_state", "") == "paused"
@@ -410,12 +426,29 @@ class ButtonBankWidget(QWidget):
         calling this on all 24 buttons).
         """
         start = time.perf_counter()
-        # Find button with matching cue_id in _active_cue_ids
-        for idx, btn in enumerate(self.buttons):
-            if cue_id in btn._active_cue_ids:
+        # Route via cue_id -> button mapping first (more robust), fall back to scan.
+        btn = None
+        try:
+            btn = self._cue_to_button.get(cue_id)
+        except Exception:
+            btn = None
+
+        if btn is not None:
+            try:
                 btn._on_cue_started(cue_id, cue_info)
-                self._last_started_button_index = idx
-                break
+            except Exception:
+                pass
+            try:
+                self._last_started_button_index = self.buttons.index(btn)
+            except Exception:
+                pass
+        else:
+            # Find button with matching cue_id in _active_cue_ids
+            for idx, btn2 in enumerate(self.buttons):
+                if cue_id in btn2._active_cue_ids:
+                    btn2._on_cue_started(cue_id, cue_info)
+                    self._last_started_button_index = idx
+                    break
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
             print(f"[PERF] ButtonBankWidget._on_adapter_cue_started: {elapsed:.2f}ms cue_id={cue_id}")
@@ -428,12 +461,37 @@ class ButtonBankWidget(QWidget):
         not all 24 buttons. Reduces signal processing by 24x.
         """
         start = time.perf_counter()
-        # Find button with matching cue_id in _active_cue_ids
-        for btn in self.buttons:
-            if cue_id in btn._active_cue_ids:
+
+        # Route via cue_id -> button mapping first (more robust), fall back to scan.
+        btn = None
+        try:
+            btn = self._cue_to_button.get(cue_id)
+        except Exception:
+            btn = None
+
+        if btn is not None:
+            try:
                 btn._on_cue_finished(cue_id, cue_info, reason)
                 self._mark_button_dirty(btn)
-                break
+            finally:
+                # Cue is done; drop mapping.
+                try:
+                    self._cue_to_button.pop(cue_id, None)
+                except Exception:
+                    pass
+        else:
+            # Find button with matching cue_id in _active_cue_ids
+            for btn2 in self.buttons:
+                if cue_id in btn2._active_cue_ids:
+                    btn2._on_cue_finished(cue_id, cue_info, reason)
+                    self._mark_button_dirty(btn2)
+                    break
+
+            # Best-effort: drop mapping even if scan path was used.
+            try:
+                self._cue_to_button.pop(cue_id, None)
+            except Exception:
+                pass
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
             print(f"[PERF] ButtonBankWidget._on_adapter_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
@@ -482,11 +540,23 @@ class ButtonBankWidget(QWidget):
         Route cue_time event to the button that owns this cue.
         """
         start = time.perf_counter()
-        # Find button with matching cue_id in _active_cue_ids
-        for btn in self.buttons:
-            if cue_id in btn._active_cue_ids:
+        btn = None
+        try:
+            btn = self._cue_to_button.get(cue_id)
+        except Exception:
+            btn = None
+
+        if btn is not None:
+            try:
                 btn._on_cue_time(cue_id, elapsed, remaining, total)
-                break
+            except Exception:
+                pass
+        else:
+            # Find button with matching cue_id in _active_cue_ids
+            for btn2 in self.buttons:
+                if cue_id in btn2._active_cue_ids:
+                    btn2._on_cue_time(cue_id, elapsed, remaining, total)
+                    break
         elapsed_ms = (time.perf_counter() - start) * 1000
         if elapsed_ms > self._slow_threshold_ms:
             print(f"[PERF] ButtonBankWidget._on_adapter_cue_time: {elapsed_ms:.2f}ms cue_id={cue_id}")
@@ -496,11 +566,23 @@ class ButtonBankWidget(QWidget):
         Route cue_levels event to the button that owns this cue.
         """
         start = time.perf_counter()
-        # Find button with matching cue_id in _active_cue_ids
-        for btn in self.buttons:
-            if cue_id in btn._active_cue_ids:
+        btn = None
+        try:
+            btn = self._cue_to_button.get(cue_id)
+        except Exception:
+            btn = None
+
+        if btn is not None:
+            try:
                 btn._on_cue_levels(cue_id, rms, peak)
-                break
+            except Exception:
+                pass
+        else:
+            # Find button with matching cue_id in _active_cue_ids
+            for btn2 in self.buttons:
+                if cue_id in btn2._active_cue_ids:
+                    btn2._on_cue_levels(cue_id, rms, peak)
+                    break
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
             print(f"[PERF] ButtonBankWidget._on_adapter_cue_levels: {elapsed:.2f}ms cue_id={cue_id}")

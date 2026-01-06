@@ -1724,28 +1724,46 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     # If ring is already marked as finished, don't interfere
                     elif ring.finished_pending:
                         _log(f"[OUTPUT-FADE-FINISHED] cue={msg.cue_id[:8]} ring marked finished_pending, ignoring fade")
-                    # If ring is at EOF, check if it can complete a fade
-                    elif ring.eof:
-                        # Ring is EOF from decoder. Mark finished immediately without a hanging fade.
-                        # This prevents creating fade envelopes that can never complete naturally.
-                        _log(f"[OUTPUT-FADE-EOF] cue={msg.cue_id[:8]} ring is EOF, marking finished_pending")
-                        ring.finished_pending = True
-                        envelopes.pop(msg.cue_id, None)
                     else:
-                        # Normal case: ring is active, create fade envelope
-                        cur = gains.get(msg.cue_id, 1.0)
-                        # Reduce verbose logging for batch operations - only log at info level
-                        # print(f"[OUTPUT-FADE-START] cue={msg.cue_id[:8]} cur={cur:.3f} target_db={msg.target_db} duration_ms={msg.duration_ms} ring_frames={ring.frames}")
-                        _log(f"[OUTPUT-FADE-START] cue={msg.cue_id[:8]} target_db={msg.target_db} duration_ms={msg.duration_ms} current_gain={cur}")
-                        
-                        # treat very-small target_db (e.g. -120dB) as silence
-                        if msg.target_db <= -120.0:
-                            target = 0.0
+                        # Create fade envelope.
+                        # IMPORTANT: even if the decoder already hit EOF, we may still have buffered
+                        # audio in the ring. In that case we should still fade the remaining buffered
+                        # audio instead of marking the cue finished immediately (which would abruptly
+                        # drop it before the envelope is applied).
+
+                        try:
+                            ring_frames = int(getattr(ring, "frames", 0) or 0)
+                        except Exception:
+                            ring_frames = 0
+
+                        if ring.eof and ring_frames <= 0:
+                            # EOF and nothing buffered: fade can't do anything meaningful.
+                            _log(f"[OUTPUT-FADE-EOF-EMPTY] cue={msg.cue_id[:8]} eof=1 ring_frames=0 -> finished_pending")
+                            ring.finished_pending = True
+                            envelopes.pop(msg.cue_id, None)
                         else:
-                            target = _db_to_lin(msg.target_db)
-                        fade_frames = int(cfg.sample_rate * msg.duration_ms / 1000)
-                        envelopes[msg.cue_id] = _FadeEnv(cur, target, fade_frames, msg.curve)
-                        _log(f"FadeTo created: cue={msg.cue_id} cur={cur} target={target} frames={fade_frames} curve={msg.curve}")
+                            cur = gains.get(msg.cue_id, 1.0)
+                            _log(
+                                f"[OUTPUT-FADE-START] cue={msg.cue_id[:8]} target_db={msg.target_db} duration_ms={msg.duration_ms} "
+                                f"current_gain={cur} eof={int(bool(ring.eof))} ring_frames={ring_frames}"
+                            )
+
+                            # treat very-small target_db (e.g. -120dB) as silence
+                            if msg.target_db <= -120.0:
+                                target = 0.0
+                            else:
+                                target = _db_to_lin(msg.target_db)
+
+                            fade_frames = int(cfg.sample_rate * msg.duration_ms / 1000)
+                            # If we're already at EOF, cap fade duration to remaining buffered frames.
+                            # This prevents envelopes that outlive the ring while still providing a fade.
+                            if ring.eof and ring_frames > 0:
+                                fade_frames = min(int(fade_frames), int(ring_frames))
+                            envelopes[msg.cue_id] = _FadeEnv(cur, target, fade_frames, msg.curve)
+                            _log(
+                                f"[OUTPUT-FADE-CREATED] cue={msg.cue_id[:8]} cur={cur} target={target} "
+                                f"frames={fade_frames} curve={msg.curve}"
+                            )
                 except Exception as ex:
                     _log(f"EXCEPTION in OutputFadeTo handler for cue={msg.cue_id}: {type(ex).__name__}: {ex}")
             
