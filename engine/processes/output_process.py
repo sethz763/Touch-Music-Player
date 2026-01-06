@@ -1172,8 +1172,9 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
     last_notable_status_count: int = 0
 
     # Create/open output stream with ability to re-open on device/config change.
-    # Defer opening until first cue to avoid startup churn (device/config messages
-    # often arrive immediately and would otherwise trigger multiple opens).
+    # Open immediately on process start so the audio device/PortAudio stream is
+    # fully initialized before the first cue is triggered. When no cues have PCM,
+    # the callback outputs silence.
     stream = None
     current_device = None
     stream_needs_open = True
@@ -1202,13 +1203,23 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             )
             stream.start()
             _log(f"Opened output stream device={device} sr={cfg.sample_rate} ch={cfg.channels} block={cfg.block_frames}")
+            return True
         except Exception as ex:
             _log(f"EXCEPTION opening output stream device={device}: {type(ex).__name__}: {ex}")
+            return False
 
-    # Defer initial stream open until first cue.
+    # Initialize transport state before starting the stream; the RT callback reads it.
+    transport_paused = False
+    try:
+        callback._cue_ids_snapshot = ()
+    except Exception:
+        pass
+
+    # Start the output stream immediately so first cue playback is instant.
+    # If initial open fails, we will retry on the next cue/device/config message.
+    stream_needs_open = not open_stream(device=current_device)
 
     try:
-        transport_paused = False
         while True:
             try:
                 msg = cmd_q.get(timeout=0.01)
@@ -1574,9 +1585,8 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
             if isinstance(msg, OutputStartCue):
                 try:
                     # Ensure we have an output stream before starting audio.
-                    if stream is None and stream_needs_open:
-                        open_stream(device=current_device)
-                        stream_needs_open = False
+                    if stream is None or stream_needs_open:
+                        stream_needs_open = not open_stream(device=current_device)
 
                     existing_ring = rings.get(msg.cue_id)
                     if existing_ring:

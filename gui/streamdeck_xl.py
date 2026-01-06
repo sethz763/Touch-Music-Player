@@ -64,7 +64,7 @@ class StreamDeckXLBridge(QObject):
         show_corner_label: bool = False,
         parent: Optional[QObject] = None,
         pulse_period_s: float = 1.2,
-        pulse_fps: float = 8.0,
+        pulse_fps: float = 20.0,
     ) -> None:
         super().__init__(parent)
         self._bank_selector = bank_selector
@@ -93,6 +93,18 @@ class StreamDeckXLBridge(QObject):
         self._last_play_highlight: Optional[bool] = None
 
         self._last_snapshot: dict[int, tuple[str, bool]] = {}
+
+        # StreamDeck-side cache of button labels/colors per bank.
+        # Used in INDEPENDENT mode so hidden GUI banks can be "populated" without
+        # needing to drive StreamDeck rendering directly.
+        # Key: (bank_idx, key) where key is 0..23
+        # Val: (text, bg_rgb, fg_rgb, has_file)
+        self._bank_cache: dict[tuple[int, int], tuple[str, tuple[int, int, int], tuple[int, int, int], bool]] = {}
+
+        # Only listen to button updates for the currently displayed bank.
+        # Hidden banks can refresh/probe asynchronously; wiring them all can cause
+        # competing updates and visible flashing.
+        self._wired_buttons: set[object] = set()
 
         # Resolve asset directory (matches PlayControls: 'Assets\\*.png')
         try:
@@ -143,6 +155,13 @@ class StreamDeckXLBridge(QObject):
 
         try:
             self._deck.set_key_callback(self._on_key_change)
+        except Exception:
+            pass
+
+        # Load cache from persistence once on startup. Startup still restores only
+        # the visible GUI bank; other banks are populated when GUI sync is turned off.
+        try:
+            self._load_bank_cache_from_persistence()
         except Exception:
             pass
 
@@ -199,6 +218,28 @@ class StreamDeckXLBridge(QObject):
         self._mode = mode
         if self._mode == self.BankMode.SYNC:
             self._sync_display_bank_from_gui(initial=False)
+
+        # Behavior:
+        # - SYNC: only listen to the displayed bank (matches GUI).
+        # - INDEPENDENT: listen to *all* banks to keep cache up to date, but only
+        #   render the currently displayed bank so hidden-bank updates don't flash.
+        try:
+            self._rewire_button_state_signals()
+        except Exception:
+            pass
+
+        if self._mode == self.BankMode.INDEPENDENT:
+            # When GUI sync is turned off, populate/update all banks even if hidden.
+            # This is a one-time lazy restore per bank.
+            try:
+                self._ensure_all_banks_restored_best_effort()
+            except Exception:
+                pass
+            # Refresh cache from persistence in case the store changed since startup.
+            try:
+                self._load_bank_cache_from_persistence()
+            except Exception:
+                pass
         self._force_full_redraw = True
 
     def mode(self) -> str:
@@ -288,17 +329,51 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             pass
 
-        # Button state changes: mark dirty so labels refresh quickly.
+        # Button state changes: wired by mode (see _rewire_button_state_signals).
+        try:
+            self._rewire_button_state_signals()
+        except Exception:
+            pass
+
+    def _rewire_button_state_signals(self) -> None:
+        """Wire button state_changed according to current mode."""
+        # Disconnect previous wiring
+        for btn in list(self._wired_buttons):
+            try:
+                sig = getattr(btn, "state_changed", None)
+                if sig is not None:
+                    sig.disconnect(self._on_any_button_state_changed)
+            except Exception:
+                pass
+        self._wired_buttons.clear()
+
         try:
             bank_widgets = getattr(self._bank_selector, "_bank_widgets", None) or []
+        except Exception:
+            bank_widgets = []
+
+        if self._mode == self.BankMode.INDEPENDENT:
+            # Listen to all banks so the cache stays current.
             for bank in bank_widgets:
                 for btn in getattr(bank, "buttons", []) or []:
                     try:
                         btn.state_changed.connect(self._on_any_button_state_changed)
+                        self._wired_buttons.add(btn)
                     except Exception:
                         continue
-        except Exception:
-            pass
+        else:
+            # SYNC: only listen to the displayed bank.
+            try:
+                bank = bank_widgets[int(self._display_bank_index)]
+                buttons = getattr(bank, "buttons", []) or []
+            except Exception:
+                return
+            for btn in buttons:
+                try:
+                    btn.state_changed.connect(self._on_any_button_state_changed)
+                    self._wired_buttons.add(btn)
+                except Exception:
+                    continue
 
     def _sync_display_bank_from_gui(self, *, initial: bool) -> None:
         if self._mode != self.BankMode.SYNC:
@@ -324,11 +399,16 @@ class StreamDeckXLBridge(QObject):
             self._display_bank_index = int(index)
         except Exception:
             self._display_bank_index = 0
+        try:
+            self._rewire_button_state_signals()
+        except Exception:
+            pass
         self._force_full_redraw = True
 
     @Slot(object)
     def _on_any_button_state_changed(self, _payload: object) -> None:
-        # Only redraw if this button is on the currently displayed bank.
+        # Always update cache so INDEPENDENT mode can render hidden banks.
+        # Only redraw immediately if this button is on the currently displayed bank.
         try:
             btn = self.sender()
         except Exception:
@@ -341,9 +421,6 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             bank_idx = -1
 
-        if bank_idx != int(self._display_bank_index):
-            return
-
         try:
             idx_in_bank = int(getattr(btn, "index_in_bank", 0))
         except Exception:
@@ -351,8 +428,35 @@ class StreamDeckXLBridge(QObject):
         if not (1 <= idx_in_bank <= 24):
             return
 
+        try:
+            state = _payload if isinstance(_payload, dict) else None
+            self._update_cache_from_state(bank_idx, idx_in_bank, state)
+        except Exception:
+            pass
+
+        # Redraw filter:
+        # In SYNC mode, bank_idx should match the displayed bank.
+        # In INDEPENDENT mode, we may be listening to *all* banks; only redraw
+        # if the sender is the actual button in the currently displayed bank.
+        try:
+            displayed_bank = int(self._display_bank_index)
+        except Exception:
+            displayed_bank = 0
+
+        if self._mode == self.BankMode.INDEPENDENT:
+            try:
+                displayed_btn = self._get_button(displayed_bank, idx_in_bank)
+            except Exception:
+                displayed_btn = None
+            if displayed_btn is None or displayed_btn is not btn:
+                return
+        else:
+            if bank_idx != displayed_bank:
+                return
+
         key = idx_in_bank - 1
         self._dirty_keys.add(key)
+        self._render_grid_key_now(key)
 
     @Slot(str, object)
     def _on_engine_cue_started(self, cue_id: str, _cue_info: object) -> None:
@@ -447,6 +551,7 @@ class StreamDeckXLBridge(QObject):
 
                 # Ensure the key gets refreshed promptly.
                 self._dirty_keys.add(key)
+                self._render_grid_key_now(key)
             except Exception:
                 return
             return
@@ -545,8 +650,104 @@ class StreamDeckXLBridge(QObject):
                 self._display_bank_index = int(new_idx)
         else:
             self._display_bank_index = int(new_idx)
+            try:
+                self._rewire_button_state_signals()
+            except Exception:
+                pass
 
         self._force_full_redraw = True
+
+    def _ensure_all_banks_restored_best_effort(self) -> None:
+        try:
+            bank_widgets = getattr(self._bank_selector, "_bank_widgets", None) or []
+        except Exception:
+            bank_widgets = []
+        for bank in bank_widgets:
+            try:
+                ensure = getattr(bank, "ensure_restored", None)
+                if callable(ensure):
+                    ensure()
+            except Exception:
+                continue
+
+    def _load_bank_cache_from_persistence(self) -> None:
+        store = getattr(self._bank_selector, "_button_settings", None)
+        settings = getattr(store, "settings", None) if store is not None else None
+        if not isinstance(settings, dict):
+            return
+        banks = settings.get("banks") or {}
+        if not isinstance(banks, dict):
+            return
+        for bank_key, bank_dict in banks.items():
+            try:
+                bank_idx = int(bank_key)
+            except Exception:
+                continue
+            if not isinstance(bank_dict, dict):
+                continue
+            for btn_key, state in bank_dict.items():
+                try:
+                    idx_in_bank = int(btn_key)
+                except Exception:
+                    continue
+                if not (1 <= idx_in_bank <= 24):
+                    continue
+                self._update_cache_from_state(bank_idx, idx_in_bank, state if isinstance(state, dict) else None)
+
+    def _hex_to_rgb(self, s: object) -> Optional[tuple[int, int, int]]:
+        try:
+            if not isinstance(s, str):
+                return None
+            t = s.strip().lstrip("#")
+            if len(t) != 6:
+                return None
+            return (int(t[0:2], 16), int(t[2:4], 16), int(t[4:6], 16))
+        except Exception:
+            return None
+
+    def _snapshot_from_state(self, state: Optional[dict]) -> tuple[str, tuple[int, int, int], tuple[int, int, int], bool]:
+        if not isinstance(state, dict):
+            return ("", (10, 10, 10), (255, 255, 255), False)
+        fp = state.get("file_path")
+        has_file = bool(fp)
+        text = ""
+        if fp:
+            try:
+                base = os.path.basename(str(fp))
+                text = os.path.splitext(base)[0]
+            except Exception:
+                text = ""
+        bg = self._hex_to_rgb(state.get("bg_color"))
+        fg = self._hex_to_rgb(state.get("text_color"))
+        if bg is None:
+            bg = (60, 60, 60) if has_file else (10, 10, 10)
+        # GUI default is gray (#808080) but it is styled darker. Mirror the
+        # same behavior here so the StreamDeck doesn't jump to light gray when
+        # we switch to persistence-backed rendering.
+        if bg == (128, 128, 128):
+            bg = (60, 60, 60) if has_file else (10, 10, 10)
+        if fg is None:
+            fg = (255, 255, 255)
+        return (text, bg, fg, has_file)
+
+    def _update_cache_from_state(self, bank_idx: int, idx_in_bank: int, state: Optional[dict]) -> None:
+        try:
+            bank_idx = int(bank_idx)
+            idx_in_bank = int(idx_in_bank)
+        except Exception:
+            return
+        if not (1 <= idx_in_bank <= 24):
+            return
+        key = idx_in_bank - 1
+        self._bank_cache[(bank_idx, key)] = self._snapshot_from_state(state)
+
+    def _cache_get(self, bank_idx: int, key: int) -> tuple[str, tuple[int, int, int], tuple[int, int, int], bool]:
+        try:
+            bank_idx = int(bank_idx)
+            key = int(key)
+        except Exception:
+            return ("", (10, 10, 10), (255, 255, 255), False)
+        return self._bank_cache.get((bank_idx, key), ("", (10, 10, 10), (255, 255, 255), False))
 
     def _render_transport_now(self) -> None:
         """Immediately refresh Play/Pause/Stop visuals for snappy feedback."""
@@ -664,6 +865,128 @@ class StreamDeckXLBridge(QObject):
     # Rendering (Qt thread -> IO thread)
     # ---------------------------------------------------------------------
 
+    def _render_grid_key_now(self, key: int) -> None:
+        """Best-effort immediate refresh for a single cue-grid key.
+
+        This avoids waiting for the next periodic render tick, improving
+        perceived responsiveness when button state changes.
+        """
+        if self._deck is None:
+            return
+        if not (0 <= int(key) <= 23):
+            return
+
+        # Compute the current pulse phase for active keys.
+        now = time.monotonic()
+        phase = 0.0
+        if self._pulse_period_s > 0:
+            phase = (now % self._pulse_period_s) / self._pulse_period_s
+        pulse = 0.5 - 0.5 * math.cos(phase * 2.0 * math.pi)  # 0..1
+
+        idx_in_bank = int(key) + 1
+        bank_idx = int(self._display_bank_index)
+
+        if self._mode == self.BankMode.INDEPENDENT:
+            # In independent mode, use cache for stable labels/colors (avoids
+            # rapid text changes from GUI timers/timecode causing flashing).
+            try:
+                text, bg_rgb, fg_rgb, _has_file = self._bank_cache.get((bank_idx, int(key)), ("", (10, 10, 10), (255, 255, 255), False))
+            except Exception:
+                text, bg_rgb, fg_rgb, _has_file = ("", (10, 10, 10), (255, 255, 255), False)
+
+            # Active flashing only depends on current displayed bank.
+            active = False
+            btn = self._get_button(bank_idx, idx_in_bank)
+            if btn is not None:
+                try:
+                    active = bool(getattr(btn, "is_playing", False))
+                except Exception:
+                    active = False
+
+            corner_text = ""
+            if self._show_corner_label:
+                try:
+                    corner_text = f"{bank_idx}-{int(idx_in_bank)}"
+                except Exception:
+                    corner_text = ""
+        else:
+            btn = self._get_button(bank_idx, idx_in_bank)
+            if btn is None:
+                text = ""
+                active = False
+                bg_rgb = (0, 0, 0)
+                fg_rgb = (255, 255, 255)
+                corner_text = ""
+            else:
+                try:
+                    file_path = getattr(btn, "file_path", None)
+                except Exception:
+                    file_path = None
+                has_file = bool(file_path)
+
+                try:
+                    # Do not use btn.text(): the GUI auto-wrap/auto-font logic
+                    # inserts newlines and changes sizing, which would make the
+                    # StreamDeck label jump when toggling GUI sync.
+                    if has_file:
+                        base = os.path.basename(str(file_path))
+                        text = os.path.splitext(base)[0]
+                    else:
+                        text = ""
+                except Exception:
+                    text = ""
+                try:
+                    active = bool(getattr(btn, "is_playing", False))
+                except Exception:
+                    active = False
+
+                bg_rgb = (10, 10, 10) if not has_file else (60, 60, 60)
+                fg_rgb = (255, 255, 255)
+                try:
+                    bg = getattr(btn, "bg_color", None)
+                    if bg is not None:
+                        bg_name = ""
+                        try:
+                            bg_name = str(bg.name() or "").lower()
+                        except Exception:
+                            bg_name = ""
+                        if (not has_file) and bg_name == "#808080":
+                            bg_rgb = (10, 10, 10)
+                        elif has_file and bg_name == "#808080":
+                            bg_rgb = (60, 60, 60)
+                        else:
+                            bg_rgb = (int(bg.red()), int(bg.green()), int(bg.blue()))
+                except Exception:
+                    pass
+                try:
+                    fg = getattr(btn, "text_color", None)
+                    if fg is not None:
+                        fg_rgb = (int(fg.red()), int(fg.green()), int(fg.blue()))
+                except Exception:
+                    pass
+
+                corner_text = ""
+                if self._show_corner_label:
+                    try:
+                        corner_text = f"{bank_idx}-{int(idx_in_bank)}"
+                    except Exception:
+                        corner_text = ""
+
+        level = float(pulse) if bool(active) else 0.0
+        try:
+            self._enqueue_render_priority(
+                _KeyRender(
+                    key=int(key),
+                    text=text,
+                    active_level=level,
+                    bg_rgb=bg_rgb,
+                    fg_rgb=fg_rgb,
+                    corner_text=corner_text,
+                )
+            )
+        except Exception:
+            return
+
     @Slot()
     def _render_tick(self) -> None:
         if self._deck is None:
@@ -695,64 +1018,89 @@ class StreamDeckXLBridge(QObject):
         # Render cue grid (24 keys)
         for key in range(24):
             idx_in_bank = key + 1
-            btn = self._get_button(self._display_bank_index, idx_in_bank)
-            if btn is None:
-                text = ""
+            bank_idx = int(self._display_bank_index)
+
+            if self._mode == self.BankMode.INDEPENDENT:
+                try:
+                    text, bg_rgb, fg_rgb, _has_file = self._bank_cache.get((bank_idx, int(key)), ("", (10, 10, 10), (255, 255, 255), False))
+                except Exception:
+                    text, bg_rgb, fg_rgb, _has_file = ("", (10, 10, 10), (255, 255, 255), False)
+
                 active = False
-                bg_rgb = (0, 0, 0)
-                fg_rgb = (255, 255, 255)
-                corner_text = ""
-            else:
-                try:
-                    file_path = getattr(btn, "file_path", None)
-                except Exception:
-                    file_path = None
-                has_file = bool(file_path)
-
-                try:
-                    text = str(btn.text() or "")
-                except Exception:
-                    text = ""
-                try:
-                    active = bool(getattr(btn, "is_playing", False))
-                except Exception:
-                    active = False
-
-                # Match GUI colors from SoundFileButton (best-effort).
-                # If no file is assigned, render much darker (nearly black).
-                bg_rgb = (10, 10, 10) if not has_file else (60, 60, 60)
-                fg_rgb = (255, 255, 255)
-                try:
-                    bg = getattr(btn, "bg_color", None)
-                    if bg is not None:
-                        # GUI buttons default to bg_color=gray (#808080) but are styled
-                        # to appear darker; mimic that for assigned-file cues.
-                        bg_name = ""
-                        try:
-                            bg_name = str(bg.name() or "").lower()
-                        except Exception:
-                            bg_name = ""
-                        if (not has_file) and bg_name == "#808080":
-                            bg_rgb = (10, 10, 10)
-                        elif has_file and bg_name == "#808080":
-                            bg_rgb = (60, 60, 60)
-                        else:
-                            bg_rgb = (int(bg.red()), int(bg.green()), int(bg.blue()))
-                except Exception:
-                    pass
-                try:
-                    fg = getattr(btn, "text_color", None)
-                    if fg is not None:
-                        fg_rgb = (int(fg.red()), int(fg.green()), int(fg.blue()))
-                except Exception:
-                    pass
+                btn = self._get_button(bank_idx, idx_in_bank)
+                if btn is not None:
+                    try:
+                        active = bool(getattr(btn, "is_playing", False))
+                    except Exception:
+                        active = False
 
                 corner_text = ""
                 if self._show_corner_label:
                     try:
-                        corner_text = f"{int(self._display_bank_index)}-{int(idx_in_bank)}"
+                        corner_text = f"{bank_idx}-{int(idx_in_bank)}"
                     except Exception:
                         corner_text = ""
+            else:
+                btn = self._get_button(bank_idx, idx_in_bank)
+                if btn is None:
+                    text = ""
+                    active = False
+                    bg_rgb = (0, 0, 0)
+                    fg_rgb = (255, 255, 255)
+                    corner_text = ""
+                else:
+                    try:
+                        file_path = getattr(btn, "file_path", None)
+                    except Exception:
+                        file_path = None
+                    has_file = bool(file_path)
+
+                    try:
+                        # Keep StreamDeck label stable: avoid using btn.text()
+                        # which may include GUI-inserted newlines/font changes.
+                        if has_file:
+                            base = os.path.basename(str(file_path))
+                            text = os.path.splitext(base)[0]
+                        else:
+                            text = ""
+                    except Exception:
+                        text = ""
+                    try:
+                        active = bool(getattr(btn, "is_playing", False))
+                    except Exception:
+                        active = False
+
+                    bg_rgb = (10, 10, 10) if not has_file else (60, 60, 60)
+                    fg_rgb = (255, 255, 255)
+                    try:
+                        bg = getattr(btn, "bg_color", None)
+                        if bg is not None:
+                            bg_name = ""
+                            try:
+                                bg_name = str(bg.name() or "").lower()
+                            except Exception:
+                                bg_name = ""
+                            if (not has_file) and bg_name == "#808080":
+                                bg_rgb = (10, 10, 10)
+                            elif has_file and bg_name == "#808080":
+                                bg_rgb = (60, 60, 60)
+                            else:
+                                bg_rgb = (int(bg.red()), int(bg.green()), int(bg.blue()))
+                    except Exception:
+                        pass
+                    try:
+                        fg = getattr(btn, "text_color", None)
+                        if fg is not None:
+                            fg_rgb = (int(fg.red()), int(fg.green()), int(fg.blue()))
+                    except Exception:
+                        pass
+
+                    corner_text = ""
+                    if self._show_corner_label:
+                        try:
+                            corner_text = f"{bank_idx}-{int(idx_in_bank)}"
+                        except Exception:
+                            corner_text = ""
 
             prev = self._last_snapshot.get(key)
             needs = self._force_full_redraw or (key in self._dirty_keys)
@@ -925,25 +1273,56 @@ class StreamDeckXLBridge(QObject):
             if item.key < 0:
                 continue
 
+            # Coalesce renders: if the producer side is faster than USB I/O,
+            # keep only the most recent render per key so UI feedback (especially
+            # transport highlights) doesn't lag behind by seconds.
+            pending: dict[int, _KeyRender] = {int(item.key): item}
+            drained = 0
+            while drained < 256:
+                try:
+                    nxt = self._io_q.get_nowait()
+                except queue.Empty:
+                    break
+                except Exception:
+                    break
+                drained += 1
+                try:
+                    if nxt.key >= 0:
+                        pending[int(nxt.key)] = nxt
+                except Exception:
+                    continue
+
             deck = self._deck
             if deck is None:
                 continue
 
-            try:
-                img = self._render_key_image(
-                    item.text,
-                    item.active_level,
-                    item.icon_path,
-                    item.bg_rgb,
-                    item.fg_rgb,
-                    item.corner_text,
-                    icon_cache,
-                    font_cache,
-                )
-                native = self._to_native(deck, img)
-                deck.set_key_image(int(item.key), native)
-            except Exception:
-                continue
+            def _priority(k: int) -> int:
+                # Lower = sooner. Transport keys first, then other bottom-row keys.
+                if k in (26, 27, 28):
+                    return 0
+                if k in (24, 25, 29, 30, 31):
+                    return 1
+                return 2
+
+            for key in sorted(pending.keys(), key=_priority):
+                it = pending.get(key)
+                if it is None:
+                    continue
+                try:
+                    img = self._render_key_image(
+                        it.text,
+                        it.active_level,
+                        it.icon_path,
+                        it.bg_rgb,
+                        it.fg_rgb,
+                        it.corner_text,
+                        icon_cache,
+                        font_cache,
+                    )
+                    native = self._to_native(deck, img)
+                    deck.set_key_image(int(it.key), native)
+                except Exception:
+                    continue
 
     def _render_key_image(
         self,

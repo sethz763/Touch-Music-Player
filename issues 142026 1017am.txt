@@ -4,7 +4,9 @@ issues 1/4/2026 10:17am
 
 2. saving / loading doesn't start in current file dir
 
-3. 
+3. buttons hang after cue ends when a lot of activity
+
+
 
 new features
 

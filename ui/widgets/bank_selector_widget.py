@@ -195,6 +195,37 @@ class BankSelectorWidget(QWidget):
 	def current_bank(self) -> ButtonBankWidget:
 		return self._bank_widgets[self._current_bank_index]
 
+	def ensure_bank_restored(self, index: int) -> None:
+		"""Ensure a bank's buttons are restored/populated even if the bank is hidden.
+
+		This is used by external renderers (e.g. Stream Deck) that need accurate
+		labels/state without forcing the GUI to switch visible banks.
+		"""
+		try:
+			index = int(index)
+		except Exception:
+			return
+		if index < 0 or index >= len(self._bank_widgets):
+			return
+		bank = self._bank_widgets[index]
+		try:
+			ensure = getattr(bank, "ensure_restored", None)
+			if callable(ensure):
+				ensure()
+		except Exception:
+			pass
+
+		# Best-effort: refresh button text immediately (file probing continues async).
+		for btn in getattr(bank, "buttons", []) or []:
+			try:
+				btn._refresh_label()
+			except Exception:
+				pass
+			try:
+				btn.update()
+			except Exception:
+				pass
+
 	# ---------------------------------------------------------------------
 	# Pass-through helpers expected by MainWindow / PlayControls
 	# ---------------------------------------------------------------------

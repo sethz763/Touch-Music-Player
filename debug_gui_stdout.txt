@@ -1,17 +1,5 @@
-[2026-01-05T13:17:35.427] [engine] cue= track= set_output_device_requested {'device': '15'}
-[2026-01-05T13:17:35.427] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[2026-01-05T13:17:35.427] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
-[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice'}
-[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] OutputSetDevice received: 15'}
-[2026-01-05T13:17:35.998] [engine] cue= track= output_device_changed {'device': 15}
-[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig'}
-[2026-01-05T13:17:35.998] [engine] cue= track= output_debug {'msg': '[1767637055.995] OutputSetConfig received: sr=48000 ch=2 block=2048'}
-[2026-01-05T13:17:35.998] [engine] cue= track= output_config_changed {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[AUDIO-ENGINE] cue=893b2926 FINAL: out_frame=10982016 (from total_seconds=228.792 sample_rate=48000)
-[2026-01-05T13:17:38.270] [engine] cue=893b292667784fea9cb50da685902ef7 track=7ef84e2d-5e6e-4f34-b46d-e832e17caaed cue_start_requested {'file_path': 'C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3', 'gain_db': 0.0, 'loop': False, 'fade_in_ms': 141}
-[AUTO-FADE-INIT] new_cue=893b2926 fade_others=True old_cues_to_fade=0 auto_fade_on_new=True
-[AUTO-FADE-COMPLETE] new_cue=893b2926 sent=0 failed=0
-[ENGINE-PLAY-CUE] cue=893b2926 sending DecodeStart
-[2026-01-05T13:17:38.274] [engine] cue= track= output_debug {'msg': '[1767637058.274] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue'}
-[2026-01-05T13:17:38.415] [engine] cue= track= engine_heartbeat {'active_cues': 1, 'pump_dt_ms': 16.00000006146729, 'pump_work_ms': 0.04229997284710407, 'out_events_drained': 0, 'decode_chunks_drained': 0, 'decode_events_drained': 0, 'max_engine_hold_ms': 0.0, 'max_decoder_age_ms': 0.0, 'max_decode_to_engine_ms': 0.0, 'max_engine_internal_ms': 0.0, 'max_pump_dt_ms_run': 16.00000006146729, 'max_engine_hold_ms_run': 0.0, 'max_decoder_age_ms_run': 0.0, 'max_decode_to_engine_ms_run': 0.0, 'max_engine_internal_ms_run': 0.0}
-[2026-01-05T13:17:38.915] [engine] cue= track= engine_heartbeat {'active_cues': 1, 'pump_dt_ms': 16.00000006146729, 'pump_work_ms': 0.04179996903985739, 'out_events_drained': 0, 'decode_chunks_drained': 0, 'decode_events_drained': 0, 'max_engine_hold_ms': 0.0, 'max_decoder_age_ms': 0.0, 'max_decode_to_engine_ms': 0.0, 'max_engine_internal_ms': 0.0, 'max_pump_dt_ms_run': 16.00000006146729, 'max_engine_hold_ms_run': 0.0, 'max_decoder_age_ms_run': 0.0, 'max_decode_to_engine_ms_run': 0.0, 'max_engine_internal_ms_run': 0.0}
+[2026-01-06T11:52:51.972] [engine] cue= track= set_output_device_requested {'device': '15'}
+[2026-01-06T11:52:51.972] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
+[2026-01-06T11:52:51.972] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
+[2026-01-06T11:52:52.475] [engine] cue= track= output_device_changed {'device': 15}
+[2026-01-06T11:52:52.475] [engine] cue= track= output_config_changed {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
