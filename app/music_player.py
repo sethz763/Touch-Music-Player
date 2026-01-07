@@ -5,6 +5,7 @@ def main() -> int:
     import traceback
     from pathlib import Path
     import faulthandler
+    import os
 
     import multiprocessing as mp
     # Set spawn method BEFORE importing anything that uses multiprocessing
@@ -54,6 +55,24 @@ def main() -> int:
         except Exception:
             pass
         w.show()
+
+        # ------------------------------------------------------------------
+        # Smoke-test hooks (opt-in via env vars)
+        # ------------------------------------------------------------------
+        try:
+            if str(os.environ.get("STEPD_SMOKE_OPEN_DESIGNER", "")).strip() in ("1", "true", "True", "yes"):
+                QTimer.singleShot(300, w.open_button_image_designer)
+        except Exception:
+            pass
+
+        try:
+            exit_ms_raw = str(os.environ.get("STEPD_SMOKE_EXIT_AFTER_MS", "")).strip()
+            if exit_ms_raw:
+                exit_ms = int(float(exit_ms_raw))
+                if exit_ms > 0:
+                    QTimer.singleShot(exit_ms, app.quit)
+        except Exception:
+            pass
 
         # If the GUI thread deadlocks/freezes (white window), dump stack traces.
         # This is best-effort and only used for debugging in the field.

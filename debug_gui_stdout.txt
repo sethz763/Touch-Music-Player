@@ -1,7 +1,5 @@
-[2026-01-06T13:38:02.353] [engine] cue= track= set_output_device_requested {'device': '15'}
-[2026-01-06T13:38:02.354] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[2026-01-06T13:38:02.354] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
-[2026-01-06T13:38:04.127] [engine] cue= track= output_device_changed {'device': 15}
-[2026-01-06T13:38:04.127] [engine] cue= track= output_status {'status': 'output underflow'}
-[2026-01-06T13:38:04.957] [engine] cue= track= output_config_changed {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[2026-01-06T13:38:04.971] [engine] cue= track= output_status {'status': 'output underflow'}
+[2026-01-06T22:09:20.035] [engine] cue= track= set_output_device_requested {'device': '15'}
+[2026-01-06T22:09:20.035] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
+[2026-01-06T22:09:20.037] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
+[2026-01-06T22:09:22.902] [engine] cue= track= output_device_changed {'device': 15}
+[2026-01-06T22:09:22.902] [engine] cue= track= output_status {'status': 'output underflow'}

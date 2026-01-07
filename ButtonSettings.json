@@ -12,7 +12,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\0.png"
             },
             "2": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3",
@@ -24,7 +25,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#0000ff",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\button_image4.png"
             },
             "3": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/American Life - Primus.mp3",
@@ -64,6 +66,7 @@
             },
             "9": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Don't Owe You a Thang.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -72,10 +75,12 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": "#ff557f"
+                "text_color": "#ff557f",
+                "background_asset_path": null
             },
             "6": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Bodysnatchers - Radiohead.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -84,22 +89,26 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
             },
             "7": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/BORN FREE - M.I.A..mp3",
+                "custom_text": "",
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x2.png"
             },
             "8": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
+                "custom_text": "25",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -108,10 +117,12 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
             },
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Easy Rider.mp3",
+                "custom_text": "",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -120,7 +131,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\button_image5.png"
             },
             "11": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Eleven - Primus.mp3",
@@ -132,7 +144,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\button_image4.png"
             },
             "12": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3",
@@ -172,6 +185,7 @@
             },
             "15": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Fish On (Fisherman Chronicles, Chapter II) - Primus.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -180,10 +194,12 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
             },
             "16": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Fisticuffs - Primus.mp3",
+                "custom_text": "",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -192,7 +208,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
             },
             "17": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Float Into The Sky - Cage The Elephant.mp3",
@@ -228,7 +245,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\button_image4.png"
             },
             "20": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Hats Off - Primus.mp3",
@@ -268,18 +286,21 @@
             },
             "23": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/House Of Cards - Radiohead.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
             },
             "24": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/How to Disappear Completely - Radiohead.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -288,7 +309,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
             }
         },
         "1": {
@@ -886,15 +908,17 @@
             },
             "2": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-air-woosh-1489.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "3": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-air-zoom-vacuum-2608.wav",
@@ -946,66 +970,77 @@
             },
             "7": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-cinematic-transition-swoosh-heartbeat-trailer-488.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "8": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-cinematic-tunnel-reverb-woosh-1486.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "9": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-classic-alarm-995.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-crickets-and-insects-in-the-wild-ambience-39.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "11": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-crowd-laugh-424.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "12": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-dog-barking-twice-1.wav",
+                "custom_text": "DOG BARK",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -1014,7 +1049,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\button_image11.png"
             },
             "13": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-fast-rocket-whoosh-1714.wav",
@@ -1030,15 +1066,17 @@
             },
             "14": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-fast-small-sweep-transition-166.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "15": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-fast-whoosh-transition-1490.wav",
@@ -1066,39 +1104,45 @@
             },
             "17": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-flock-of-wild-geese-20.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "18": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-game-show-suspense-waiting-667.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "19": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-keyboard-typing-1386.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "20": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-little-birds-singing-in-the-trees-17.wav",
@@ -1138,27 +1182,31 @@
             },
             "23": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-small-group-cheer-and-applause-518.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "24": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/office_hallway_ambie_#1-1763075739181.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
-                "loop_enabled": false,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             }
         },
         "4": {

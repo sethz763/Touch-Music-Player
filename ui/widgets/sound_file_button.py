@@ -45,9 +45,27 @@ import os
 import numpy as np
 
 from PySide6.QtCore import QMimeData
-from PySide6.QtWidgets import QPushButton, QFileDialog, QMenu, QDialog, QVBoxLayout, QLabel, QSlider, QSpinBox, QColorDialog, QHBoxLayout, QSizePolicy, QWidget, QMessageBox
+from PySide6.QtWidgets import (
+    QPushButton,
+    QFileDialog,
+    QMenu,
+    QDialog,
+    QVBoxLayout,
+    QLabel,
+    QSlider,
+    QSpinBox,
+    QInputDialog,
+    QLineEdit,
+    QColorDialog,
+    QHBoxLayout,
+    QSizePolicy,
+    QWidget,
+    QMessageBox,
+    QStyle,
+    QStyleOptionButton,
+)
 from PySide6.QtCore import Signal, QTimer, Qt, QTime, QPoint, QRect, QPointF, QEvent, QPropertyAnimation, QEasingCurve, QThread, QVariantAnimation, QSize
-from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QRadialGradient, QBrush, QPolygon, QResizeEvent, QDrag
+from PySide6.QtGui import QColor, QFont, QFontMetrics, QPainter, QRadialGradient, QBrush, QPolygon, QResizeEvent, QDrag, QPixmap
 from PySide6.QtCore import QMimeData
 
 from engine.cue import Cue, CueInfo
@@ -157,6 +175,8 @@ class SoundFileButton(QPushButton):
     drag_enabled: bool = True  # Global toggle for drag and drop functionality
     gesture_enabled: bool = True  # Global toggle for swipe gestures
 
+    BUTTON_BG_ASSET_MIME = "application/x-stepd-button-bg-asset"
+
     # ==========================================================================
     # CONSTRUCTOR & INITIALIZATION
     # ==========================================================================
@@ -251,6 +271,19 @@ class SoundFileButton(QPushButton):
         # Custom colors
         self.bg_color: Optional[QColor] = None  # Custom background color (overrides flash)
         self.text_color: Optional[QColor] = None  # Custom text/font color
+
+        # Optional custom label text (persisted). If set, it overrides the
+        # filename/song-title for both GUI and StreamDeck rendering.
+        self.custom_text: Optional[str] = None
+
+        # Optional background image (button-level, persisted)
+        self.background_asset_path: Optional[str] = None
+        self._background_pixmap: Optional[QPixmap] = None
+        self._background_scaled_pixmap: Optional[QPixmap] = None
+        self._background_scaled_key: Optional[tuple] = None
+
+        # Flash overlay color (runtime only; drawn above background image)
+        self._flash_overlay_color: Optional[QColor] = None
         
         # Create fade button (will be sized and positioned in resizeEvent)
         self.fade_button = FadeButton()
@@ -369,6 +402,7 @@ class SoundFileButton(QPushButton):
 
             return {
                 "file_path": self.file_path,
+                "custom_text": getattr(self, "custom_text", None),
                 "in_frame": int(getattr(self, "in_frame", 0) or 0),
                 "out_frame": getattr(self, "out_frame", None),
                 "loop_enabled": bool(getattr(self, "loop_enabled", False)),
@@ -378,6 +412,7 @@ class SoundFileButton(QPushButton):
                 "fade_out_ms": int(getattr(self, "fade_out_ms", 0) or 0),
                 "bg_color": bg,
                 "text_color": text,
+                "background_asset_path": getattr(self, "background_asset_path", None),
             }
         except Exception:
             return {"file_path": getattr(self, "file_path", None)}
@@ -390,6 +425,20 @@ class SoundFileButton(QPushButton):
         # Avoid emitting state_changed during initial restore.
         self._restoring = True
         try:
+            # Apply custom label first (so file assignment refresh uses it).
+            try:
+                if "custom_text" in state:
+                    ct = state.get("custom_text")
+                    # Semantics: None => no override; "" => explicit blank label.
+                    if ct is None:
+                        self.custom_text = None
+                    else:
+                        self.custom_text = str(ct).strip()
+                else:
+                    self.custom_text = None
+            except Exception:
+                self.custom_text = None
+
             fp = state.get("file_path")
             if fp:
                 try:
@@ -449,6 +498,15 @@ class SoundFileButton(QPushButton):
             except Exception:
                 self.text_color = None
 
+            # Apply background image (best-effort; do not notify during restore).
+            try:
+                self.background_asset_path = state.get("background_asset_path") or None
+                self._invalidate_background_cache()
+                self._ensure_background_pixmap_loaded()
+            except Exception:
+                self.background_asset_path = None
+                self._invalidate_background_cache()
+
             try:
                 self._apply_stylesheet()
             except Exception:
@@ -459,6 +517,176 @@ class SoundFileButton(QPushButton):
                 pass
         finally:
             self._restoring = False
+
+    def _label_text_for_display(self) -> str:
+        """Return the base label text (no auto-wrapping/newlines)."""
+        try:
+            ct = getattr(self, "custom_text", None)
+            # If custom_text is set (including empty string), it overrides.
+            if ct is not None:
+                return str(ct).strip()
+        except Exception:
+            pass
+        try:
+            if self.song_title:
+                return str(self.song_title)
+        except Exception:
+            pass
+        try:
+            if self.file_path:
+                return str(self.file_path).split("/")[-1].split("\\")[-1]
+        except Exception:
+            pass
+        return ""
+
+    def set_custom_text(self, text: Optional[str]) -> None:
+        """Set the persisted custom label text (best-effort)."""
+        try:
+            t = str(text).strip() if text is not None else ""
+        except Exception:
+            t = ""
+        # Empty string is a valid override (blank label).
+        self.custom_text = t
+        try:
+            self._refresh_label()
+        except Exception:
+            pass
+        try:
+            self.update()
+        except Exception:
+            pass
+        self._notify_state_changed()
+
+    def clear_custom_text(self) -> None:
+        """Clear the persisted custom label override (revert to default label)."""
+        self.custom_text = None
+        try:
+            self._refresh_label()
+        except Exception:
+            pass
+        try:
+            self.update()
+        except Exception:
+            pass
+        self._notify_state_changed()
+
+    def set_background_asset(self, path: Optional[str]) -> None:
+        """Set the button background asset image path (persisted)."""
+        try:
+            persisted = self._normalize_persisted_background_asset(path)
+        except Exception:
+            persisted = None
+
+        if persisted == getattr(self, "background_asset_path", None):
+            return
+
+        self.background_asset_path = persisted
+        self._invalidate_background_cache()
+        self._ensure_background_pixmap_loaded()
+        self.update()
+        self._notify_state_changed()
+
+    def _repo_root(self) -> str:
+        try:
+            return os.path.abspath(os.path.join(os.path.dirname(__file__), "..", "..", ".."))
+        except Exception:
+            return os.path.abspath(os.getcwd())
+
+    def _default_button_bg_assets_dir(self) -> str:
+        try:
+            return os.path.abspath(os.path.join(self._repo_root(), "assets", "button_images"))
+        except Exception:
+            return os.path.abspath(os.getcwd())
+
+    def _set_background_image_dialog(self) -> None:
+        """Open a file picker to set the button background image."""
+        start_dir = ""
+        try:
+            start_dir = self._default_button_bg_assets_dir()
+        except Exception:
+            start_dir = ""
+        fp, _ = QFileDialog.getOpenFileName(
+            self,
+            "Choose background image",
+            start_dir,
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif);;PNG (*.png);;All Files (*)",
+        )
+        if fp:
+            self.set_background_asset(fp)
+
+    def _normalize_persisted_background_asset(self, path: Optional[str]) -> Optional[str]:
+        if not path:
+            return None
+        p = str(path).strip()
+        if not p:
+            return None
+
+        # Convert file:// URLs (best-effort)
+        if p.startswith("file:"):
+            try:
+                from urllib.parse import urlparse
+
+                u = urlparse(p)
+                if u.path:
+                    p = u.path
+            except Exception:
+                pass
+
+        # Resolve relative-to-repo assets to a stable persisted relative path.
+        try:
+            repo_root = self._repo_root()
+            abs_p = p
+            if not os.path.isabs(abs_p):
+                abs_p = os.path.abspath(os.path.join(repo_root, p.replace("/", os.sep).replace("\\", os.sep)))
+            abs_p = os.path.abspath(abs_p)
+
+            assets_dir = os.path.abspath(os.path.join(repo_root, "assets", "button_images"))
+            if abs_p.startswith(assets_dir + os.sep) and os.path.exists(abs_p):
+                rel = os.path.relpath(abs_p, repo_root)
+                return rel.replace("\\", "/")
+        except Exception:
+            pass
+
+        return p
+
+    def _resolve_background_asset_abs(self) -> Optional[str]:
+        raw = getattr(self, "background_asset_path", None)
+        if not raw:
+            return None
+        try:
+            p = str(raw).strip()
+        except Exception:
+            return None
+        if not p:
+            return None
+
+        try:
+            repo_root = self._repo_root()
+            if os.path.isabs(p):
+                abs_p = os.path.abspath(p)
+            else:
+                abs_p = os.path.abspath(os.path.join(repo_root, p.replace("/", os.sep).replace("\\", os.sep)))
+            return abs_p if os.path.exists(abs_p) else None
+        except Exception:
+            return None
+
+    def _invalidate_background_cache(self) -> None:
+        self._background_pixmap = None
+        self._background_scaled_pixmap = None
+        self._background_scaled_key = None
+
+    def _ensure_background_pixmap_loaded(self) -> None:
+        if self._background_pixmap is not None:
+            return
+        abs_p = self._resolve_background_asset_abs()
+        if not abs_p:
+            self._background_pixmap = QPixmap()
+            return
+        try:
+            pm = QPixmap(abs_p)
+        except Exception:
+            pm = QPixmap()
+        self._background_pixmap = pm
 
     def _notify_state_changed(self) -> None:
         """Emit state_changed unless we're currently restoring."""
@@ -498,6 +726,60 @@ class SoundFileButton(QPushButton):
         super().paintEvent(event)
         painter = QPainter(self)
 
+        # Ensure we have the background image loaded if configured.
+        try:
+            self._ensure_background_pixmap_loaded()
+        except Exception:
+            pass
+
+        # Determine the interior/content rect for background drawing.
+        try:
+            opt = QStyleOptionButton()
+            self.initStyleOption(opt)
+            content_rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, opt, self)
+        except Exception:
+            opt = None
+            content_rect = self.rect()
+
+        # Draw background image first (crop-to-fill), if present.
+        try:
+            pm = self._background_pixmap
+            if pm is not None and (not pm.isNull()):
+                key = (getattr(self, "background_asset_path", None), int(content_rect.width()), int(content_rect.height()))
+                if key != self._background_scaled_key or self._background_scaled_pixmap is None:
+                    scaled = pm.scaled(
+                        content_rect.size(),
+                        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                        Qt.TransformationMode.SmoothTransformation,
+                    )
+                    self._background_scaled_pixmap = scaled
+                    self._background_scaled_key = key
+                scaled = self._background_scaled_pixmap
+                if scaled is not None and (not scaled.isNull()):
+                    x = int(content_rect.x() + (content_rect.width() - scaled.width()) / 2)
+                    y = int(content_rect.y() + (content_rect.height() - scaled.height()) / 2)
+                    painter.drawPixmap(x, y, scaled)
+        except Exception:
+            pass
+
+        # Flash overlay (above background image but below text/labels).
+        try:
+            if getattr(self, "is_playing", False) and self._flash_overlay_color is not None:
+                overlay = QColor(self._flash_overlay_color)
+                overlay.setAlpha(80)
+                painter.fillRect(content_rect, overlay)
+        except Exception:
+            pass
+
+        # Redraw the button label on top (so it isn't covered by the image).
+        try:
+            if opt is None:
+                opt = QStyleOptionButton()
+                self.initStyleOption(opt)
+            self.style().drawControl(QStyle.ControlElement.CE_PushButtonLabel, opt, painter, self)
+        except Exception:
+            pass
+
         # Draw bank/button index in upper-left corner (e.g., "0-1" .. "9-24")
         try:
             bank_index = getattr(self, "bank_index", None)
@@ -507,7 +789,6 @@ class SoundFileButton(QPushButton):
                 corner_font = QFont("Arial", 9)
                 corner_font.setBold(True)
                 painter.setFont(corner_font)
-                # Shadow + foreground for readability on any background
                 painter.setPen(QColor(0, 0, 0, 180))
                 painter.drawText(5, 13, label)
                 painter.setPen(QColor(255, 255, 255, 230))
@@ -565,20 +846,20 @@ class SoundFileButton(QPushButton):
         
         Text wraps within the button; button size is not affected by text length.
         """
-        if not self.file_path:
+        display_name = self._label_text_for_display()
+        if (not display_name) and (not self.file_path):
+            # Unassigned button with no custom label: keep blank.
             self.setText(self._auto_wrap_text(""))
             self.setStyleSheet("")
             return
         
-        # Build display text: prefer song title from metadata, fall back to filename
-        display_name = self.song_title or self.file_path.split("/")[-1].split("\\")[-1]
-        
-        # Add duration if available
-        if self.duration_seconds:
-            display_text = display_name
-            self.remaining_seconds = self.duration_seconds
-        else:
-            display_text = display_name
+        # Add duration if available (only meaningful when a file is assigned)
+        display_text = display_name  # may be blank by user choice
+        try:
+            if self.file_path and self.duration_seconds:
+                self.remaining_seconds = self.duration_seconds
+        except Exception:
+            pass
         
         # Add playing indicator if active
         if self.is_playing:
@@ -773,13 +1054,28 @@ class SoundFileButton(QPushButton):
             self.flash_anim.stop()
             self.flash_anim.deleteLater()
             self.flash_anim = None
+        try:
+            self._flash_overlay_color = None
+        except Exception:
+            pass
+        try:
+            self.update()
+        except Exception:
+            pass
         # Restore original color (not flashing variation)
         self._apply_stylesheet()
     
     def _apply_flash_color(self, color: QColor) -> None:
         """Apply the interpolated flash color from the animation."""
         if isinstance(color, QColor):
-            self._apply_stylesheet(color)
+            try:
+                self._flash_overlay_color = color
+            except Exception:
+                pass
+            try:
+                self.update()
+            except Exception:
+                pass
     
     def _apply_stylesheet(self, bg_color: Optional[QColor] = None) -> None:
         """Apply background and text colors via stylesheet."""
@@ -833,6 +1129,13 @@ class SoundFileButton(QPushButton):
         # Color customization
         set_bg_color = menu.addAction("Background Color…")
         set_text_color = menu.addAction("Text Color…")
+        change_text = menu.addAction("Change Text…")
+        reset_text = menu.addAction("Reset Text (Use Default)")
+        menu.addSeparator()
+
+        # Background image customization
+        set_bg_image = menu.addAction("Set Background Image…")
+        clear_bg_image = menu.addAction("Clear Background Image")
         menu.addSeparator()
         
         # Clip editing
@@ -845,6 +1148,8 @@ class SoundFileButton(QPushButton):
         menu.addSeparator()
         
         # Playback control (if playing)
+        stop = None
+        fade_out = None
         if self.is_playing:
             stop = menu.addAction("Stop")
             fade_out = menu.addAction("Fade Out…")
@@ -864,6 +1169,14 @@ class SoundFileButton(QPushButton):
             self._set_background_color_dialog()
         elif action == set_text_color:
             self._set_text_color_dialog()
+        elif action == change_text:
+            QTimer.singleShot(0, self._change_text_dialog)
+        elif action == reset_text:
+            QTimer.singleShot(0, self.clear_custom_text)
+        elif action == set_bg_image:
+            QTimer.singleShot(0, self._set_background_image_dialog)
+        elif action == clear_bg_image:
+            self.set_background_asset(None)
         elif action == edit_track:
             self._open_editor()
         elif action == loop_action:
@@ -887,10 +1200,10 @@ class SoundFileButton(QPushButton):
             self._reset_colors()
         elif action == clear:
             self._clear_button()
-        elif action == stop and self.is_playing:
+        elif stop is not None and action == stop and self.is_playing:
             for cue_id in list(self._active_cue_ids):
                 self.request_stop.emit(cue_id, 0)
-        elif action == fade_out and self.is_playing:
+        elif fade_out is not None and action == fade_out and self.is_playing:
             for cue_id in list(self._active_cue_ids):
                 self.request_fade.emit(cue_id, -120.0, 500)
     
@@ -1000,6 +1313,12 @@ class SoundFileButton(QPushButton):
             pass
         self.bg_color = None
         self.text_color = None
+        self.custom_text = None
+        try:
+            self.background_asset_path = None
+            self._invalidate_background_cache()
+        except Exception:
+            pass
         self.setText("")
         self.setStyleSheet("")
         try:
@@ -1012,6 +1331,27 @@ class SoundFileButton(QPushButton):
         except Exception:
             pass
         self._notify_state_changed()
+
+    def _change_text_dialog(self) -> None:
+        """Prompt for a new label text (applies to GUI and StreamDeck)."""
+        try:
+            current = self._label_text_for_display()
+        except Exception:
+            current = ""
+
+        try:
+            new_text, ok = QInputDialog.getText(
+                self,
+                "Change Text",
+                "Button text:",
+                QLineEdit.EchoMode.Normal,
+                str(current or ""),
+            )
+        except Exception:
+            return
+        if not ok:
+            return
+        self.set_custom_text(new_text)
     
     def _probe_file_async(self, path: str) -> None:
         """
@@ -1520,13 +1860,15 @@ class SoundFileButton(QPushButton):
         # Check for file drag (load audio file from file manager)
         elif mime_data.hasUrls():
             event.acceptProposedAction()
+        elif mime_data.hasFormat(self.BUTTON_BG_ASSET_MIME):
+            event.acceptProposedAction()
         else:
             event.ignore()
     
     def dragMoveEvent(self, event) -> None:
         """Accept drag move events over the widget."""
         mime_data = event.mimeData()
-        if mime_data.hasUrls() or SoundFileButton._dragging_button is not None:
+        if mime_data.hasUrls() or mime_data.hasFormat(self.BUTTON_BG_ASSET_MIME) or SoundFileButton._dragging_button is not None:
             event.acceptProposedAction()
         else:
             event.ignore()
@@ -1544,6 +1886,17 @@ class SoundFileButton(QPushButton):
         - Warning dialog shown if overwriting existing files
         """
         mime_data = event.mimeData()
+
+        # Handle background-image drop from Button Image Designer assets browser.
+        try:
+            if mime_data.hasFormat(self.BUTTON_BG_ASSET_MIME):
+                raw = bytes(mime_data.data(self.BUTTON_BG_ASSET_MIME)).decode("utf-8", errors="ignore").strip()
+                if raw:
+                    self.set_background_asset(raw)
+                    event.acceptProposedAction()
+                    return
+        except Exception:
+            pass
         
         # Handle button drag (move settings from source button to this button)
         if (SoundFileButton._dragging_button is not None and 
@@ -1932,13 +2285,11 @@ class SoundFileButton(QPushButton):
         if self.gain_slider and self.gain_label:
             self._update_slider_position()
         
-        # Recalculate font size and text wrapping based on new button size
-        if self.file_path:
-            display_name = self.song_title or self.file_path.split("/")[-1].split("\\")[-1]
-            self.setText(self._auto_wrap_text(display_name))
-        else:
-            # Keep unassigned buttons blank even when resized/maximized.
-            self.setText("")
+        # Recalculate font size and text wrapping based on new button size.
+        try:
+            self._refresh_label()
+        except Exception:
+            pass
 
     # ==========================================================================
     # GESTURE HANDLING FOR GAIN SLIDER (SWIPE LEFT/RIGHT)

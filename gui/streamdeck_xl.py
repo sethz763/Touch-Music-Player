@@ -17,6 +17,7 @@ class _KeyRender:
     text: str
     active_level: float  # 0..1 (0=inactive)
     icon_path: Optional[str] = None
+    bg_image_path: Optional[str] = None
     bg_rgb: Optional[tuple[int, int, int]] = None
     fg_rgb: Optional[tuple[int, int, int]] = None
     corner_text: str = ""
@@ -98,8 +99,8 @@ class StreamDeckXLBridge(QObject):
         # Used in INDEPENDENT mode so hidden GUI banks can be "populated" without
         # needing to drive StreamDeck rendering directly.
         # Key: (bank_idx, key) where key is 0..23
-        # Val: (text, bg_rgb, fg_rgb, has_file)
-        self._bank_cache: dict[tuple[int, int], tuple[str, tuple[int, int, int], tuple[int, int, int], bool]] = {}
+        # Val: (text, bg_rgb, fg_rgb, has_file, bg_image_path)
+        self._bank_cache: dict[tuple[int, int], tuple[str, tuple[int, int, int], tuple[int, int, int], bool, Optional[str]]] = {}
 
         # Only listen to button updates for the currently displayed bank.
         # Hidden banks can refresh/probe asynchronously; wiring them all can cause
@@ -705,13 +706,36 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             return None
 
-    def _snapshot_from_state(self, state: Optional[dict]) -> tuple[str, tuple[int, int, int], tuple[int, int, int], bool]:
+    def _resolve_bg_asset_path(self, s: object) -> Optional[str]:
+        try:
+            if not isinstance(s, str):
+                return None
+            p = s.strip()
+            if not p:
+                return None
+            repo_root = os.path.dirname(os.path.dirname(__file__))
+            if not os.path.isabs(p):
+                p = os.path.join(repo_root, p.replace("/", os.sep).replace("\\", os.sep))
+            p = os.path.abspath(p)
+            return p if os.path.exists(p) else None
+        except Exception:
+            return None
+
+    def _snapshot_from_state(self, state: Optional[dict]) -> tuple[str, tuple[int, int, int], tuple[int, int, int], bool, Optional[str]]:
         if not isinstance(state, dict):
-            return ("", (10, 10, 10), (255, 255, 255), False)
+            return ("", (10, 10, 10), (255, 255, 255), False, None)
         fp = state.get("file_path")
         has_file = bool(fp)
         text = ""
-        if fp:
+        try:
+            if "custom_text" in state:
+                ct = state.get("custom_text")
+                # Semantics: None => no override; "" => explicit blank label.
+                if ct is not None:
+                    text = str(ct).strip()
+        except Exception:
+            pass
+        if (not text) and fp:
             try:
                 base = os.path.basename(str(fp))
                 text = os.path.splitext(base)[0]
@@ -719,6 +743,7 @@ class StreamDeckXLBridge(QObject):
                 text = ""
         bg = self._hex_to_rgb(state.get("bg_color"))
         fg = self._hex_to_rgb(state.get("text_color"))
+        bg_img = self._resolve_bg_asset_path(state.get("background_asset_path"))
         if bg is None:
             bg = (60, 60, 60) if has_file else (10, 10, 10)
         # GUI default is gray (#808080) but it is styled darker. Mirror the
@@ -728,7 +753,7 @@ class StreamDeckXLBridge(QObject):
             bg = (60, 60, 60) if has_file else (10, 10, 10)
         if fg is None:
             fg = (255, 255, 255)
-        return (text, bg, fg, has_file)
+        return (text, bg, fg, has_file, bg_img)
 
     def _update_cache_from_state(self, bank_idx: int, idx_in_bank: int, state: Optional[dict]) -> None:
         try:
@@ -741,13 +766,13 @@ class StreamDeckXLBridge(QObject):
         key = idx_in_bank - 1
         self._bank_cache[(bank_idx, key)] = self._snapshot_from_state(state)
 
-    def _cache_get(self, bank_idx: int, key: int) -> tuple[str, tuple[int, int, int], tuple[int, int, int], bool]:
+    def _cache_get(self, bank_idx: int, key: int) -> tuple[str, tuple[int, int, int], tuple[int, int, int], bool, Optional[str]]:
         try:
             bank_idx = int(bank_idx)
             key = int(key)
         except Exception:
-            return ("", (10, 10, 10), (255, 255, 255), False)
-        return self._bank_cache.get((bank_idx, key), ("", (10, 10, 10), (255, 255, 255), False))
+            return ("", (10, 10, 10), (255, 255, 255), False, None)
+        return self._bank_cache.get((bank_idx, key), ("", (10, 10, 10), (255, 255, 255), False, None))
 
     def _render_transport_now(self) -> None:
         """Immediately refresh Play/Pause/Stop visuals for snappy feedback."""
@@ -890,9 +915,9 @@ class StreamDeckXLBridge(QObject):
             # In independent mode, use cache for stable labels/colors (avoids
             # rapid text changes from GUI timers/timecode causing flashing).
             try:
-                text, bg_rgb, fg_rgb, _has_file = self._bank_cache.get((bank_idx, int(key)), ("", (10, 10, 10), (255, 255, 255), False))
+                text, bg_rgb, fg_rgb, _has_file, bg_img = self._bank_cache.get((bank_idx, int(key)), ("", (10, 10, 10), (255, 255, 255), False, None))
             except Exception:
-                text, bg_rgb, fg_rgb, _has_file = ("", (10, 10, 10), (255, 255, 255), False)
+                text, bg_rgb, fg_rgb, _has_file, bg_img = ("", (10, 10, 10), (255, 255, 255), False, None)
 
             # Active flashing only depends on current displayed bank.
             active = False
@@ -916,6 +941,7 @@ class StreamDeckXLBridge(QObject):
                 active = False
                 bg_rgb = (0, 0, 0)
                 fg_rgb = (255, 255, 255)
+                bg_img = None
                 corner_text = ""
             else:
                 try:
@@ -928,7 +954,12 @@ class StreamDeckXLBridge(QObject):
                     # Do not use btn.text(): the GUI auto-wrap/auto-font logic
                     # inserts newlines and changes sizing, which would make the
                     # StreamDeck label jump when toggling GUI sync.
-                    if has_file:
+                    ct = getattr(btn, "custom_text", None)
+                    if ct is not None:
+                        ct = str(ct).strip()
+                        # Empty string is a valid override (blank label).
+                        text = ct
+                    elif has_file:
                         base = os.path.basename(str(file_path))
                         text = os.path.splitext(base)[0]
                     else:
@@ -965,6 +996,13 @@ class StreamDeckXLBridge(QObject):
                 except Exception:
                     pass
 
+                bg_img = None
+                try:
+                    raw = getattr(btn, "background_asset_path", None)
+                    bg_img = self._resolve_bg_asset_path(str(raw)) if raw else None
+                except Exception:
+                    bg_img = None
+
                 corner_text = ""
                 if self._show_corner_label:
                     try:
@@ -979,6 +1017,7 @@ class StreamDeckXLBridge(QObject):
                     key=int(key),
                     text=text,
                     active_level=level,
+                    bg_image_path=bg_img,
                     bg_rgb=bg_rgb,
                     fg_rgb=fg_rgb,
                     corner_text=corner_text,
@@ -1022,9 +1061,9 @@ class StreamDeckXLBridge(QObject):
 
             if self._mode == self.BankMode.INDEPENDENT:
                 try:
-                    text, bg_rgb, fg_rgb, _has_file = self._bank_cache.get((bank_idx, int(key)), ("", (10, 10, 10), (255, 255, 255), False))
+                    text, bg_rgb, fg_rgb, _has_file, bg_img = self._bank_cache.get((bank_idx, int(key)), ("", (10, 10, 10), (255, 255, 255), False, None))
                 except Exception:
-                    text, bg_rgb, fg_rgb, _has_file = ("", (10, 10, 10), (255, 255, 255), False)
+                    text, bg_rgb, fg_rgb, _has_file, bg_img = ("", (10, 10, 10), (255, 255, 255), False, None)
 
                 active = False
                 btn = self._get_button(bank_idx, idx_in_bank)
@@ -1047,6 +1086,7 @@ class StreamDeckXLBridge(QObject):
                     active = False
                     bg_rgb = (0, 0, 0)
                     fg_rgb = (255, 255, 255)
+                    bg_img = None
                     corner_text = ""
                 else:
                     try:
@@ -1058,7 +1098,12 @@ class StreamDeckXLBridge(QObject):
                     try:
                         # Keep StreamDeck label stable: avoid using btn.text()
                         # which may include GUI-inserted newlines/font changes.
-                        if has_file:
+                        ct = getattr(btn, "custom_text", None)
+                        if ct is not None:
+                            ct = str(ct).strip()
+                            # Empty string is a valid override (blank label).
+                            text = ct
+                        elif has_file:
                             base = os.path.basename(str(file_path))
                             text = os.path.splitext(base)[0]
                         else:
@@ -1095,6 +1140,13 @@ class StreamDeckXLBridge(QObject):
                     except Exception:
                         pass
 
+                    bg_img = None
+                    try:
+                        raw = getattr(btn, "background_asset_path", None)
+                        bg_img = self._resolve_bg_asset_path(str(raw)) if raw else None
+                    except Exception:
+                        bg_img = None
+
                     corner_text = ""
                     if self._show_corner_label:
                         try:
@@ -1121,6 +1173,7 @@ class StreamDeckXLBridge(QObject):
                         key=key,
                         text=text,
                         active_level=level,
+                        bg_image_path=bg_img,
                         bg_rgb=bg_rgb,
                         fg_rgb=fg_rgb,
                         corner_text=corner_text,
@@ -1313,6 +1366,7 @@ class StreamDeckXLBridge(QObject):
                         it.text,
                         it.active_level,
                         it.icon_path,
+                        it.bg_image_path,
                         it.bg_rgb,
                         it.fg_rgb,
                         it.corner_text,
@@ -1329,6 +1383,7 @@ class StreamDeckXLBridge(QObject):
         text: str,
         active_level: float,
         icon_path: Optional[str],
+        bg_image_path: Optional[str],
         bg_rgb: Optional[tuple[int, int, int]],
         fg_rgb: Optional[tuple[int, int, int]],
         corner_text: str,
@@ -1349,17 +1404,47 @@ class StreamDeckXLBridge(QObject):
             except Exception:
                 fg = (255, 255, 255)
 
+        # Base background (solid) and optional image compositing.
         if bg_rgb is None:
-            # Monochrome pulse: black -> light gray.
             bg = int(20 + level * 140)
-            base = (bg, bg, bg)
+            base_rgb = (bg, bg, bg)
         else:
-            # Optional highlight lift when active_level > 0.
             r, g, b = (int(bg_rgb[0]), int(bg_rgb[1]), int(bg_rgb[2]))
             lift = int(60 * level)
-            base = (min(255, r + lift), min(255, g + lift), min(255, b + lift))
+            base_rgb = (min(255, r + lift), min(255, g + lift), min(255, b + lift))
 
-        img = Image.new("RGB", (w, h), base)
+        img = Image.new("RGBA", (w, h), (int(base_rgb[0]), int(base_rgb[1]), int(base_rgb[2]), 255))
+
+        if bg_image_path:
+            try:
+                bg_im = icon_cache.get(bg_image_path)
+                if bg_im is None:
+                    bg_im = Image.open(bg_image_path).convert("RGBA")
+                    icon_cache[bg_image_path] = bg_im
+
+                # Crop-to-fill to key size.
+                scale = max(w / bg_im.width, h / bg_im.height)
+                new_size = (max(1, int(bg_im.width * scale)), max(1, int(bg_im.height * scale)))
+                bg_resized = bg_im.resize(new_size)
+                x = (bg_resized.width - w) // 2
+                y = (bg_resized.height - h) // 2
+                bg_cropped = bg_resized.crop((int(x), int(y), int(x + w), int(y + h)))
+
+                img.alpha_composite(bg_cropped, (0, 0))
+
+                # Pulse: darken for lower half, brighten for upper half.
+                signed = (level - 0.5) * 2.0  # -1..1
+                if signed > 0:
+                    a = int(80 * signed)
+                    if a > 0:
+                        img.alpha_composite(Image.new("RGBA", (w, h), (255, 255, 255, a)), (0, 0))
+                else:
+                    a = int(80 * (-signed))
+                    if a > 0:
+                        img.alpha_composite(Image.new("RGBA", (w, h), (0, 0, 0, a)), (0, 0))
+            except Exception:
+                pass
+
         draw = ImageDraw.Draw(img)
 
         # If an icon is provided, render it centered and skip text.
@@ -1380,9 +1465,8 @@ class StreamDeckXLBridge(QObject):
 
                 x = (w - icon_resized.width) // 2
                 y = (h - icon_resized.height) // 2
-                img_rgba = img.convert("RGBA")
-                img_rgba.alpha_composite(icon_resized, (int(x), int(y)))
-                return img_rgba.convert("RGB")
+                img.alpha_composite(icon_resized, (int(x), int(y)))
+                return img.convert("RGB")
             except Exception:
                 # Fall back to text rendering.
                 pass
@@ -1579,7 +1663,7 @@ class StreamDeckXLBridge(QObject):
             except Exception:
                 pass
 
-        return img
+        return img.convert("RGB")
 
     def _to_native(self, deck, pil_img):
         try:

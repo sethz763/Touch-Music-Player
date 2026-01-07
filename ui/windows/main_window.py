@@ -5,6 +5,7 @@ import os
 import time
 from typing import Optional, TYPE_CHECKING
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout, QFileDialog, QMessageBox
+from PySide6.QtWidgets import QApplication
 from PySide6.QtCore import QTimer, QThread, Signal, QEvent, Qt
 from PySide6.QtGui import QAction, QFont
 
@@ -270,6 +271,28 @@ class MainWindow(QMainWindow):
         setting_action = QAction("Settings", self)
         setting_action.triggered.connect(self.open_settings_dialog)
         self.menuBar().addAction(setting_action)
+
+        designer_action = QAction("Button Image Designer", self)
+        designer_action.triggered.connect(self.open_button_image_designer)
+        self.menuBar().addAction(designer_action)
+
+        self._button_image_designer = None
+
+    def open_button_image_designer(self) -> None:
+        """Open the in-app Button Image Designer window (best-effort)."""
+        try:
+            from ui.windows.button_image_designer_window import ButtonImageDesignerWindow
+
+            if self._button_image_designer is None:
+                self._button_image_designer = ButtonImageDesignerWindow(parent=self)
+            self._button_image_designer.show()
+            self._button_image_designer.raise_()
+            self._button_image_designer.activateWindow()
+        except Exception as e:
+            try:
+                QMessageBox.warning(self, "Designer Failed", f"Failed to open designer:\n{e}")
+            except Exception:
+                pass
 
     def _collect_project_dict(self) -> dict:
         """Collect a user-saveable project snapshot."""

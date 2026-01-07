@@ -1,0 +1,83 @@
+You are working in a Python desktop app (PySide6 preferred; PyQt6 acceptable). Implement an in-app “Button Image Designer” (mini Photoshop/paint) to create/edit images that can be applied as the background image of sound_file_button.
+
+GOALS / UX:
+- Add a new window: ButtonImageDesignerWindow.
+- It contains:
+  1) A canvas editor area (recommended default canvas size: 256x256 px; allow changing size, but keep square presets 128/256/512).
+  2) A vertical toolbox (select/move, brush, eraser, shape rectangle/ellipse, text, emoji stamp).
+  3) A layers panel (add/remove/rename/reorder/toggle visibility; select active layer).
+  4) An assets browser panel (scrollable grid/list of saved button images found in assets/button_images/).
+- User can drag & drop images (png/jpg/webp/bmp) onto the canvas:
+  - When dropped, create a new layer “Dropped Image”.
+  - Always scale to fit inside canvas initially while preserving aspect ratio.
+  - Provide transform handles (scale/rotate optional; at minimum scale & move).
+  - Provide crop mode (simple rectangle crop) for image layers.
+- User can add emojis:
+  - Provide an emoji picker (simple: a searchable list of common emojis).
+  - Stamping an emoji creates a new layer rendered as text using an emoji-capable font (try “Segoe UI Emoji” on Windows; fallback to default).
+- Painting:
+  - Brush tool paints onto the active raster layer using QPainter.
+  - Eraser tool uses composition mode to clear pixels on the active raster layer.
+  - Shapes tool draws vector-like preview then commits to the raster layer on mouse release.
+- Selection / Move:
+  - Select tool selects the topmost layer under cursor (hit-test non-transparent pixel for raster layers; bounding box hit test is fine initially).
+  - Move tool drags the selected layer.
+- Saving:
+  - The composite image (all visible layers) can be exported to PNG and auto-saved to assets/button_images/<name>.png.
+  - Autosave on explicit “Save” button AND also autosave a “_autosave.png” every N seconds or on changes (N=3 seconds debounce).
+- Assets browser:
+  - Watches assets/button_images/ for png files (use QFileSystemWatcher).
+  - Shows thumbnails (256 max).
+  - Dragging an asset thumbnail onto a sound_file_button applies it as that button’s background image.
+
+INTEGRATION WITH sound_file_button:
+- The button must still “flash” to indicate activity.
+- The applied image must render behind all text and always below the cue number.
+- Implement background image rendering in the button’s paintEvent:
+  - Draw background image first (scaled to button rect, with keep-aspect optional toggle; default crop-to-fill).
+  - Then draw flash/active overlay ABOVE the image but BELOW text (so flash tint is visible).
+  - Then draw cue number and other text on top (cue number highest priority).
+- Add API on button: set_background_asset(path: str) and persist it in button model/state.
+- Ensure any flashing overlay does not permanently alter the saved asset; it is only a runtime paint overlay
+
+INTERGRATION WITH streamdeck_xl
+- IMAGES in buttons must be displayed on streamdeck keys as a layer behind all text and below the cue number
+- The keys must still be able to flash by brightening/darkening the active button's background image
+
+ARCHITECTURE:
+- Create a new package/module: ui/windows/button_image_designer_window.py
+- Create a new widget: ui/widgets/layered_canvas_editor.py
+- Create a model: ui/models/layers.py with:
+  - Layer base class (name, visible, opacity, position, z_index)
+  - RasterLayer (QImage backing store)
+  - ImageLayer (QImage source + transform + optional crop rect)
+  - TextLayer (string text/emoji + font + color + position)
+- The editor widget uses QGraphicsView/QGraphicsScene OR a custom QWidget paintEvent:
+  - Prefer QGraphicsView if it simplifies moving layers; otherwise custom QWidget is fine.
+- The editor must support exporting a composite QImage at canvas resolution.
+
+DELIVERABLES:
+1) Implement the window + widgets + models.
+2) Add a menu item or button in the app to open the designer window.
+3) Add drag/drop support from assets browser -> sound_file_button to apply background.
+4) Update sound_file_button paintEvent to draw:
+   background image -> flash overlay -> text (with cue number on top).
+5) Add unit-light tests or small demo harness (optional) to validate layer compositing.
+
+IMPLEMENTATION NOTES:
+- Default canvas: 256x256. Provide presets 128/256/512.
+- File locations:
+  - Ensure directory exists: <repo_root>/assets/button_images/
+  - Thumbnail caching ok in memory; regenerate on file change.
+- Use only standard libs + PySide6/PyQt6. No Pillow required.
+- Keep code consistent with existing project naming and absolute imports.
+- Update any relevant __init__.py exports if the project uses them.
+
+NOW DO THIS STEP-BY-STEP:
+Step A: Add the new modules/classes (models + editor widget) with minimal working layer system (raster + image + text).
+Step B: Create ButtonImageDesignerWindow with toolbox + layers panel + assets browser.
+Step C: Implement save/export and assets watcher.
+Step D: Implement drag from assets browser to sound_file_button and button API.
+Step E: Update button paintEvent layering order and flash overlay behavior.
+
+After each step, ensure the app runs and the designer window opens without errors.
