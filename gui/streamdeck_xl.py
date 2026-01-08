@@ -5,6 +5,7 @@ import os
 import queue
 import threading
 import time
+import multiprocessing
 from dataclasses import dataclass
 from typing import Callable, Optional
 
@@ -66,7 +67,7 @@ class StreamDeckXLBridge(QObject):
         show_corner_label: bool = False,
         parent: Optional[QObject] = None,
         pulse_period_s: float = 1.2,
-        pulse_fps: float = 20.0,
+        pulse_fps: float = 30.0,
     ) -> None:
         super().__init__(parent)
         self._bank_selector = bank_selector
@@ -76,7 +77,8 @@ class StreamDeckXLBridge(QObject):
         self._mode = str(mode)
         self._show_corner_label = bool(show_corner_label)
         self._pulse_period_s = float(pulse_period_s)
-        self._pulse_interval_ms = int(max(50.0, 1000.0 / float(pulse_fps)))
+        # Allow up to ~30 FPS pulsing; historically this was clamped at 20 FPS (50ms).
+        self._pulse_interval_ms = int(max(33.0, 1000.0 / float(pulse_fps)))
 
         self._deck = None
         # Protects access to the StreamDeck device handle.
@@ -84,6 +86,16 @@ class StreamDeckXLBridge(QObject):
         # which can trigger hidapi/ctypes-level access violations on Windows.
         self._deck_lock = threading.Lock()
         self._key_size: tuple[int, int] = (72, 72)
+
+        # Subprocess worker (owns StreamDeck HID + rendering). Keeping this out of
+        # the main process isolates native crashes (HID stack / Pillow).
+        self._worker_ctx = multiprocessing.get_context("spawn")
+        self._worker_cmd_q = None
+        self._worker_evt_q = None
+        self._worker_stop = None
+        self._worker_proc = None
+        self._worker_connected = False
+        self._worker_last_error: Optional[str] = None
 
         self._display_bank_index: int = 0
         self._force_full_redraw = True
@@ -144,6 +156,10 @@ class StreamDeckXLBridge(QObject):
         self._poll_timer.setInterval(10)
         self._poll_timer.timeout.connect(self._drain_key_events)
 
+        self._worker_evt_timer = QTimer(self)
+        self._worker_evt_timer.setInterval(10)
+        self._worker_evt_timer.timeout.connect(self._drain_worker_events)
+
         self._render_timer = QTimer(self)
         self._render_timer.setInterval(self._pulse_interval_ms)
         self._render_timer.timeout.connect(self._render_tick)
@@ -153,14 +169,36 @@ class StreamDeckXLBridge(QObject):
         self._deck_key_pressed.connect(self._handle_key_press)
         self._deck_io_failed.connect(self._on_deck_io_failed)
 
+        # Lifecycle flags. If the Stream Deck isn't present at app launch, we still
+        # want the bridge to keep running so a later plug-in can populate keys.
+        self._signals_wired = False
+        self._cache_loaded = False
+
     # ---------------------------------------------------------------------
     # Public API
     # ---------------------------------------------------------------------
 
-    def start(self) -> None:
-        """Attempt to connect to the first Stream Deck and begin processing."""
-        if self._deck is not None:
-            return
+    def _ensure_runtime_running(self) -> None:
+        """Ensure signals/timers/threads are active even without a connected deck."""
+        # Wire signals exactly once.
+        if not bool(getattr(self, "_signals_wired", False)):
+            try:
+                self._wire_signals()
+            finally:
+                self._signals_wired = True
+
+        # Load persistence cache once (safe even if a deck is not connected).
+        if not bool(getattr(self, "_cache_loaded", False)):
+            try:
+                self._load_bank_cache_from_persistence()
+            finally:
+                self._cache_loaded = True
+
+        # Keep display bank aligned with GUI if in SYNC mode.
+        try:
+            self._sync_display_bank_from_gui(initial=True)
+        except Exception:
+            pass
 
         # If this object was previously stopped, the IO thread cannot be restarted.
         # Create a new thread so reconnect/start works after stop().
@@ -171,36 +209,6 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             pass
 
-        deck = self._try_open_first_deck()
-        if deck is None:
-            self.connected_changed.emit(False)
-            try:
-                if not self._reconnect_timer.isActive():
-                    self._reconnect_timer.start()
-            except Exception:
-                pass
-            return
-
-        if not self._adopt_open_deck(deck):
-            self.connected_changed.emit(False)
-            try:
-                if not self._reconnect_timer.isActive():
-                    self._reconnect_timer.start()
-            except Exception:
-                pass
-            return
-        # Deck configuration happens in _adopt_open_deck().
-
-        # Load cache from persistence once on startup. Startup still restores only
-        # the visible GUI bank; other banks are populated when GUI sync is turned off.
-        try:
-            self._load_bank_cache_from_persistence()
-        except Exception:
-            pass
-
-        self._sync_display_bank_from_gui(initial=True)
-        self._wire_signals()
-
         self._io_stop.clear()
         try:
             if not self._io_thread.is_alive():
@@ -208,22 +216,167 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             pass
 
-        # Key presses are delivered via _deck_key_pressed; no polling needed.
-        self._render_timer.start()
+        # Rendering tick can safely run even when no deck is connected; it will
+        # early-return until a deck is adopted.
+        try:
+            if not self._render_timer.isActive():
+                self._render_timer.start()
+        except Exception:
+            pass
 
+        # Ensure the StreamDeck worker process is running even if the device isn't
+        # plugged in yet.
+        try:
+            self._ensure_worker_running()
+        except Exception:
+            pass
+
+        try:
+            if not self._worker_evt_timer.isActive():
+                self._worker_evt_timer.start()
+        except Exception:
+            pass
+
+    def _ensure_worker_running(self) -> None:
+        proc = getattr(self, "_worker_proc", None)
+        try:
+            if proc is not None and proc.is_alive():
+                return
+        except Exception:
+            pass
+        self._start_worker()
+
+    def _start_worker(self) -> None:
+        # Import here so Windows spawn can import cleanly.
+        from gui.streamdeck_worker import run_streamdeck_worker
+
+        # Tear down any existing worker first.
+        try:
+            self._stop_worker()
+        except Exception:
+            pass
+
+        self._worker_cmd_q = self._worker_ctx.Queue()
+        self._worker_evt_q = self._worker_ctx.Queue()
+        self._worker_stop = self._worker_ctx.Event()
+        self._worker_proc = self._worker_ctx.Process(
+            target=run_streamdeck_worker,
+            args=(self._worker_cmd_q, self._worker_evt_q, self._worker_stop),
+            name="streamdeck-worker",
+            daemon=True,
+        )
+        self._worker_proc.start()
+
+        self._worker_connected = False
+        self._worker_last_error = None
         self._force_full_redraw = True
-        self._deck_fault_reported = False
+
+    def _stop_worker(self) -> None:
+        proc = getattr(self, "_worker_proc", None)
+        if proc is None:
+            return
+
         try:
-            if self._reconnect_timer.isActive():
-                self._reconnect_timer.stop()
+            q = getattr(self, "_worker_cmd_q", None)
+            if q is not None:
+                q.put_nowait({"type": "shutdown"})
         except Exception:
             pass
         try:
-            if not self._health_timer.isActive():
-                self._health_timer.start()
+            ev = getattr(self, "_worker_stop", None)
+            if ev is not None:
+                ev.set()
         except Exception:
             pass
-        self.connected_changed.emit(True)
+
+        try:
+            proc.join(timeout=1.5)
+        except Exception:
+            pass
+        try:
+            if proc.is_alive():
+                proc.terminate()
+        except Exception:
+            pass
+
+        self._worker_proc = None
+        self._worker_connected = False
+
+    @Slot()
+    def _drain_worker_events(self) -> None:
+        q = getattr(self, "_worker_evt_q", None)
+        if q is None:
+            return
+
+        drained = 0
+        connected_changed = False
+        while drained < 100:
+            drained += 1
+            try:
+                evt = q.get_nowait()
+            except Exception:
+                break
+
+            if not isinstance(evt, dict):
+                continue
+
+            t = evt.get("type")
+            if t == "connected":
+                try:
+                    val = bool(evt.get("value"))
+                except Exception:
+                    val = False
+                if val != bool(self._worker_connected):
+                    self._worker_connected = val
+                    connected_changed = True
+                if val:
+                    try:
+                        ks = evt.get("key_size")
+                        if isinstance(ks, (list, tuple)) and len(ks) == 2:
+                            self._key_size = (int(ks[0]), int(ks[1]))
+                    except Exception:
+                        pass
+                    self._force_full_redraw = True
+                    try:
+                        self._render_tick()
+                    except Exception:
+                        pass
+            elif t == "key":
+                try:
+                    k = int(evt.get("key"))
+                except Exception:
+                    continue
+                try:
+                    self._deck_key_pressed.emit(k)
+                except Exception:
+                    pass
+            elif t == "error":
+                try:
+                    self._worker_last_error = str(evt.get("detail") or "")
+                except Exception:
+                    self._worker_last_error = ""
+
+        if connected_changed:
+            try:
+                self.connected_changed.emit(bool(self._worker_connected))
+            except Exception:
+                pass
+
+    def start(self) -> None:
+        """Attempt to connect to the first Stream Deck and begin processing."""
+        # Always ensure the bridge runtime is running. This enables hot-plug:
+        # if the deck is connected after launch, the reconnect loop can adopt it
+        # and rendering/IO is already active.
+        try:
+            self._ensure_runtime_running()
+        except Exception:
+            pass
+
+        # Connection is handled asynchronously by the worker process.
+        try:
+            self.connected_changed.emit(bool(self._worker_connected))
+        except Exception:
+            pass
 
     def stop(self) -> None:
         """Stop threads and close the Stream Deck device."""
@@ -233,6 +386,11 @@ class StreamDeckXLBridge(QObject):
             pass
         try:
             self._render_timer.stop()
+        except Exception:
+            pass
+
+        try:
+            self._worker_evt_timer.stop()
         except Exception:
             pass
 
@@ -262,6 +420,11 @@ class StreamDeckXLBridge(QObject):
             pass
 
         self._close_deck_and_mark_disconnected("stop")
+
+        try:
+            self._stop_worker()
+        except Exception:
+            pass
 
     def _adopt_open_deck(self, deck) -> bool:
         """Take ownership of an opened StreamDeck device and configure it."""
@@ -321,80 +484,57 @@ class StreamDeckXLBridge(QObject):
                     pass
         finally:
             self._force_full_redraw = True
+            try:
+                self._worker_connected = False
+            except Exception:
+                pass
             self.connected_changed.emit(False)
 
-        # Schedule reconnect attempts unless we're shutting down.
+        # In the worker-based architecture, the worker owns reconnect.
         try:
-            if not self._io_stop.is_set() and not self._reconnect_timer.isActive():
-                self._reconnect_timer.start()
+            if self._reconnect_timer.isActive():
+                self._reconnect_timer.stop()
         except Exception:
             pass
 
     @Slot(str)
     def _on_deck_io_failed(self, _detail: str) -> None:
         # Runs on Qt thread.
-        # Close the device and begin reconnect loop.
+        # With the worker architecture, treat this as a signal to restart the worker.
         try:
-            self._close_deck_and_mark_disconnected("io_failed")
+            self._worker_connected = False
+        except Exception:
+            pass
+        try:
+            self.connected_changed.emit(False)
+        except Exception:
+            pass
+        try:
+            self._stop_worker()
+        except Exception:
+            pass
+        try:
+            self._start_worker()
         except Exception:
             pass
 
     def _reconnect_tick(self) -> None:
-        # Runs on Qt thread.
-        if self._io_stop.is_set():
-            try:
-                self._reconnect_timer.stop()
-            except Exception:
-                pass
-            return
-
-        try:
-            with self._deck_lock:
-                if self._deck is not None:
-                    try:
-                        self._reconnect_timer.stop()
-                    except Exception:
-                        pass
-                    return
-        except Exception:
-            pass
-
-        deck = self._try_open_first_deck()
-        if deck is None:
-            return
-        if not self._adopt_open_deck(deck):
-            return
-
-        # Reconnected: refresh visuals.
-        self._deck_fault_reported = False
-        self._force_full_redraw = True
+        # Legacy in-process reconnect loop is disabled; the worker owns reconnect.
         try:
             if self._reconnect_timer.isActive():
                 self._reconnect_timer.stop()
         except Exception:
             pass
-        self.connected_changed.emit(True)
+        if self._io_stop.is_set():
+            return
+        try:
+            self._ensure_worker_running()
+        except Exception:
+            pass
 
     def _health_tick(self) -> None:
-        """Detect sleep/unplug states where the deck reports not open."""
-        try:
-            with self._deck_lock:
-                deck = self._deck
-        except Exception:
-            deck = None
-
-        if deck is None:
-            return
-
-        try:
-            fn = getattr(deck, "is_open", None)
-            if callable(fn) and not bool(fn()):
-                self._close_deck_and_mark_disconnected("health_is_open_false")
-        except Exception:
-            try:
-                self._close_deck_and_mark_disconnected("health_exception")
-            except Exception:
-                pass
+        # Legacy in-process health checking is disabled; the worker owns device lifecycle.
+        return
 
     def set_mode(self, mode: str) -> None:
         mode = str(mode)
@@ -962,7 +1102,7 @@ class StreamDeckXLBridge(QObject):
 
     def _render_transport_now(self) -> None:
         """Immediately refresh Play/Pause/Stop visuals for snappy feedback."""
-        if self._deck is None:
+        if not bool(getattr(self, "_worker_connected", False)):
             return
 
         play_should_highlight = self._play_should_highlight()
@@ -1082,7 +1222,7 @@ class StreamDeckXLBridge(QObject):
         This avoids waiting for the next periodic render tick, improving
         perceived responsiveness when button state changes.
         """
-        if self._deck is None:
+        if not bool(getattr(self, "_worker_connected", False)):
             return
         if not (0 <= int(key) <= 23):
             return
@@ -1214,7 +1354,7 @@ class StreamDeckXLBridge(QObject):
 
     @Slot()
     def _render_tick(self) -> None:
-        if self._deck is None:
+        if not bool(getattr(self, "_worker_connected", False)):
             return
 
         play_should_highlight = self._play_should_highlight()
@@ -1497,12 +1637,10 @@ class StreamDeckXLBridge(QObject):
             return None
 
     # ---------------------------------------------------------------------
-    # IO thread: render PIL + write to hardware
+    # IO thread: forward renders to worker subprocess
     # ---------------------------------------------------------------------
 
     def _io_loop(self) -> None:
-        icon_cache = {}
-        font_cache = {}
         while not self._io_stop.is_set():
             try:
                 item = self._io_q.get(timeout=0.25)
@@ -1547,30 +1685,30 @@ class StreamDeckXLBridge(QObject):
                 if it is None:
                     continue
                 try:
-                    img = self._render_key_image(
-                        it.text,
-                        it.active_level,
-                        it.icon_path,
-                        it.bg_image_path,
-                        it.bg_rgb,
-                        it.fg_rgb,
-                        it.corner_text,
-                        icon_cache,
-                        font_cache,
+                    cmd_q = getattr(self, "_worker_cmd_q", None)
+                    if cmd_q is None:
+                        continue
+                    cmd_q.put_nowait(
+                        {
+                            "type": "render",
+                            "key": int(it.key),
+                            "text": str(it.text or ""),
+                            "active_level": float(it.active_level or 0.0),
+                            "icon_path": it.icon_path,
+                            "bg_image_path": it.bg_image_path,
+                            "bg_rgb": it.bg_rgb,
+                            "fg_rgb": it.fg_rgb,
+                            "corner_text": str(it.corner_text or ""),
+                        }
                     )
-                    with self._deck_lock:
-                        deck = self._deck
-                        if deck is None or self._io_stop.is_set():
-                            continue
-                        native = self._to_native(deck, img)
-                        deck.set_key_image(int(it.key), native)
                 except Exception as e:
-                    # If the device was unplugged or transport failed, drop the handle and
-                    # let the Qt thread attempt a reconnect.
+                    # If the worker is unhealthy, mark disconnected.
                     try:
                         if not self._deck_fault_reported:
                             self._deck_fault_reported = True
-                            self._deck_io_failed.emit(f"{type(e).__name__}: {e}")
+                            self._worker_connected = False
+                            self.connected_changed.emit(False)
+                            self._deck_io_failed.emit(f"worker_send_failed: {type(e).__name__}: {e}")
                     except Exception:
                         pass
                     continue

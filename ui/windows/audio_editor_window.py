@@ -420,8 +420,8 @@ class AudioEditorWindow(QWidget):
 			self.setAutoFillBackground(True)
 		except Exception:
 			pass
-		self.setStyleSheet("background-color: gray;")
-		self.setMinimumSize(700, 420)
+		self.setStyleSheet("background-color: light gray;")
+		self.setFixedSize(550, 435)
 
 		# Backend process
 		try:
@@ -450,6 +450,12 @@ class AudioEditorWindow(QWidget):
 		self._pcm_full: Optional[np.ndarray] = None
 		self._waveform_thread: Optional[threading.Thread] = None
 
+		# Waveform viewport tracking (for partial render when enough audio decoded)
+		self._waveform_view_state_lock = threading.Lock()
+		self._waveform_view_scroll_pos = 0
+		self._waveform_view_viewport_width = 500
+		self._waveform_view_scale = 50
+
 		# Waveform slider interaction state
 		self._slider_dragging = False
 		self._slider_was_playing = False
@@ -457,6 +463,21 @@ class AudioEditorWindow(QWidget):
 
 		self._build_ui()
 		self._wire_ui()
+
+		# Initialize viewport state after widgets exist.
+		try:
+			with self._waveform_view_state_lock:
+				self._waveform_view_scale = int(getattr(self.waveform, "scale", 50))
+				try:
+					self._waveform_view_viewport_width = int(self.scroll_area.viewport().width())
+				except Exception:
+					self._waveform_view_viewport_width = 500
+				try:
+					self._waveform_view_scroll_pos = int(self.scroll_area.horizontalScrollBar().value())
+				except Exception:
+					self._waveform_view_scroll_pos = 0
+		except Exception:
+			pass
 
 		# Start backend + load
 		self._send(LoadFile(self._model.file_path, None))
@@ -576,21 +597,23 @@ class AudioEditorWindow(QWidget):
 		controls_upper = QHBoxLayout()
 		controls_zoom = QHBoxLayout()
 
-		controls_lower.addWidget(self.cue_in_button)
-		controls_lower.addWidget(self.mark_in_button)
+		
 		controls_lower.addWidget(self.rewind_button)
 		controls_lower.addWidget(self.play_pause_button)
 		controls_lower.addWidget(self.stop_button)
 		controls_lower.addWidget(self.fast_forward_button)
-		controls_lower.addWidget(self.mark_out_button)
-		controls_lower.addWidget(self.cue_out_button)
+  
+		controls_upper.addWidget(self.cue_in_button)
+		controls_upper.addWidget(self.mark_in_button)
+		controls_upper.addWidget(self.mark_out_button)
+		controls_upper.addWidget(self.cue_out_button)
 
 		controls_upper.addWidget(self.loop_button, alignment=Qt.AlignmentFlag.AlignLeft)
-		controls_upper.addLayout(controls_zoom)
-		controls_zoom.addWidget(self.zoom_in_button)
-		controls_zoom.addWidget(self.zoom_out_button)
-		controls_zoom.addWidget(self.scale_labelA, alignment=Qt.AlignmentFlag.AlignRight)
-		controls_zoom.addWidget(self.scale_labelB, alignment=Qt.AlignmentFlag.AlignLeft)
+		# controls_upper.addLayout(controls_zoom)
+		# controls_zoom.addWidget(self.zoom_in_button)
+		# controls_zoom.addWidget(self.zoom_out_button)
+		# controls_zoom.addWidget(self.scale_labelA, alignment=Qt.AlignmentFlag.AlignRight)
+		# controls_zoom.addWidget(self.scale_labelB, alignment=Qt.AlignmentFlag.AlignLeft)
 
 		master_controls.addLayout(controls_upper, 0, 0)
 		master_controls.addLayout(controls_lower, 1, 0)
@@ -685,6 +708,11 @@ class AudioEditorWindow(QWidget):
 					else:
 						scale = 4000
 					self.waveform.set_scale(scale)
+					try:
+						with self._waveform_view_state_lock:
+							self._waveform_view_scale = int(scale)
+					except Exception:
+						pass
 					self.scale_labelB.setText(str(scale))
 					self._rebuild_waveform_for_scale()
 				except Exception:
@@ -749,9 +777,15 @@ class AudioEditorWindow(QWidget):
 				samples_decoded = 0
 				last_progress_t = time.monotonic()
 				last_yield_t = time.monotonic()
-				early_render_done = False
-				early_render_target_samples = int(target_sr * 2)
-				last_early_render_t = time.monotonic()
+				# Render a quick partial waveform early so the UI doesn't look stuck,
+				# then refresh again once enough decoded audio exists to cover the
+				# currently visible waveform viewport.
+				quick_render_done = False
+				viewport_fill_render_done = False
+				quick_render_target_samples = int(target_sr * 2)
+				viewport_fill_target_samples: Optional[int] = None
+				last_partial_render_t = time.monotonic()
+				last_viewport_target_update_t = time.monotonic()
 
 				chunks: list[np.ndarray] = []
 				for packet in container.demux(stream):
@@ -792,37 +826,67 @@ class AudioEditorWindow(QWidget):
 									msg = "Decoding waveform…"
 								QtCore.QTimer.singleShot(0, lambda m=msg: self.waveform.set_status(m))
 
-							# Render a quick partial waveform early so the UI doesn't look stuck.
-							if (not early_render_done) and samples_decoded >= early_render_target_samples:
-								# Avoid doing expensive concatenations too often.
-								if now - last_early_render_t >= 0.5:
-									last_early_render_t = now
+							# Update the viewport-fill target occasionally (UI thread updates state).
+							if now - last_viewport_target_update_t >= 0.25:
+								last_viewport_target_update_t = now
+								try:
+									viewport_fill_target_samples = int(self._get_viewport_fill_target_samples(target_sr))
+								except Exception:
+									viewport_fill_target_samples = None
+
+							def do_partial_render() -> None:
+								try:
+									partial_pcm = np.concatenate(chunks, axis=0)
+									scale = int(getattr(self.waveform, "scale", 1))
+									partial_arr = _downsample_audio_for_display(partial_pcm, scale)
+									# Use the best known duration for scaling (backend is authoritative).
 									try:
-										partial_pcm = np.concatenate(chunks, axis=0)
-										partial_arr = _downsample_audio_for_display(partial_pcm, self.waveform.scale)
-										# Use the best known duration for scaling (backend is authoritative).
-										try:
-											model_frames = int(max(0.0, float(self._model.duration_s)) * float(target_sr))
-										except Exception:
-											model_frames = 0
-										duration_frames = int(max(int(partial_pcm.shape[0]), model_frames))
-
-										def apply_partial():
-											self.waveform.set_audio(
-												partial_arr,
-												duration_frames=duration_frames,
-												sample_rate=target_sr,
-												channels=2,
-											)
-											self._update_waveform_markers()
-											self._update_slider_range()
-											self.waveform.set_status("")
-
-										QtCore.QTimer.singleShot(0, apply_partial)
-										early_render_done = True
+										model_frames = int(max(0.0, float(self._model.duration_s)) * float(target_sr))
 									except Exception:
-										# Ignore partial render failures; final render will still happen.
-										pass
+										model_frames = 0
+									duration_frames = int(max(int(partial_pcm.shape[0]), model_frames))
+
+									def apply_partial():
+										self.waveform.set_audio(
+											partial_arr,
+											duration_frames=duration_frames,
+											sample_rate=target_sr,
+											channels=2,
+										)
+										self._update_waveform_markers()
+										self._update_slider_range()
+										self._sync_waveform_viewport()
+										self.waveform.set_status("")
+
+									QtCore.QTimer.singleShot(0, apply_partial)
+								except Exception:
+								# Ignore partial render failures; final render will still happen.
+									pass
+
+							# 1) Quick early render (unchanged intent: make UI responsive)
+							if (not quick_render_done) and samples_decoded >= quick_render_target_samples:
+								if now - last_partial_render_t >= 0.5:
+									last_partial_render_t = now
+									do_partial_render()
+									quick_render_done = True
+
+							# 2) Refresh once viewport can be fully drawn from decoded PCM.
+							if (not viewport_fill_render_done) and viewport_fill_target_samples is not None:
+								if samples_decoded >= int(viewport_fill_target_samples):
+									if now - last_partial_render_t >= 0.5:
+										last_partial_render_t = now
+										# Debug log for viewport-fill refresh
+										try:
+											if os.environ.get("STEPD_EDITOR_DEBUG", "0") == "1":
+												msg = (f"[waveform] viewport-fill refresh: samples_decoded={samples_decoded} "
+													   f"target={viewport_fill_target_samples} scale={getattr(self.waveform, 'scale', None)} "
+													   f"scroll={getattr(self, '_waveform_view_scroll_pos', None)} width={getattr(self, '_waveform_view_viewport_width', None)}")
+												print(msg, flush=True)
+											self._logger.info("Waveform viewport-fill refresh: samples_decoded=%d target=%s scale=%s scroll=%s width=%s", samples_decoded, viewport_fill_target_samples, getattr(self.waveform, 'scale', None), getattr(self, '_waveform_view_scroll_pos', None), getattr(self, '_waveform_view_viewport_width', None))
+										except Exception:
+											pass
+										do_partial_render()
+										viewport_fill_render_done = True
 
 				try:
 					container.close()
@@ -878,6 +942,30 @@ class AudioEditorWindow(QWidget):
 
 		self._waveform_thread = threading.Thread(target=worker, name="WaveformBuild", daemon=True)
 		self._waveform_thread.start()
+
+	def _get_viewport_fill_target_samples(self, sample_rate: int) -> int:
+		"""Return decoded PCM frames needed to fill the currently visible viewport.
+
+		We approximate 1px == 1 downsampled sample because the waveform widget's
+		minimum width is set to `audio_level_array.shape[1]` and it is hosted in a
+		QScrollArea.
+		"""
+		sr = int(max(1, sample_rate))
+		try:
+			with self._waveform_view_state_lock:
+				scroll_pos = int(max(0, self._waveform_view_scroll_pos))
+				viewport_w = int(max(50, self._waveform_view_viewport_width))
+				scale = int(max(1, self._waveform_view_scale))
+		except Exception:
+			scroll_pos, viewport_w, scale = 0, 500, int(max(1, getattr(self.waveform, "scale", 50)))
+
+		# Add a small margin to avoid repainting right at the boundary.
+		margin_px = 32
+		needed_downsampled = scroll_pos + viewport_w + margin_px
+		needed_pcm_frames = int(max(0, needed_downsampled) * scale)
+		# Always require at least a tiny amount of audio so the plotter has something.
+		min_frames = int(0.25 * float(sr))
+		return int(max(min_frames, needed_pcm_frames))
 
 	def _rebuild_waveform_for_scale(self) -> None:
 		pcm = self._pcm_full
@@ -984,6 +1072,13 @@ class AudioEditorWindow(QWidget):
 			viewport_w = self.scroll_area.viewport().width()
 		except Exception:
 			viewport_w = 500
+		try:
+			with self._waveform_view_state_lock:
+				self._waveform_view_scroll_pos = int(value)
+				self._waveform_view_viewport_width = int(viewport_w)
+				self._waveform_view_scale = int(getattr(self.waveform, "scale", self._waveform_view_scale))
+		except Exception:
+			pass
 		self.waveform.set_visible(int(value), int(viewport_w))
 		self.waveform.update()
 
@@ -1001,6 +1096,11 @@ class AudioEditorWindow(QWidget):
 			if os.environ.get('STEPD_PINCH_DEBUG') == '1':
 				print(f"[_on_scroll_area_scale_changed] new_scale={new_scale}", flush=True)
 			self.waveform.set_scale(new_scale)
+			try:
+				with self._waveform_view_state_lock:
+					self._waveform_view_scale = int(new_scale)
+			except Exception:
+				pass
 			self.scale_labelB.setText(str(new_scale))
 			self._rebuild_waveform_for_scale()
 		except Exception as e:
