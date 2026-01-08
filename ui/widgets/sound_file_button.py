@@ -204,7 +204,8 @@ class SoundFileButton(QPushButton):
         self.setMinimumSize(1, 1)
         self.engine_adapter = engine_adapter
 
-    
+        # Thread-safety lock for text measurement and UI updates
+        self._ui_lock = threading.Lock()
         
         # File and metadata
         self.file_path: Optional[str] = file_path
@@ -263,6 +264,7 @@ class SoundFileButton(QPushButton):
         self.rms_level: float = 0.0
         self.peak_level: float = 0.0
         self.light_level: float = 1.0  # For playing indicator gradient (0-255 scale)
+        self._previous_elapsed: float = 0.0  # Track previous elapsed for loop detection
         
         # Flashing effect during playback (subtle pulse animation)
         self.flash_anim: Optional[QVariantAnimation] = None
@@ -845,7 +847,13 @@ class SoundFileButton(QPushButton):
         Update button text and styling for MANUAL CHANGES (file selection, color changes).
         
         Text wraps within the button; button size is not affected by text length.
+        Thread-safe: defers UI updates to main thread if called from background thread.
         """
+        # Check if we're in the main thread; if not, defer to main thread
+        if threading.current_thread() != threading.main_thread():
+            QTimer.singleShot(0, self._refresh_label)
+            return
+        
         display_name = self._label_text_for_display()
         if (not display_name) and (not self.file_path):
             # Unassigned button with no custom label: keep blank.
@@ -857,7 +865,8 @@ class SoundFileButton(QPushButton):
         display_text = display_name  # may be blank by user choice
         try:
             if self.file_path and self.duration_seconds:
-                self.remaining_seconds = self.duration_seconds
+                # Use effective playable duration (accounting for in/out points)
+                self.remaining_seconds = self._get_effective_playable_duration() or self.duration_seconds
         except Exception:
             pass
         
@@ -885,97 +894,104 @@ class SoundFileButton(QPushButton):
         Automatically wrap text with newline characters based on button width and font metrics.
         Also optimizes font size to use the largest size that fits within the button.
         Breaks at word boundaries when possible, and at character level for long text without spaces.
+        
+        Thread-safe: Uses lock to protect font metrics operations.
         """
         if not text or self.width() < 50 or self.height() < 50:
             return text
         
-        # Try different font sizes from large to small, find the largest that fits
-        optimal_font_size = 10  # Default
-        optimal_lines = []
-        
-        for font_size in range(14, 6, -1):
-            # Create font with this size and test wrapping
-            test_font = QFont(self.font())
-            test_font.setPointSize(font_size)
-            metrics = QFontMetrics(test_font)
+        with self._ui_lock:
+            # Try different font sizes from large to small, find the largest that fits
+            optimal_font_size = 10  # Default
+            optimal_lines = []
             
-            # Calculate available width (with padding)
-            available_width = self.width() - 20
-            available_height = self.height() - 10
-            
-            words = text.split()
-            if not words:
-                return text
-            
-            lines = []
-            current_line = []
-            
-            for word in words:
-                # Check if word has spaces or is a single long word
-                if ' ' not in word:
-                    # Word without spaces - may need character-level wrapping
-                    wrapped_word = self._wrap_long_word(word, metrics, available_width)
+            for font_size in range(14, 6, -1):
+                try:
+                    # Create font with this size and test wrapping
+                    test_font = QFont(self.font())
+                    test_font.setPointSize(font_size)
+                    metrics = QFontMetrics(test_font)
                     
-                    # If wrapping was needed, add current line first
-                    if '\n' in wrapped_word:
-                        if current_line:
-                            lines.append(" ".join(current_line))
-                            current_line = []
-                        lines.extend(wrapped_word.split('\n'))
-                    else:
-                        # Check if this word fits on current line
-                        test_line = " ".join(current_line + [wrapped_word])
-                        line_width = metrics.horizontalAdvance(test_line)
-                        
-                        if line_width <= available_width:
-                            current_line.append(wrapped_word)
-                        else:
-                            # Word doesn't fit on current line
-                            if current_line:
-                                lines.append(" ".join(current_line))
-                                current_line = [wrapped_word]
+                    # Calculate available width (with padding)
+                    available_width = self.width() - 20
+                    available_height = self.height() - 10
+                    
+                    words = text.split()
+                    if not words:
+                        return text
+                    
+                    lines = []
+                    current_line = []
+                    
+                    for word in words:
+                        # Check if word has spaces or is a single long word
+                        if ' ' not in word:
+                            # Word without spaces - may need character-level wrapping
+                            wrapped_word = self._wrap_long_word(word, metrics, available_width)
+                            
+                            # If wrapping was needed, add current line first
+                            if '\n' in wrapped_word:
+                                if current_line:
+                                    lines.append(" ".join(current_line))
+                                    current_line = []
+                                lines.extend(wrapped_word.split('\n'))
                             else:
-                                lines.append(wrapped_word)
-                else:
-                    # Word with spaces - use original logic
-                    test_line = " ".join(current_line + [word])
-                    line_width = metrics.horizontalAdvance(test_line)
-                    
-                    if line_width <= available_width:
-                        # Word fits, add it to current line
-                        current_line.append(word)
-                    else:
-                        # Word doesn't fit
-                        if current_line:
-                            # Save current line and start new one with this word
-                            lines.append(" ".join(current_line))
-                            current_line = [word]
+                                # Check if this word fits on current line
+                                test_line = " ".join(current_line + [wrapped_word])
+                                line_width = metrics.horizontalAdvance(test_line)
+                                
+                                if line_width <= available_width:
+                                    current_line.append(wrapped_word)
+                                else:
+                                    # Word doesn't fit on current line
+                                    if current_line:
+                                        lines.append(" ".join(current_line))
+                                        current_line = [wrapped_word]
+                                    else:
+                                        lines.append(wrapped_word)
                         else:
-                            # Word is too long for a line by itself, just put it on its own line
-                            lines.append(word)
+                            # Word with spaces - use original logic
+                            test_line = " ".join(current_line + [word])
+                            line_width = metrics.horizontalAdvance(test_line)
+                            
+                            if line_width <= available_width:
+                                # Word fits, add it to current line
+                                current_line.append(word)
+                            else:
+                                # Word doesn't fit
+                                if current_line:
+                                    # Save current line and start new one with this word
+                                    lines.append(" ".join(current_line))
+                                    current_line = [word]
+                                else:
+                                    # Word is too long for a line by itself, just put it on its own line
+                                    lines.append(word)
+                    
+                    # Add any remaining words
+                    if current_line:
+                        lines.append(" ".join(current_line))
+                    
+                    # Check if this font size fits vertically
+                    line_height = metrics.lineSpacing()
+                    total_height = line_height * len(lines)
+                    
+                    if total_height <= available_height:
+                        # This font size works! Use it
+                        optimal_font_size = font_size
+                        optimal_lines = lines
+                        break
+                except Exception:
+                    # If font metrics fails, continue to next size
+                    continue
             
-            # Add any remaining words
-            if current_line:
-                lines.append(" ".join(current_line))
+            # If we didn't find a good size, use the last one we calculated
+            if not optimal_lines:
+                optimal_lines = lines if 'lines' in locals() else [text]
             
-            # Check if this font size fits vertically
-            line_height = metrics.lineSpacing()
-            total_height = line_height * len(lines)
+            # Set the optimal font size
+            self._set_font_size(optimal_font_size)
             
-            if total_height <= available_height:
-                # This font size works! Use it
-                optimal_font_size = font_size
-                optimal_lines = lines
-                break
-        
-        # If we didn't find a good size, use the last one we calculated
-        if not optimal_lines:
-            optimal_lines = lines
-        
-        # Set the optimal font size
-        self._set_font_size(optimal_font_size)
-        
-        return "\n".join(optimal_lines)
+            return "\n".join(optimal_lines)
 
     def _wrap_long_word(self, word: str, metrics: QFontMetrics, available_width: int) -> str:
         """
@@ -1030,23 +1046,36 @@ class SoundFileButton(QPushButton):
         self.setFont(font)
     
     def _start_flash(self) -> None:
-        """Start a subtle pulse animation between lighter/darker shades."""
+        """
+        Start a subtle pulse animation between lighter/darker shades.
+        Thread-safe: defers animation start to main thread if called from background thread.
+        """
+        # Check if we're in the main thread; if not, defer to main thread
+        if threading.current_thread() != threading.main_thread():
+            QTimer.singleShot(0, self._start_flash)
+            return
+        
         if self.flash_anim is not None:
             return
-        base_color = self.bg_color or QColor("#70CC70")
-        self._flash_base_color = base_color
-        darker = base_color.darker(115)
-        lighter = base_color.lighter(120)
-        anim = QVariantAnimation(self)
-        anim.setDuration(1200)
-        anim.setLoopCount(-1)
-        anim.setEasingCurve(QEasingCurve.InOutSine)
-        anim.setStartValue(darker)
-        anim.setKeyValueAt(0.5, lighter)
-        anim.setEndValue(darker)
-        anim.valueChanged.connect(self._apply_flash_color)
-        anim.start()
-        self.flash_anim = anim
+        
+        try:
+            base_color = self.bg_color or QColor("#70CC70")
+            self._flash_base_color = base_color
+            darker = base_color.darker(115)
+            lighter = base_color.lighter(120)
+            anim = QVariantAnimation(self)
+            anim.setDuration(1200)
+            anim.setLoopCount(-1)
+            anim.setEasingCurve(QEasingCurve.InOutSine)
+            anim.setStartValue(darker)
+            anim.setKeyValueAt(0.5, lighter)
+            anim.setEndValue(darker)
+            anim.valueChanged.connect(self._apply_flash_color)
+            anim.start()
+            self.flash_anim = anim
+        except Exception:
+            # Best-effort; if animation fails, continue without it
+            pass
     
     def _stop_flash(self) -> None:
         """Stop the flash animation and restore base color."""
@@ -1511,14 +1540,147 @@ class SoundFileButton(QPushButton):
     
     def _open_editor(self) -> None:
         """Open audio editor for this file"""
-        # TODO: Integrate with internal audio editor
-        if self.file_path:
+        if not self.file_path:
+            return
+
+        try:
+            from ui.windows.audio_editor_window import AudioEditorWindow
+        except Exception as e:
+            try:
+                QMessageBox.warning(self, "Audio Editor", f"Failed to open editor: {e}")
+            except Exception:
+                pass
+            return
+
+        # Track id is a UI correlation key for the opener.
+        try:
+            bank_index = getattr(self, "bank_index", None)
+            index_in_bank = getattr(self, "index_in_bank", None)
+            if index_in_bank is not None:
+                track_id = f"{bank_index}-{index_in_bank}" if bank_index is not None else f"{index_in_bank}"
+            else:
+                track_id = self.objectName() or "sound_file_button"
+        except Exception:
+            track_id = self.objectName() or "sound_file_button"
+
+        sr = int(self.sample_rate or 48000)
+        in_s = float(self.in_frame) / float(sr) if sr > 0 else 0.0
+        out_s: float | None
+        if self.out_frame is None:
+            out_s = float(self.duration_seconds or 0.0) if self.duration_seconds is not None else None
+        else:
+            out_s = float(self.out_frame) / float(sr) if sr > 0 else None
+
+        win = AudioEditorWindow(
+            file_path=str(self.file_path),
+            track_id=str(track_id),
+            in_point_s=float(in_s),
+            out_point_s=float(out_s) if out_s is not None else None,
+            gain_db=float(self.gain_db),
+            loop_enabled=bool(self.loop_enabled),
+            parent=self.window(),
+        )
+
+        # Hold a reference so it isn't GC'd.
+        try:
+            self._audio_editor_window = win  # type: ignore[attr-defined]
+        except Exception:
             pass
+
+        def _apply_committed(
+            committed_track_id: str,
+            in_point_s: float,
+            out_point_s: float,
+            gain_db: float,
+            loop_enabled: bool,
+            duration_s: float,
+            metadata: object,
+        ) -> None:
+            # Update local button state.
+            try:
+                new_sr = int(self.sample_rate or 48000)
+                self.in_frame = int(max(0.0, float(in_point_s)) * new_sr)
+                self.out_frame = int(max(float(in_point_s), float(out_point_s)) * new_sr)
+            except Exception:
+                pass
+
+            try:
+                self.gain_db = float(gain_db)
+            except Exception:
+                pass
+
+            try:
+                self.loop_enabled = bool(loop_enabled)
+            except Exception:
+                pass
+
+            # Duration + metadata (best-effort)
+            try:
+                if duration_s and duration_s > 0:
+                    self.duration_seconds = float(duration_s)
+            except Exception:
+                pass
+
+            try:
+                md = metadata if isinstance(metadata, dict) else {}
+                title = md.get("title") or md.get("TITLE")
+                artist = md.get("artist") or md.get("ARTIST")
+                if isinstance(title, str):
+                    self.song_title = title
+                if isinstance(artist, str):
+                    self.song_artist = artist
+            except Exception:
+                pass
+
+            # Push changes into engine for active cue (if any)
+            try:
+                self._update_cue_settings()
+            except Exception:
+                pass
+
+            try:
+                self._refresh_label()
+            except Exception:
+                pass
+
+            try:
+                self._notify_state_changed()
+            except Exception:
+                pass
+
+        win.cue_edits_committed.connect(_apply_committed)
+        win.show()
         
 
     # ==========================================================================
     # PLAYBACK CONTROL
     # ==========================================================================
+    
+    def _get_effective_playable_duration(self) -> Optional[float]:
+        """
+        Calculate the effective playable duration accounting for in_frame and out_frame.
+        
+        Returns:
+            Duration in seconds of the playable section, or None if cannot determine.
+        """
+        try:
+            # Use sample_rate from file, or default to 48000 if not available
+            sr = int(self.sample_rate) if self.sample_rate and self.sample_rate > 0 else 48000
+            
+            # If out_frame is set, use it; otherwise use full file duration
+            end_frame = self.out_frame if self.out_frame is not None else None
+            if end_frame is None:
+                # No out_frame set; use full file duration
+                return self.duration_seconds
+            
+            # Calculate from in_frame to out_frame
+            playable_frames = end_frame - self.in_frame
+            if playable_frames <= 0:
+                return 0.0
+            
+            return playable_frames / float(sr)
+        except Exception:
+            return self.duration_seconds
     
     def _format_duration(self, seconds: float) -> str:
         """Format duration in seconds as mm:ss string."""
@@ -1592,9 +1754,7 @@ class SoundFileButton(QPushButton):
     def _update_cue_settings(self) -> None:
         """Emit updated cue settings to engine for the current cue."""
         if not self.current_cue_id:
-            print(f"[SoundFileButton._update_cue_settings] Skipping - no current_cue_id")
             return
-        print(f"[SoundFileButton._update_cue_settings] Emitting signal for cue_id: {self.current_cue_id} with gain_db: {self.gain_db}")
         
         cue = CueInfo(
             cue_id=self.current_cue_id,
@@ -1609,7 +1769,6 @@ class SoundFileButton(QPushButton):
         )
         
         self.update_cue_settings.emit(self.current_cue_id, cue)
-        print(f"[SoundFileButton._update_cue_settings] Signal emitted")
 
     # ==========================================================================
     # ENGINE ADAPTER SIGNAL HANDLERS
@@ -1634,6 +1793,8 @@ class SoundFileButton(QPushButton):
         self.fade_button.show()
         # Start flash timer (will handle repaints on flash events)
         self._start_flash()
+        # Reset elapsed tracking for loop detection
+        self._previous_elapsed = 0.0
         
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > 1.0:
@@ -1660,7 +1821,8 @@ class SoundFileButton(QPushButton):
             # Update state immediately (fast)
             self.is_playing = False
             self.elapsed_seconds = 0.0
-            self.remaining_seconds = self.duration_seconds
+            # Use effective playable duration (accounting for in/out points)
+            self.remaining_seconds = self._get_effective_playable_duration() or self.duration_seconds
             self.light_level = 0.0
             self.current_cue_id = None
 
@@ -1719,29 +1881,19 @@ class SoundFileButton(QPushButton):
         """
         Handle CueTimeEvent from engine adapter.
         Updates time display for owned cues.
+        
+        The engine adapter now handles all trimmed time calculations (accounting for
+        in_frame/out_frame), so we just display the values it sends us.
         """
         start = time.perf_counter()
         if cue_id not in self._started_cue_ids:
             return
         
         self.elapsed_seconds = elapsed
-        # Prefer engine-provided total duration (handles trimmed cues/outpoints).
-        dur = None
-        try:
-            if isinstance(total, (int, float)):
-                dur = float(total)
-        except Exception:
-            dur = None
-        if dur is None:
-            try:
-                if self.duration_seconds is not None:
-                    dur = float(self.duration_seconds)
-            except Exception:
-                dur = None
-        if dur is not None:
-            self.remaining_seconds = max(0.0, dur - float(elapsed))
-        else:
-            self.remaining_seconds = remaining
+        self._previous_elapsed = elapsed
+        # Engine adapter handles trimmed time calculation, use remaining directly
+        self.remaining_seconds = float(remaining) if isinstance(remaining, (int, float)) else 0.0
+        
         self._update_time_display()
         
         elapsed_ms = (time.perf_counter() - start) * 1000
@@ -2243,6 +2395,14 @@ class SoundFileButton(QPushButton):
         # Copy colors
         self.bg_color = source.bg_color
         self.text_color = source.text_color
+        
+        # Copy background image asset
+        self.background_asset_path = source.background_asset_path
+        self._invalidate_background_cache()
+        self._ensure_background_pixmap_loaded()
+        
+        # Copy custom text (label override)
+        self.custom_text = source.custom_text
         
         # Update gain slider to reflect copied gain value (absolute position)
         if self.gain_slider:

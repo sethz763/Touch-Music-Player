@@ -233,9 +233,25 @@ class EngineAdapter(QObject):
         super().__init__(parent=parent)
         self._cmd_q = cmd_q
         self._evt_q = evt_q
-        # Duration tracking for accurate remaining-time UI.
+        # Duration and frame boundary tracking for accurate remaining-time UI.
         # Populated from CueStartedEvent.total_seconds and CueFinishedEvent.cue_info.duration_seconds.
         self._cue_total_seconds: dict[str, Optional[float]] = {}
+        # Trim boundaries: populated from PlayCueCommand and UpdateCueCommand to calculate effective duration
+        self._cue_in_frames: dict[str, int] = {}
+        self._cue_out_frames: dict[str, Optional[int]] = {}
+        self._cue_sample_rates: dict[str, int] = {}
+        # Per-cue loop flag tracking so GUI time can reset correctly on loop rollovers.
+        # The output process reports elapsed as total samples consumed (monotonic), so for looped
+        # cues we need to mod elapsed by the effective duration when presenting time.
+        self._cue_loop_enabled: dict[str, bool] = {}
+
+        # Global loop state tracking for GUI display normalization.
+        # When loop override is enabled, the engine forces active cues to follow the global loop
+        # state (even if the per-cue loop flag is False). The engine's elapsed telemetry remains
+        # monotonic across loop restarts, so the GUI must normalize elapsed/remaining under
+        # override-driven looping too.
+        self._loop_override_enabled: bool = False
+        self._global_loop_enabled: bool = False
         self._last_started_cue_id: Optional[str] = None
 
         # Best-effort local transport state tracking.
@@ -276,6 +292,11 @@ class EngineAdapter(QObject):
         # Pending telemetry to emit (coalesce multiple events)
         self._pending_master_levels = None
         self._pending_master_time = None
+
+        # Position calculation mode: whether elapsed/remaining are calculated relative to in/out markers
+        # Default True = elapsed/remaining are relative to in_frame/out_frame (trimmed time)
+        # False = elapsed/remaining are absolute file positions (not trimmed)
+        self._position_relative_to_trim_markers = True
 
         # Lifecycle backlog: preserve ordering and prevent CueStarted/CueFinished starvation
         # under heavy telemetry load. We keep overflow lifecycle events here rather than
@@ -328,6 +349,32 @@ class EngineAdapter(QObject):
         except Exception as e:
             print(f"[EngineAdapter.transport_prev] Error: {e}")
 
+    def set_engine_position_relative_to_trim_markers(self, enabled: bool) -> None:
+        """
+        Configure whether elapsed/remaining time is calculated relative to in_frame/out_frame markers.
+        
+        Args:
+            enabled (bool): If True (default), elapsed/remaining account for in/out trimming.
+                           If False, elapsed/remaining are absolute file positions.
+        
+        Example:
+            # Mode 1: Trimmed time (default)
+            adapter.set_engine_position_relative_to_trim_markers(True)
+            # Playing a cue with in_frame=1s, out_frame=3s will show:
+            # - elapsed: 0.0 → 2.0 seconds
+            # - remaining: 2.0 → 0.0 seconds
+            
+            # Mode 2: Absolute time (no trimming)
+            adapter.set_engine_position_relative_to_trim_markers(False)
+            # Same cue will show:
+            # - elapsed: 1.0 → 3.0 seconds (file position)
+            # - remaining: 2.0 → 0.0 seconds (duration is still trimmed)
+        """
+        try:
+            self._position_relative_to_trim_markers = bool(enabled)
+        except Exception as e:
+            print(f"[EngineAdapter.set_engine_position_relative_to_trim_markers] Error: {e}")
+
     def play_cue(
         self,
         file_path: str,
@@ -371,6 +418,16 @@ class EngineAdapter(QObject):
                 layered=layered,
                 total_seconds=total_seconds,
             )
+            
+            # Track frame boundaries for trimmed duration calculation in time events
+            self._cue_in_frames[cmd.cue_id] = in_frame
+            self._cue_out_frames[cmd.cue_id] = out_frame
+            self._cue_loop_enabled[cmd.cue_id] = bool(loop_enabled)
+            # Use standard sample rate assumption (48000 Hz). This will be refined in CueStartedEvent
+            # if we have better information (though currently CueStartedEvent doesn't provide sample_rate).
+            # For most audio files, 48000 Hz is correct or very close.
+            self._cue_sample_rates[cmd.cue_id] = 48000  # Default assumption
+            
             q_start = time.perf_counter()
             self._cmd_q.put(cmd)
             q_time = (time.perf_counter() - q_start) * 1000
@@ -474,6 +531,29 @@ class EngineAdapter(QObject):
                     loop_enabled=kwargs.get('loop_enabled'),
                 )
             print(f"[EngineAdapter.update_cue] Created UpdateCueCommand: cue_id={cmd.cue_id}, gain_db={cmd.gain_db}")
+            
+            # Update frame boundary tracking if changed
+            if cue is not None:
+                if hasattr(cue, 'in_frame'):
+                    self._cue_in_frames[cue_id] = cue.in_frame
+                if hasattr(cue, 'out_frame'):
+                    self._cue_out_frames[cue_id] = cue.out_frame
+                if hasattr(cue, 'loop_enabled'):
+                    try:
+                        self._cue_loop_enabled[cue_id] = bool(cue.loop_enabled)
+                    except Exception:
+                        pass
+            else:
+                if 'in_frame' in kwargs and kwargs['in_frame'] is not None:
+                    self._cue_in_frames[cue_id] = kwargs['in_frame']
+                if 'out_frame' in kwargs and kwargs['out_frame'] is not None:
+                    self._cue_out_frames[cue_id] = kwargs['out_frame']
+                if 'loop_enabled' in kwargs and kwargs.get('loop_enabled') is not None:
+                    try:
+                        self._cue_loop_enabled[cue_id] = bool(kwargs.get('loop_enabled'))
+                    except Exception:
+                        pass
+            
             self._cmd_q.put(cmd)
             print(f"[EngineAdapter.update_cue] Command queued successfully")
         except Exception as e:
@@ -499,6 +579,7 @@ class EngineAdapter(QObject):
     def set_loop_override(self, enabled: bool) -> None:
         """Enable/disable global loop override in the engine."""
         try:
+            self._loop_override_enabled = bool(enabled)
             self._cmd_q.put(SetLoopOverrideCommand(enabled=bool(enabled)))
         except Exception as e:
             print(f"[EngineAdapter.set_loop_override] Error: {e}")
@@ -506,9 +587,19 @@ class EngineAdapter(QObject):
     def set_global_loop_enabled(self, enabled: bool) -> None:
         """Set global loop enabled state (used only when override is enabled)."""
         try:
+            self._global_loop_enabled = bool(enabled)
             self._cmd_q.put(SetGlobalLoopEnabledCommand(enabled=bool(enabled)))
         except Exception as e:
             print(f"[EngineAdapter.set_global_loop_enabled] Error: {e}")
+
+    def _is_looping_for_display(self, cue_id: str) -> bool:
+        """Return True if this cue should be treated as looping for UI time display."""
+        try:
+            if bool(self._cue_loop_enabled.get(cue_id, False)):
+                return True
+            return bool(self._loop_override_enabled and self._global_loop_enabled)
+        except Exception:
+            return bool(self._cue_loop_enabled.get(cue_id, False))
 
     def set_master_gain(self, gain_db: float) -> None:
         """
@@ -522,6 +613,124 @@ class EngineAdapter(QObject):
             self._cmd_q.put(cmd)
         except Exception as e:
             print(f"[EngineAdapter.set_master_gain] Error: {e}")
+
+    def _calculate_trimmed_time(
+        self, cue_id: str, elapsed_seconds: float, total_seconds: Optional[float]
+    ) -> tuple[float, Optional[float]]:
+        """
+        Calculate remaining time and total time for a cue, optionally accounting for in_frame/out_frame.
+        
+        The calculation mode is controlled by _position_relative_to_trim_markers:
+        - If True (default): elapsed is relative to in_frame (0 at start, increases to duration)
+        - If False: elapsed is absolute file position (in_frame value at start, increases to out_frame)
+        
+        Args:
+            cue_id (str): Cue identifier to look up frame boundaries.
+            elapsed_seconds (float): Elapsed time in seconds from start of cue.
+            total_seconds (Optional[float]): Full file duration in seconds (for fallback).
+        
+        Returns:
+            tuple: (remaining_seconds, total_seconds)
+                - remaining_seconds: Time remaining in the cue
+                - total_seconds: Playable duration (out_frame - in_frame) / sample_rate if trimmed,
+                                 or None if cannot be calculated
+        """
+        in_frame = self._cue_in_frames.get(cue_id, 0)
+        out_frame = self._cue_out_frames.get(cue_id)
+        sample_rate = self._cue_sample_rates.get(cue_id)
+        
+        # DEBUG: Log the calculation for investigation
+        import os
+        if os.environ.get('STEPD_TRIMMED_TIME_DEBUG'):
+            print(f"[_calculate_trimmed_time] cue={cue_id[:8]} elapsed={elapsed_seconds:.4f} in_frame={in_frame} out_frame={out_frame} sr={sample_rate} mode={'trimmed' if self._position_relative_to_trim_markers else 'absolute'}")
+        
+        # Mode 1: Position relative to trim markers (default, elapsed=0 at in_frame)
+        if self._position_relative_to_trim_markers:
+            loop_enabled = self._is_looping_for_display(cue_id)
+
+            # If no out_frame, use full file duration
+            if out_frame is None:
+                if loop_enabled and isinstance(total_seconds, (int, float)) and float(total_seconds) > 0.0:
+                    loop_total = float(total_seconds)
+                    elapsed_norm = float(elapsed_seconds) % loop_total
+                    return (max(0.0, loop_total - elapsed_norm), loop_total)
+                return (max(0.0, (total_seconds or 0.0) - elapsed_seconds), total_seconds)
+
+            # If we have sample rate, calculate trimmed duration
+            if sample_rate and sample_rate > 0:
+                trimmed_total = (out_frame - in_frame) / sample_rate
+                elapsed_norm = float(elapsed_seconds)
+                if loop_enabled and float(trimmed_total) > 0.0:
+                    elapsed_norm = float(elapsed_seconds) % float(trimmed_total)
+                trimmed_remaining = max(0.0, float(trimmed_total) - float(elapsed_norm))
+                return (trimmed_remaining, trimmed_total)
+
+            # Fallback to full file duration if we can't calculate trimmed
+            return (max(0.0, (total_seconds or 0.0) - elapsed_seconds), total_seconds)
+
+        # Mode 2: Absolute file position (elapsed is file position, not trimmed position)
+        else:
+            loop_enabled = self._is_looping_for_display(cue_id)
+
+            # If no out_frame, use full file duration
+            if out_frame is None:
+                if loop_enabled and isinstance(total_seconds, (int, float)) and float(total_seconds) > 0.0:
+                    loop_total = float(total_seconds)
+                    elapsed_norm = float(elapsed_seconds) % loop_total
+                    return (max(0.0, loop_total - elapsed_norm), loop_total)
+                return (max(0.0, (total_seconds or 0.0) - elapsed_seconds), total_seconds)
+
+            # If we have sample rate, calculate based on absolute position
+            if sample_rate and sample_rate > 0:
+                trimmed_total = (out_frame - in_frame) / sample_rate
+                in_seconds = in_frame / sample_rate
+                out_seconds = out_frame / sample_rate
+
+                # elapsed is absolute file position; convert to remaining within the trimmed range
+                elapsed_norm = float(elapsed_seconds)
+                if loop_enabled and float(trimmed_total) > 0.0:
+                    elapsed_norm = float(in_seconds) + (
+                        (float(elapsed_seconds) - float(in_seconds)) % float(trimmed_total)
+                    )
+                trimmed_remaining = max(0.0, float(out_seconds) - float(elapsed_norm))
+                return (trimmed_remaining, trimmed_total)
+
+            # Fallback: use absolute remaining
+            return (max(0.0, (total_seconds or 0.0) - elapsed_seconds), total_seconds)
+
+    def _normalize_elapsed_for_display(
+        self, cue_id: str, elapsed_seconds: float, total_seconds: Optional[float]
+    ) -> float:
+        """Normalize elapsed for GUI display so looped cues reset time each loop."""
+        try:
+            loop_enabled = self._is_looping_for_display(cue_id)
+            if not loop_enabled:
+                return float(elapsed_seconds)
+
+            in_frame = int(self._cue_in_frames.get(cue_id, 0) or 0)
+            out_frame = self._cue_out_frames.get(cue_id)
+            sample_rate = self._cue_sample_rates.get(cue_id)
+
+            loop_total: Optional[float] = None
+            if out_frame is not None and sample_rate and sample_rate > 0:
+                loop_total = float(out_frame - in_frame) / float(sample_rate)
+            elif isinstance(total_seconds, (int, float)):
+                loop_total = float(total_seconds)
+
+            if not loop_total or loop_total <= 0.0:
+                return float(elapsed_seconds)
+
+            if self._position_relative_to_trim_markers:
+                return float(elapsed_seconds) % float(loop_total)
+
+            # Absolute mode: normalize within the trim window so time doesn't run away.
+            if out_frame is not None and sample_rate and sample_rate > 0:
+                in_seconds = float(in_frame) / float(sample_rate)
+                return float(in_seconds) + ((float(elapsed_seconds) - float(in_seconds)) % float(loop_total))
+
+            return float(elapsed_seconds) % float(loop_total)
+        except Exception:
+            return float(elapsed_seconds)
 
     def set_output_device(self, device: object) -> None:
         """
@@ -890,6 +1099,8 @@ class EngineAdapter(QObject):
             try:
                 self._last_started_cue_id = event.cue_id
                 self._cue_total_seconds[event.cue_id] = getattr(event, "total_seconds", None)
+                # Note: We use 48000 Hz as standard sample rate assumption.
+                # If a different sample rate is needed in the future, CueStartedEvent would need to include it.
             except Exception:
                 pass
             self.cue_started.emit(event.cue_id, None)  # cue_info not available yet
@@ -904,6 +1115,17 @@ class EngineAdapter(QObject):
             except Exception:
                 pass
             self.cue_finished.emit(event.cue_info.cue_id, cue_info, event.reason)
+
+            # Best-effort cleanup of per-cue tracking.
+            try:
+                cid = event.cue_info.cue_id
+                self._cue_in_frames.pop(cid, None)
+                self._cue_out_frames.pop(cid, None)
+                self._cue_sample_rates.pop(cid, None)
+                self._cue_total_seconds.pop(cid, None)
+                self._cue_loop_enabled.pop(cid, None)
+            except Exception:
+                pass
 
         elif isinstance(event, BatchCueLevelsEvent):
             # Batched telemetry: throttled to ~10 Hz per cue
@@ -952,10 +1174,17 @@ class EngineAdapter(QObject):
                         elapsed, remaining = 0.0, 0.0
 
                     total = self._cue_total_seconds.get(master_id)
-                    if isinstance(total, (int, float)):
-                        remaining = max(0.0, float(total) - float(elapsed))
+
+                    # Normalize elapsed for looped cues so GUI time resets each loop.
+                    display_elapsed = self._normalize_elapsed_for_display(master_id, float(elapsed), total)
+                    
+                    # Calculate trimmed remaining time accounting for in_frame/out_frame
+                    trimmed_remaining, trimmed_total = self._calculate_trimmed_time(
+                        master_id, float(elapsed), total
+                    )
+                    
                     # Store for throttled emission
-                    self._pending_master_time = (master_id, float(elapsed), float(remaining), total)
+                    self._pending_master_time = (master_id, float(display_elapsed), trimmed_remaining, trimmed_total)
 
         elif isinstance(event, CueLevelsEvent):
             # Legacy single-cue levels (for backward compatibility)
@@ -968,13 +1197,16 @@ class EngineAdapter(QObject):
             # Legacy single-cue time (for backward compatibility)
             # Coalesce - emit at reduced frequency
             total = getattr(event, "total_seconds", None)
-            remaining = event.remaining_seconds
-            if isinstance(total, (int, float)):
-                try:
-                    remaining = max(0.0, float(total) - float(event.elapsed_seconds))
-                except Exception:
-                    remaining = event.remaining_seconds
-            self._pending_master_time = (event.cue_id, event.elapsed_seconds, remaining, total)
+
+            # Normalize elapsed for looped cues so GUI time resets each loop.
+            display_elapsed = self._normalize_elapsed_for_display(event.cue_id, float(event.elapsed_seconds), total)
+            
+            # Calculate trimmed remaining time accounting for in_frame/out_frame
+            trimmed_remaining, trimmed_total = self._calculate_trimmed_time(
+                event.cue_id, event.elapsed_seconds, total
+            )
+            
+            self._pending_master_time = (event.cue_id, float(display_elapsed), trimmed_remaining, trimmed_total)
 
         elif isinstance(event, MasterLevelsEvent):
             # Telemetry: coalesce - emit at reduced frequency

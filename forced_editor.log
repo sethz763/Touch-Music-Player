@@ -1,0 +1,5 @@
+2026-01-07 00:59:19 INFO [MainProcess:67460] [MainThread] stepd.editor.ui: AudioEditorWindow open track_id=jog-scroll-test file_path=C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-07 00:59:19 INFO [MainProcess:67460] [MainThread] stepd.editor.ui: Waveform build start
+2026-01-07 00:59:20 INFO [EditorAudioBackend:56872] [MainThread] stepd.editor.backend: Editor backend starting (log=C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\forced_editor.log)
+2026-01-07 00:59:20 INFO [EditorAudioBackend:56872] [MainThread] stepd.editor.backend: Backend started
+2026-01-07 00:59:21 INFO [EditorAudioBackend:56872] [MainThread] stepd.editor.backend: LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav

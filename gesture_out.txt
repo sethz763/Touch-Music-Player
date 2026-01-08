@@ -1,0 +1,15 @@
+[pinch_gesture] creating QApplication
+[pinch_gesture] QApplication created
+[pinch_gesture] track_path=test_audio.wav
+[pinch_gesture] constructing AudioEditorWindow
+[pinch_gesture] AudioEditorWindow constructed
+[pinch_gesture] window shown
+[pinch_gesture] entering app.exec()
+[pinch_gesture] triggering pinch gestures
+  [pinch] simulating pinch-in (zoom)
+  [pinch] pinch-in handled: True
+  [pinch] simulating pinch-out (unzoom)
+  [pinch] pinch-out handled: True
+[pinch_gesture] all gestures completed successfully
+[pinch_gesture] app.exec() returned rc=0
+OK: pinch gesture test completed

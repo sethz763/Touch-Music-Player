@@ -549,13 +549,8 @@ class MainWindow(QMainWindow):
             milliseconds = int((elapsed - int(elapsed)) * 1000)
             self.master_time_display.setText(f"{minutes:02}:{seconds:02}.{milliseconds:03}")
         else:   
-            # Prefer duration-based remaining when available.
-            rem = remaining
-            try:
-                if isinstance(total, (int, float)):
-                    rem = max(0.0, float(total) - float(elapsed))
-            except Exception:
-                rem = remaining
+            # Use remaining time provided by engine (engine accounts for in/out points)
+            rem = float(remaining) if isinstance(remaining, (int, float)) else 0.0
             minutes = int(rem // 60)
             seconds = int(rem % 60)
             milliseconds = int((rem - int(rem)) * 1000)

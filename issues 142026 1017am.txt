@@ -4,12 +4,13 @@ issues 1/4/2026 10:17am
 
 2. saving / loading doesn't start in current file dir
 
-3. buttons hang after cue ends when a lot of activity
+3. something wrong with time remaining calculations after editing in-point to start later (still calculating from 0, not taking into account the non-zero in point) 
 
 
 
 new features
 
+1. enabling global loop override changes cue loop setting - it should not touch cues!
 
 1. editor
 
@@ -34,5 +35,9 @@ new features
 10. output mapping for additional or larger soundcards
 
 11. drag select
+
+
+
+
 
 

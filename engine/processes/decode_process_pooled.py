@@ -375,9 +375,27 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                         # decoded_frames tracks frames produced since in_frame.
                                         remaining = int(job.cmd.out_frame) - (int(job.cmd.in_frame) + int(job.decoded_frames))
                                         if remaining <= 0:
-                                            job.eof = True
-                                            reached_target = True
-                                            break
+                                            # Reached out_frame boundary - loop or stop
+                                            if job.cmd.loop_enabled:
+                                                try:
+                                                    seek_ts = 0 if job.cmd.in_frame == 0 else int((job.cmd.in_frame / job.cmd.target_sample_rate) / job.stream.time_base)
+                                                    job.container.seek(seek_ts, stream=job.stream, any_frame=False, backward=True)
+                                                    job.packet_iter = job.container.demux(job.stream)
+                                                    job.loop_count += 1
+                                                    job.is_loop_restart = True
+                                                    job.decoded_frames = 0
+                                                    job.discard_frames = job.cmd.target_sample_rate // 100 if job.cmd.in_frame > 0 else 0
+                                                    job.frame_iter = None
+                                                    reached_target = True
+                                                    break
+                                                except Exception:
+                                                    job.eof = True
+                                                    reached_target = True
+                                                    break
+                                            else:
+                                                job.eof = True
+                                                reached_target = True
+                                                break
                                         if pcm.shape[0] > remaining:
                                             pcm = pcm[:remaining, :]
 
@@ -536,8 +554,11 @@ def _decode_worker_thread(
                     break
                 if isinstance(msg, UpdateCueCommand) and msg.cue_id == cue_id:
                     try:
+                        old_loop = start_cmd.loop_enabled
                         if msg.loop_enabled is not None:
                             start_cmd.loop_enabled = bool(msg.loop_enabled)
+                            if old_loop != start_cmd.loop_enabled:
+                                print(f"[DECODER] cue={cue_id[:8]} UpdateCueCommand: loop_enabled {old_loop} -> {start_cmd.loop_enabled}")
                         if msg.in_frame is not None:
                             start_cmd.in_frame = int(msg.in_frame)
                         # Allow clearing out_frame by passing None.
@@ -639,7 +660,39 @@ def _decode_worker_thread(
                     if frame_iter is None:
                         packet = next(packet_iter, None)
                         if packet is None:
+                            # IMPORTANT: Drain pending updates right at EOF so loop disable
+                            # takes effect before we decide to seek/restart.
+                            while True:
+                                try:
+                                    pending = cmd_q.get_nowait()
+                                except queue.Empty:
+                                    break
+                                try:
+                                    if isinstance(pending, DecodeStop):
+                                        stopping = True
+                                        break
+                                    if isinstance(pending, UpdateCueCommand) and pending.cue_id == cue_id:
+                                        if pending.loop_enabled is not None:
+                                            start_cmd.loop_enabled = bool(pending.loop_enabled)
+                                        if pending.in_frame is not None:
+                                            start_cmd.in_frame = int(pending.in_frame)
+                                        start_cmd.out_frame = pending.out_frame
+                                    elif isinstance(pending, BufferRequest) and pending.cue_id == cue_id:
+                                        credit_frames += int(pending.frames_needed)
+                                    else:
+                                        cmd_q.put_nowait(pending)
+                                        break
+                                except Exception:
+                                    pass
+                            if stopping:
+                                break
+
                             if start_cmd.loop_enabled:
+                                # Natural EOF (end of file) while looping is enabled: seek back and continue
+                                print(f"[DECODER-EOF-LOOP] cue={cue_id[:8]} Hit natural EOF while looping, seeking back")
+                                # Flush any pending frames first
+                                if pcm_chunks or frames_out > 0:
+                                    break  # Flush and come back
                                 try:
                                     seek_ts = 0
                                     if start_cmd.in_frame != 0:
@@ -655,7 +708,6 @@ def _decode_worker_thread(
                                     )
                                     packet_iter = container.demux(stream)
                                     is_loop_restart = True
-                                    # Reset per-iteration position so out_frame trimming behaves correctly.
                                     decoded_frames = 0
                                     discard_frames = (
                                         start_cmd.target_sample_rate // 100
@@ -666,7 +718,9 @@ def _decode_worker_thread(
                                     if packet is None:
                                         eof = True
                                         break
-                                except Exception:
+                                    print(f"[DECODER-EOF-LOOP] cue={cue_id[:8]} Loop seek successful")
+                                except Exception as e:
+                                    print(f"[DECODER-EOF-LOOP] cue={cue_id[:8]} Loop seek failed: {e}")
                                     eof = True
                                     break
                             else:
@@ -702,9 +756,38 @@ def _decode_worker_thread(
                             # decoded_frames tracks frames produced since in_frame.
                             remaining = int(start_cmd.out_frame) - (int(start_cmd.in_frame) + int(decoded_frames))
                             if remaining <= 0:
-                                eof = True
-                                reached_target = True
-                                break
+                                if start_cmd.loop_enabled:
+                                    # Loop boundary reached: seek back immediately (no deferred seek nonsense)
+                                    print(f"[DECODER-LOOP] cue={cue_id[:8]} Hit out_frame boundary, looping back to in_frame")
+                                    try:
+                                        seek_ts = 0
+                                        if start_cmd.in_frame != 0:
+                                            seek_ts = int(
+                                                (start_cmd.in_frame / start_cmd.target_sample_rate) / stream.time_base
+                                            )
+                                        container.seek(seek_ts, stream=stream, any_frame=False, backward=True)
+                                        packet_iter = container.demux(stream)
+                                        frame_iter = None
+                                        decoded_frames = 0
+                                        discard_frames = (
+                                            start_cmd.target_sample_rate // 100
+                                            if start_cmd.in_frame > 0
+                                            else 0
+                                        )
+                                        is_loop_restart = True
+                                        # Continue decoding from the loop point instead of breaking
+                                        print(f"[DECODER-LOOP] cue={cue_id[:8]} Loop seek successful, continuing decode")
+                                        continue
+                                    except Exception as e:
+                                        print(f"[DECODER-LOOP] cue={cue_id[:8]} Loop seek failed: {e}")
+                                        eof = True
+                                        reached_target = True
+                                        break
+                                else:
+                                    # Loop disabled: stop at out_frame
+                                    eof = True
+                                    reached_target = True
+                                    break
                             if pcm.shape[0] > remaining:
                                 pcm = pcm[:remaining, :]
 
@@ -757,6 +840,9 @@ def _decode_worker_thread(
                         out_lock,
                     )
                     is_loop_restart = False
+
+                # No more deferred seek logic - we handle loop seeks immediately in the frame loop above
+
             except Exception as e:
                 _out_send(out_q, DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, f"Decode error: {e}"), out_lock)
                 break

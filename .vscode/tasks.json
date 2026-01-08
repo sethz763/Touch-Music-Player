@@ -392,6 +392,638 @@
 			],
 			"isBackground": false,
 			"group": "test"
+		},
+		{
+			"label": "Manual: editor backend IPC (pipe)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_editor_backend_ipc.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: backend IPC with Qt (pipe)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_backend_ipc_with_qt.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: import legacy plotter",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"import sys,importlib; print('python',sys.version); print('exe',sys.executable); mods=['legacy.plot_waveform_new','legacy.plot_waveform_new.plot','legacy.scale_audio'];\nfor mod in mods:\n    try:\n        m=importlib.import_module(mod); print('OK import',mod,'->',m)\n    except Exception as e:\n        print('FAIL import',mod,type(e).__name__,e)"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: import legacy plotter (script)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"debug_import_legacy_plotter.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: import legacy plotter (script)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"debug_import_legacy_plotter.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: import legacy plotter (captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\debug_import_legacy_plotter.py *>&1 | Tee-Object -FilePath .\\debug_import_legacy_plotter.out.txt; Get-Content .\\debug_import_legacy_plotter.out.txt"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: import legacy plotter (captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\debug_import_legacy_plotter.py *>&1 | Tee-Object -FilePath .\\debug_import_legacy_plotter.out.txt; Get-Content .\\debug_import_legacy_plotter.out.txt"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke (post waveform sizing)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: editor log path",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"from ui.windows.audio_editor_window import _setup_editor_logging; import os, pathlib; logger,path=_setup_editor_logging('probe'); logger.info('probe line'); print('log_path',path); print('cwd',pathlib.Path.cwd());"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: editor ui log create",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"from ui.windows.audio_editor_window import _setup_editor_logging; import pathlib; lg,p=_setup_editor_logging('ui'); lg.info('ui test'); print('path',p); print('exists',pathlib.Path(p).exists());"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: editor backend log create",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"from engine.editor_audio_service import _setup_editor_logging; import pathlib; lg,p=_setup_editor_logging('backend'); lg.info('backend test'); print('path',p); print('exists',pathlib.Path(p).exists());"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: jog+scroll with forced log",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$env:STEPD_EDITOR_LOG_PATH = \"$PWD\\forced_editor.log\"; & .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_forced.out.txt; '---log tail---'; if (Test-Path .\\forced_editor.log) { Get-Content .\\forced_editor.log -Tail 80 } else { 'no forced_editor.log created' }; '---harness output tail---'; Get-Content .\\manual_jog_scroll_forced.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: jog+scroll with forced log (fixed)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$env:STEPD_EDITOR_LOG_PATH = (Join-Path $PWD 'forced_editor.log'); & .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_forced.out.txt; '---log tail---'; if (Test-Path .\\forced_editor.log) { Get-Content .\\forced_editor.log -Tail 80 } else { 'no forced_editor.log created' }; '---harness output tail---'; Get-Content .\\manual_jog_scroll_forced.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: env STEPD_EDITOR_LOG_PATH",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"import os; print('STEPD_EDITOR_LOG_PATH', os.environ.get('STEPD_EDITOR_LOG_PATH')); print('STEPD_EDITOR_DEBUG', os.environ.get('STEPD_EDITOR_DEBUG'))"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: tail editor ui/backend logs",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"'---ui---'; if (Test-Path .\\audio_editor_ui.log) { Get-Content .\\audio_editor_ui.log -Tail 50 } else { 'missing' }; '---backend---'; if (Test-Path .\\audio_editor_backend.log) { Get-Content .\\audio_editor_backend.log -Tail 50 } else { 'missing' };"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: tail editor logs after harness",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"'---ui---'; if (Test-Path .\\audio_editor_ui.log) { Get-Content .\\audio_editor_ui.log -Tail 50 } else { 'missing' }; '---backend---'; if (Test-Path .\\audio_editor_backend.log) { Get-Content .\\audio_editor_backend.log -Tail 50 } else { 'missing' };"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: tail editor logs after harness",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"'---ui---'; if (Test-Path .\\audio_editor_ui.log) { Get-Content .\\audio_editor_ui.log -Tail 50 } else { 'missing' }; '---backend---'; if (Test-Path .\\audio_editor_backend.log) { Get-Content .\\audio_editor_backend.log -Tail 80 } else { 'missing' };"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: tail editor logs after harness",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"'---ui---'; if (Test-Path .\\audio_editor_ui.log) { Get-Content .\\audio_editor_ui.log -Tail 80 } else { 'missing' }; '---backend---'; if (Test-Path .\\audio_editor_backend.log) { Get-Content .\\audio_editor_backend.log -Tail 120 } else { 'missing' };"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: audio editor jog+scroll smoke",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: append editor log line",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"from ui.windows.audio_editor_window import _append_editor_log_line, _setup_editor_logging; import pathlib; lg,p=_setup_editor_logging('ui'); _append_editor_log_line(p,'append test'); print('log',p); print('tail:', pathlib.Path(p).read_text(encoding='utf-8').splitlines()[-3:])"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: PyAV open MP3",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"import time; import av; p=r'C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3'; t0=time.time(); c=av.open(p); s=next((st for st in c.streams if st.type=='audio'), None); print('opened', round(time.time()-t0,3), 's'); print('audio_stream', bool(s)); print('duration', c.duration); c.close();"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: PyAV decode MP3 2s",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"-c",
+				"import time, av; p=r'C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3'; c=av.open(p); s=next((st for st in c.streams if st.type=='audio'), None); assert s; r=av.AudioResampler(format='fltp', layout='stereo', rate=48000); n=0; t0=time.time();\nfor packet in c.demux(s):\n  for frame in packet.decode():\n    outs=r.resample(frame);\n    for of in outs:\n      a=of.to_ndarray();\n      n += a.shape[-1]\n      if n>48000*2:\n        print('decoded', n, 'samples in', round(time.time()-t0,3), 's');\n        c.close();\n        raise SystemExit(0)\nprint('EOF? decoded', n); c.close();"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: PyAV decode MP3 2s (captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe -c @'\nimport time, av\np=r\"C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3\"\nc=av.open(p)\ns=next((st for st in c.streams if st.type==\"audio\"), None)\nassert s\nr=av.AudioResampler(format=\"fltp\", layout=\"stereo\", rate=48000)\nn=0\nt0=time.time()\nfor packet in c.demux(s):\n  for frame in packet.decode():\n    outs=r.resample(frame)\n    for of in outs:\n      a=of.to_ndarray()\n      n += a.shape[-1]\n      if n>48000*2:\n        print(\"decoded\", n, \"samples in\", round(time.time()-t0,3), \"s\")\n        c.close()\n        raise SystemExit(0)\nprint(\"EOF? decoded\", n)\nc.close()\n'@ *>&1 | Tee-Object -FilePath .\\debug_pyav_decode_mp3.out.txt; Get-Content .\\debug_pyav_decode_mp3.out.txt -Tail 40"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: PyAV decode MP3 (script)",
+			"type": "shell",
+			"command": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/venv/Scripts/python.exe",
+			"args": [
+				"debug_pyav_decode_mp3.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: backend ipc with qt (captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_backend_ipc_with_qt.py *>&1 | Tee-Object -FilePath .\\manual_backend_ipc_with_qt.out.txt; Get-Content .\\manual_backend_ipc_with_qt.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_forced.out.txt; Get-Content .\\manual_jog_scroll_forced.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (captured after audio chunking)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_after_audio_chunking.out.txt; Get-Content .\\manual_jog_scroll_after_audio_chunking.out.txt -Tail 120; '---audio_editor.log tail---'; if (Test-Path .\\audio_editor.log) { Get-Content .\\audio_editor.log -Tail 80 }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: tail audio_editor.log",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Get-Content .\\audio_editor.log -Tail 200"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (captured after stereo+chunking)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_after_stereo_chunking.out.txt; Get-Content .\\manual_jog_scroll_after_stereo_chunking.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (captured after direct send)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_after_direct_send.out.txt; Get-Content .\\manual_jog_scroll_after_direct_send.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (captured after yield+rate limit)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_after_yield_rate_limit.out.txt; Get-Content .\\manual_jog_scroll_after_yield_rate_limit.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (debug captured)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$env:STEPD_EDITOR_DEBUG='1'; & .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_debug.out.txt; Get-Content .\\manual_jog_scroll_debug.out.txt -Tail 200; '---audio_editor.log tail---'; Get-Content .\\audio_editor.log -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (debug + log tail)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$env:STEPD_EDITOR_DEBUG='1'; & .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_debug2.out.txt; '---stdout/stderr---'; Get-Content .\\manual_jog_scroll_debug2.out.txt -Tail 80; '---audio_editor.log tail---'; Get-Content .\\audio_editor.log -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: find UI sent cmd in audio_editor.log",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Select-String -Path .\\audio_editor.log -Pattern 'UI sent cmd|UI cmd send failed|LoadFile:|TransportPlay' -SimpleMatch | Select-Object -Last 60 | ForEach-Object { $_.Line }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Manual: editor jog+scroll (captured after backend yield)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"& .\\venv\\Scripts\\python.exe .\\manual_test_audio_editor_jog_scroll.py *>&1 | Tee-Object -FilePath .\\manual_jog_scroll_after_backend_yield.out.txt; Get-Content .\\manual_jog_scroll_after_backend_yield.out.txt -Tail 120"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: run editor integration capture 6s",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\mit_out.txt,.\\mit_err.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('.\\manual_test_audio_editor_integration.py') -PassThru -WindowStyle Hidden -RedirectStandardOutput .\\mit_out.txt -RedirectStandardError .\\mit_err.txt; $null = $p.WaitForExit(6000); if (-not $p.HasExited) { Stop-Process -Id $p.Id -Force }; '---exit---'; if ($p.HasExited) { $p.ExitCode } else { 'killed' }; '---stderr---'; if (Test-Path .\\mit_err.txt) { Get-Content .\\mit_err.txt -Tail 160 } else { 'no err file' }; '---stdout---'; if (Test-Path .\\mit_out.txt) { Get-Content .\\mit_out.txt -Tail 160 } else { 'no out file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: run editor integration capture 6s (diag)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\mit_out.txt,.\\mit_err.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('-X','faulthandler','.\\manual_test_audio_editor_integration.py') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\mit_out.txt -RedirectStandardError .\\mit_err.txt; 'pid=' + $p.Id; $null = $p.WaitForExit(6000); 'hasExited=' + $p.HasExited; if ($p.HasExited) { 'exitCode=' + $p.ExitCode } else { 'exitCode=killed'; Stop-Process -Id $p.Id -Force }; '---stderr---'; if (Test-Path .\\mit_err.txt) { Get-Content .\\mit_err.txt -Tail 200 } else { 'no err file' }; '---stdout---'; if (Test-Path .\\mit_out.txt) { Get-Content .\\mit_out.txt -Tail 200 } else { 'no out file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: run editor jog_scroll capture 8s (diag)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\jog_out.txt,.\\jog_err.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('-X','faulthandler','.\\manual_test_audio_editor_jog_scroll.py') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\jog_out.txt -RedirectStandardError .\\jog_err.txt; 'pid=' + $p.Id; $null = $p.WaitForExit(8000); 'hasExited=' + $p.HasExited; if ($p.HasExited) { 'exitCode=' + $p.ExitCode } else { 'exitCode=killed'; Stop-Process -Id $p.Id -Force }; '---stderr---'; if (Test-Path .\\jog_err.txt) { Get-Content .\\jog_err.txt -Tail 200 } else { 'no err file' }; '---stdout---'; if (Test-Path .\\jog_out.txt) { Get-Content .\\jog_out.txt -Tail 200 } else { 'no out file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: jog_scroll hang dump capture 8s",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\jog_out.txt,.\\jog_err.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('.\\manual_test_audio_editor_jog_scroll.py') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\jog_out.txt -RedirectStandardError .\\jog_err.txt; 'pid=' + $p.Id; $null = $p.WaitForExit(8000); 'hasExited=' + $p.HasExited; if ($p.HasExited) { 'exitCode=' + $p.ExitCode } else { 'exitCode=killed'; Stop-Process -Id $p.Id -Force }; '---stderr---'; if (Test-Path .\\jog_err.txt) { Get-Content .\\jog_err.txt -Tail 200 } else { 'no err file' }; '---stdout---'; if (Test-Path .\\jog_out.txt) { Get-Content .\\jog_out.txt -Tail 200 } else { 'no out file' }; '---hangfile---'; if (Test-Path .\\editor_jog_scroll_hang.txt) { Get-Content .\\editor_jog_scroll_hang.txt -Tail 200 } else { 'no hang file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: jog_scroll hang dump capture 8s (workspace file)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\jog_out.txt,.\\jog_err.txt,.\\editor_jog_scroll_hang.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('.\\manual_test_audio_editor_jog_scroll.py') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\jog_out.txt -RedirectStandardError .\\jog_err.txt; 'pid=' + $p.Id; $null = $p.WaitForExit(8000); 'hasExited=' + $p.HasExited; if ($p.HasExited) { 'exitCode=' + $p.ExitCode } else { 'exitCode=killed'; Stop-Process -Id $p.Id -Force }; '---stderr---'; if (Test-Path .\\jog_err.txt) { Get-Content .\\jog_err.txt -Tail 120 } else { 'no err file' }; '---stdout---'; if (Test-Path .\\jog_out.txt) { Get-Content .\\jog_out.txt -Tail 120 } else { 'no out file' }; '---hangfile---'; if (Test-Path .\\editor_jog_scroll_hang.txt) { Get-Content .\\editor_jog_scroll_hang.txt -Tail 200 } else { 'no hang file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: jog_scroll milestone capture 8s",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"Remove-Item -Force .\\jog_out.txt,.\\jog_err.txt,.\\editor_jog_scroll_hang.txt -ErrorAction SilentlyContinue; $p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('.\\manual_test_audio_editor_jog_scroll.py') -PassThru -WindowStyle Normal -RedirectStandardOutput .\\jog_out.txt -RedirectStandardError .\\jog_err.txt; 'pid=' + $p.Id; $null = $p.WaitForExit(8000); 'hasExited=' + $p.HasExited; if ($p.HasExited) { 'exitCode=' + $p.ExitCode } else { 'exitCode=killed'; Stop-Process -Id $p.Id -Force }; '---stderr---'; if (Test-Path .\\jog_err.txt) { Get-Content .\\jog_err.txt -Tail 120 } else { 'no err file' }; '---stdout---'; if (Test-Path .\\jog_out.txt) { Get-Content .\\jog_out.txt -Tail 40 } else { 'no out file' }"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: run jog_scroll in-foreground",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: run jog_scroll in-foreground (after hang fix)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Debug: run editor integration in-foreground (after hang fix)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_audio_editor_integration.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Sanity: editor jog_scroll after slider tweaks",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Sanity: editor jog_scroll after slider tweaks (rerun)",
+			"type": "shell",
+			"command": "venv\\Scripts\\python.exe",
+			"args": [
+				"manual_test_audio_editor_jog_scroll.py"
+			],
+			"isBackground": false,
+			"group": "test"
+		},
+		{
+			"label": "Sanity: editor jog_scroll after slider tweaks (longer)",
+			"type": "shell",
+			"command": "powershell",
+			"args": [
+				"-NoProfile",
+				"-Command",
+				"$p = Start-Process -FilePath .\\venv\\Scripts\\python.exe -ArgumentList @('.\\manual_test_audio_editor_jog_scroll.py') -PassThru -WindowStyle Normal; $null = $p.WaitForExit(15000); if (-not $p.HasExited) { 'killing'; Stop-Process -Id $p.Id -Force } else { 'exit=' + $p.ExitCode }"
+			],
+			"isBackground": false,
+			"group": "test"
 		}
 	]
 }

@@ -4,22 +4,24 @@
         "0": {
             "1": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/X15 Step.mp3",
+                "custom_text": null,
                 "in_frame": 0,
-                "out_frame": null,
-                "loop_enabled": true,
+                "out_frame": 11424218,
+                "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\0.png"
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\modern_art.png"
             },
             "2": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3",
-                "in_frame": 0,
-                "out_frame": null,
-                "loop_enabled": false,
+                "custom_text": null,
+                "in_frame": 1177129,
+                "out_frame": 1287721,
+                "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": -2.9,
                 "fade_in_ms": 100,
@@ -30,39 +32,45 @@
             },
             "3": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/American Life - Primus.mp3",
-                "in_frame": 0,
-                "out_frame": null,
+                "custom_text": null,
+                "in_frame": 2076472,
+                "out_frame": 12966912,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "4": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Arnie - Primus.mp3",
-                "in_frame": 0,
-                "out_frame": null,
+                "custom_text": null,
+                "in_frame": 131072,
+                "out_frame": 11273472,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": -8.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#ffaa7f",
-                "text_color": "#000000"
+                "text_color": "#000000",
+                "background_asset_path": null
             },
             "5": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Ball and Chain - Cage The Elephant.mp3",
+                "custom_text": null,
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 7986816,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": -6.3,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "9": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Don't Owe You a Thang.mp3",
@@ -76,7 +84,7 @@
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": "#ff557f",
-                "background_asset_path": null
+                "background_asset_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/Assets/button_images/_autosave.png"
             },
             "6": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Bodysnatchers - Radiohead.mp3",
@@ -93,18 +101,18 @@
                 "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
             },
             "7": {
-                "file_path": "C:/Users/Seth Zwiebel/Music/BORN FREE - M.I.A..mp3",
-                "custom_text": "",
-                "in_frame": 0,
-                "out_frame": null,
-                "loop_enabled": true,
+                "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
+                "custom_text": "25",
+                "in_frame": 18538,
+                "out_frame": 8284032,
+                "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x2.png"
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
             },
             "8": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
@@ -124,7 +132,7 @@
                 "file_path": "C:/Users/Seth Zwiebel/Music/Easy Rider.mp3",
                 "custom_text": "",
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 12446458,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
@@ -135,9 +143,10 @@
                 "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\button_image5.png"
             },
             "11": {
-                "file_path": "C:/Users/Seth Zwiebel/Music/Eleven - Primus.mp3",
+                "file_path": "C:/Users/Seth Zwiebel/Music/American Life - Primus.mp3",
+                "custom_text": null,
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 12966912,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
@@ -149,57 +158,35 @@
             },
             "12": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3",
-                "in_frame": 0,
-                "out_frame": null,
+                "custom_text": null,
+                "in_frame": 520529,
+                "out_frame": 986795,
                 "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "13": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Faust Arp - Radiohead (1).mp3",
-                "in_frame": 0,
-                "out_frame": null,
-                "loop_enabled": false,
-                "auto_fade_enabled": false,
-                "gain_db": 0.0,
-                "fade_in_ms": 100,
-                "fade_out_ms": 500,
-                "bg_color": "#808080",
-                "text_color": null
-            },
-            "14": {
-                "file_path": "C:/Users/Seth Zwiebel/Music/Faust Arp - Radiohead.mp3",
-                "in_frame": 0,
-                "out_frame": null,
-                "loop_enabled": false,
-                "auto_fade_enabled": false,
-                "gain_db": 0.0,
-                "fade_in_ms": 100,
-                "fade_out_ms": 500,
-                "bg_color": "#808080",
-                "text_color": null
-            },
-            "15": {
-                "file_path": "C:/Users/Seth Zwiebel/Music/Fish On (Fisherman Chronicles, Chapter II) - Primus.mp3",
                 "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
-                "gain_db": -10.9,
+                "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\dollars.png"
             },
-            "16": {
-                "file_path": "C:/Users/Seth Zwiebel/Music/Fisticuffs - Primus.mp3",
-                "custom_text": "",
+            "14": {
+                "file_path": "C:/Users/Seth Zwiebel/Music/Faust Arp - Radiohead.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -209,19 +196,49 @@
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\dollars.png"
+            },
+            "15": {
+                "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
+                "custom_text": "25",
+                "in_frame": 0,
+                "out_frame": null,
+                "loop_enabled": false,
+                "auto_fade_enabled": false,
+                "gain_db": 0.0,
+                "fade_in_ms": 100,
+                "fade_out_ms": 500,
+                "bg_color": "#808080",
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
+            },
+            "16": {
+                "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
+                "custom_text": "25",
+                "in_frame": 0,
+                "out_frame": null,
+                "loop_enabled": false,
+                "auto_fade_enabled": false,
+                "gain_db": 0.0,
+                "fade_in_ms": 100,
+                "fade_out_ms": 500,
+                "bg_color": "#808080",
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
             },
             "17": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Float Into The Sky - Cage The Elephant.mp3",
+                "custom_text": null,
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 11086935,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "18": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Golden Boy - Primus.mp3",
@@ -762,6 +779,7 @@
             },
             "14": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Weird Fishes_ Arpeggi - Radiohead.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -770,10 +788,12 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "15": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Welcome To Jamrock.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -782,7 +802,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\palmtree.png"
             },
             "16": {
                 "file_path": null,
@@ -946,15 +967,17 @@
             },
             "5": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-cartoon-toy-whistle-616.wav",
-                "in_frame": 0,
-                "out_frame": null,
+                "custom_text": null,
+                "in_frame": 4477,
+                "out_frame": 53449,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/step_d_audio_fix/Assets/button_images/horn.png"
             },
             "6": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-cinematic-laser-gun-thunder-1287.wav",
@@ -1212,6 +1235,7 @@
         "4": {
             "1": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/office_hallway_ambie_#2-1763075739182.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -1220,19 +1244,22 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "2": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/office_hallway_ambie_#3-1763075757416.wav",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
-                "gain_db": 0.0,
+                "gain_db": 20.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "3": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/office_hallway_ambie_#4-1763075753907.wav",

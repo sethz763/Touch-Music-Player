@@ -1,4 +1,4 @@
-You are working in a Python desktop app (PySide6 preferred; PyQt6 acceptable). Implement an in-app “Button Image Designer” (mini Photoshop/paint) to create/edit images that can be applied as the background image of sound_file_button.
+Implement an in-app “Button Image Designer” (mini Photoshop/paint) to create/edit images that can be applied as the background image of sound_file_button.
 
 GOALS / UX:
 - Add a new window: ButtonImageDesignerWindow.

@@ -54,6 +54,7 @@ class StreamDeckXLBridge(QObject):
 
     connected_changed = Signal(bool)
     _deck_key_pressed = Signal(int)
+    _deck_io_failed = Signal(str)
 
     def __init__(
         self,
@@ -78,6 +79,10 @@ class StreamDeckXLBridge(QObject):
         self._pulse_interval_ms = int(max(50.0, 1000.0 / float(pulse_fps)))
 
         self._deck = None
+        # Protects access to the StreamDeck device handle.
+        # Without this, stop() can close the device while the IO thread is mid-write,
+        # which can trigger hidapi/ctypes-level access violations on Windows.
+        self._deck_lock = threading.Lock()
         self._key_size: tuple[int, int] = (72, 72)
 
         self._display_bank_index: int = 0
@@ -119,6 +124,22 @@ class StreamDeckXLBridge(QObject):
         self._io_thread = threading.Thread(target=self._io_loop, name="streamdeck-io", daemon=True)
         self._io_stop = threading.Event()
 
+        # Best-effort reconnect loop if the device is unplugged/replugged.
+        # NOTE: Access violations can occur inside the underlying HID stack on Windows;
+        # we can't catch those in Python. But for recoverable disconnects/exceptions,
+        # we proactively close and re-open the device.
+        self._reconnect_timer = QTimer(self)
+        self._reconnect_timer.setInterval(1000)
+        self._reconnect_timer.timeout.connect(self._reconnect_tick)
+        self._reconnect_backoff_s = 1.0
+        self._deck_fault_reported = False
+
+        # Health check: laptop sleep/USB selective suspend can leave the device present but
+        # effectively closed. Detect that and kick the reconnect loop.
+        self._health_timer = QTimer(self)
+        self._health_timer.setInterval(1000)
+        self._health_timer.timeout.connect(self._health_tick)
+
         self._poll_timer = QTimer(self)
         self._poll_timer.setInterval(10)
         self._poll_timer.timeout.connect(self._drain_key_events)
@@ -130,6 +151,7 @@ class StreamDeckXLBridge(QObject):
         # Thread-safe delivery: StreamDeck callbacks occur off the Qt thread.
         # Emitting a Qt signal here queues the call to the main thread.
         self._deck_key_pressed.connect(self._handle_key_press)
+        self._deck_io_failed.connect(self._on_deck_io_failed)
 
     # ---------------------------------------------------------------------
     # Public API
@@ -140,24 +162,34 @@ class StreamDeckXLBridge(QObject):
         if self._deck is not None:
             return
 
+        # If this object was previously stopped, the IO thread cannot be restarted.
+        # Create a new thread so reconnect/start works after stop().
+        try:
+            if not self._io_thread.is_alive():
+                self._io_stop.clear()
+                self._io_thread = threading.Thread(target=self._io_loop, name="streamdeck-io", daemon=True)
+        except Exception:
+            pass
+
         deck = self._try_open_first_deck()
         if deck is None:
             self.connected_changed.emit(False)
+            try:
+                if not self._reconnect_timer.isActive():
+                    self._reconnect_timer.start()
+            except Exception:
+                pass
             return
 
-        self._deck = deck
-        try:
-            fmt = self._deck.key_image_format() or {}
-            size = fmt.get("size")
-            if isinstance(size, (list, tuple)) and len(size) == 2:
-                self._key_size = (int(size[0]), int(size[1]))
-        except Exception:
-            pass
-
-        try:
-            self._deck.set_key_callback(self._on_key_change)
-        except Exception:
-            pass
+        if not self._adopt_open_deck(deck):
+            self.connected_changed.emit(False)
+            try:
+                if not self._reconnect_timer.isActive():
+                    self._reconnect_timer.start()
+            except Exception:
+                pass
+            return
+        # Deck configuration happens in _adopt_open_deck().
 
         # Load cache from persistence once on startup. Startup still restores only
         # the visible GUI bank; other banks are populated when GUI sync is turned off.
@@ -170,12 +202,27 @@ class StreamDeckXLBridge(QObject):
         self._wire_signals()
 
         self._io_stop.clear()
-        self._io_thread.start()
+        try:
+            if not self._io_thread.is_alive():
+                self._io_thread.start()
+        except Exception:
+            pass
 
         # Key presses are delivered via _deck_key_pressed; no polling needed.
         self._render_timer.start()
 
         self._force_full_redraw = True
+        self._deck_fault_reported = False
+        try:
+            if self._reconnect_timer.isActive():
+                self._reconnect_timer.stop()
+        except Exception:
+            pass
+        try:
+            if not self._health_timer.isActive():
+                self._health_timer.start()
+        except Exception:
+            pass
         self.connected_changed.emit(True)
 
     def stop(self) -> None:
@@ -189,6 +236,16 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             pass
 
+        try:
+            self._reconnect_timer.stop()
+        except Exception:
+            pass
+
+        try:
+            self._health_timer.stop()
+        except Exception:
+            pass
+
         self._io_stop.set()
         try:
             # Unblock the IO thread promptly.
@@ -196,19 +253,148 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             pass
 
+        # Wait for IO thread to stop before closing the device.
+        # This avoids races where set_key_image() runs concurrently with close().
         try:
-            if self._deck is not None:
+            if getattr(self, "_io_thread", None) is not None and self._io_thread.is_alive():
+                self._io_thread.join(timeout=2.0)
+        except Exception:
+            pass
+
+        self._close_deck_and_mark_disconnected("stop")
+
+    def _adopt_open_deck(self, deck) -> bool:
+        """Take ownership of an opened StreamDeck device and configure it."""
+        try:
+            with self._deck_lock:
+                self._deck = deck
                 try:
-                    self._deck.reset()
+                    fmt = deck.key_image_format() or {}
+                    size = fmt.get("size")
+                    if isinstance(size, (list, tuple)) and len(size) == 2:
+                        self._key_size = (int(size[0]), int(size[1]))
                 except Exception:
                     pass
                 try:
-                    self._deck.close()
+                    deck.set_key_callback(self._on_key_change)
+                except Exception:
+                    # If we can't set callbacks, the device is not usable.
+                    try:
+                        deck.close()
+                    except Exception:
+                        pass
+                    self._deck = None
+                    return False
+            return True
+        except Exception:
+            try:
+                deck.close()
+            except Exception:
+                pass
+            try:
+                with self._deck_lock:
+                    if self._deck is deck:
+                        self._deck = None
+            except Exception:
+                pass
+            return False
+
+    def _close_deck_and_mark_disconnected(self, reason: str) -> None:
+        """Close the deck handle (if any) and mark as disconnected."""
+        deck = None
+        try:
+            with self._deck_lock:
+                deck = self._deck
+                self._deck = None
+        except Exception:
+            deck = None
+
+        try:
+            if deck is not None:
+                try:
+                    deck.reset()
+                except Exception:
+                    pass
+                try:
+                    deck.close()
                 except Exception:
                     pass
         finally:
-            self._deck = None
+            self._force_full_redraw = True
             self.connected_changed.emit(False)
+
+        # Schedule reconnect attempts unless we're shutting down.
+        try:
+            if not self._io_stop.is_set() and not self._reconnect_timer.isActive():
+                self._reconnect_timer.start()
+        except Exception:
+            pass
+
+    @Slot(str)
+    def _on_deck_io_failed(self, _detail: str) -> None:
+        # Runs on Qt thread.
+        # Close the device and begin reconnect loop.
+        try:
+            self._close_deck_and_mark_disconnected("io_failed")
+        except Exception:
+            pass
+
+    def _reconnect_tick(self) -> None:
+        # Runs on Qt thread.
+        if self._io_stop.is_set():
+            try:
+                self._reconnect_timer.stop()
+            except Exception:
+                pass
+            return
+
+        try:
+            with self._deck_lock:
+                if self._deck is not None:
+                    try:
+                        self._reconnect_timer.stop()
+                    except Exception:
+                        pass
+                    return
+        except Exception:
+            pass
+
+        deck = self._try_open_first_deck()
+        if deck is None:
+            return
+        if not self._adopt_open_deck(deck):
+            return
+
+        # Reconnected: refresh visuals.
+        self._deck_fault_reported = False
+        self._force_full_redraw = True
+        try:
+            if self._reconnect_timer.isActive():
+                self._reconnect_timer.stop()
+        except Exception:
+            pass
+        self.connected_changed.emit(True)
+
+    def _health_tick(self) -> None:
+        """Detect sleep/unplug states where the deck reports not open."""
+        try:
+            with self._deck_lock:
+                deck = self._deck
+        except Exception:
+            deck = None
+
+        if deck is None:
+            return
+
+        try:
+            fn = getattr(deck, "is_open", None)
+            if callable(fn) and not bool(fn()):
+                self._close_deck_and_mark_disconnected("health_is_open_false")
+        except Exception:
+            try:
+                self._close_deck_and_mark_disconnected("health_exception")
+            except Exception:
+                pass
 
     def set_mode(self, mode: str) -> None:
         mode = str(mode)
@@ -1345,9 +1531,8 @@ class StreamDeckXLBridge(QObject):
                 except Exception:
                     continue
 
-            deck = self._deck
-            if deck is None:
-                continue
+            # Note: do not hold the deck lock while rendering; only for the actual
+            # device interaction. This keeps stop() responsive.
 
             def _priority(k: int) -> int:
                 # Lower = sooner. Transport keys first, then other bottom-row keys.
@@ -1373,9 +1558,21 @@ class StreamDeckXLBridge(QObject):
                         icon_cache,
                         font_cache,
                     )
-                    native = self._to_native(deck, img)
-                    deck.set_key_image(int(it.key), native)
-                except Exception:
+                    with self._deck_lock:
+                        deck = self._deck
+                        if deck is None or self._io_stop.is_set():
+                            continue
+                        native = self._to_native(deck, img)
+                        deck.set_key_image(int(it.key), native)
+                except Exception as e:
+                    # If the device was unplugged or transport failed, drop the handle and
+                    # let the Qt thread attempt a reconnect.
+                    try:
+                        if not self._deck_fault_reported:
+                            self._deck_fault_reported = True
+                            self._deck_io_failed.emit(f"{type(e).__name__}: {e}")
+                    except Exception:
+                        pass
                     continue
 
     def _render_key_image(
@@ -1391,6 +1588,55 @@ class StreamDeckXLBridge(QObject):
         font_cache: dict,
     ):
         from PIL import Image, ImageDraw, ImageFont
+
+        def _load_rgba_image_cached(path: str):
+            cached = icon_cache.get(path)
+            if cached is not None:
+                return cached
+            try:
+                # Ensure the underlying file handle is closed and we own the pixel buffer.
+                with Image.open(path) as im:
+                    rgba = im.convert("RGBA")
+                    rgba.load()
+                    rgba = rgba.copy()
+                icon_cache[path] = rgba
+                return rgba
+            except Exception:
+                return None
+
+        def _safe_resize(im, size: tuple[int, int]):
+            try:
+                tw = max(1, int(size[0]))
+                th = max(1, int(size[1]))
+                if getattr(im, "size", None) == (tw, th):
+                    return im
+
+                # Avoid PIL.Image.resize entirely (has caused Windows access violations).
+                import numpy as np
+
+                src = im
+                if getattr(src, "mode", None) != "RGBA":
+                    src = src.convert("RGBA")
+                try:
+                    src.load()
+                except Exception:
+                    pass
+
+                arr = np.asarray(src, dtype=np.uint8)
+                if arr.ndim != 3 or arr.shape[2] != 4:
+                    return None
+
+                sh, sw, _ = arr.shape
+                if sh <= 0 or sw <= 0:
+                    return None
+
+                # Nearest-neighbor sampling indices.
+                ys = np.rint(np.linspace(0, sh - 1, th)).astype(np.intp)
+                xs = np.rint(np.linspace(0, sw - 1, tw)).astype(np.intp)
+                out = arr[np.ix_(ys, xs)]
+                return Image.fromarray(out, mode="RGBA")
+            except Exception:
+                return None
 
         w, h = self._key_size
         w = int(w)
@@ -1417,15 +1663,16 @@ class StreamDeckXLBridge(QObject):
 
         if bg_image_path:
             try:
-                bg_im = icon_cache.get(bg_image_path)
+                bg_im = _load_rgba_image_cached(bg_image_path)
                 if bg_im is None:
-                    bg_im = Image.open(bg_image_path).convert("RGBA")
-                    icon_cache[bg_image_path] = bg_im
+                    raise RuntimeError("bg image load failed")
 
                 # Crop-to-fill to key size.
                 scale = max(w / bg_im.width, h / bg_im.height)
                 new_size = (max(1, int(bg_im.width * scale)), max(1, int(bg_im.height * scale)))
-                bg_resized = bg_im.resize(new_size)
+                bg_resized = _safe_resize(bg_im, new_size)
+                if bg_resized is None:
+                    raise RuntimeError("bg resize failed")
                 x = (bg_resized.width - w) // 2
                 y = (bg_resized.height - h) // 2
                 bg_cropped = bg_resized.crop((int(x), int(y), int(x + w), int(y + h)))
@@ -1450,10 +1697,9 @@ class StreamDeckXLBridge(QObject):
         # If an icon is provided, render it centered and skip text.
         if icon_path:
             try:
-                icon = icon_cache.get(icon_path)
+                icon = _load_rgba_image_cached(icon_path)
                 if icon is None:
-                    icon = Image.open(icon_path).convert("RGBA")
-                    icon_cache[icon_path] = icon
+                    raise RuntimeError("icon load failed")
 
                 # Scale icon to fit with padding.
                 pad = 8
@@ -1461,7 +1707,9 @@ class StreamDeckXLBridge(QObject):
                 max_h = max(1, h - pad * 2)
                 scale = min(max_w / icon.width, max_h / icon.height)
                 new_size = (max(1, int(icon.width * scale)), max(1, int(icon.height * scale)))
-                icon_resized = icon.resize(new_size)
+                icon_resized = _safe_resize(icon, new_size)
+                if icon_resized is None:
+                    raise RuntimeError("icon resize failed")
 
                 x = (w - icon_resized.width) // 2
                 y = (h - icon_resized.height) // 2
@@ -1496,10 +1744,23 @@ class StreamDeckXLBridge(QObject):
 
         def _text_bbox(s: str, font_obj) -> tuple[int, int]:
             try:
+                # Validate inputs before calling textbbox
+                if not s or font_obj is None:
+                    return max(0, len(s) * 6), 10
+                
+                # Use a defensive approach: catch access violations
                 b = draw.textbbox((0, 0), s, font=font_obj)
-                return int(b[2] - b[0]), int(b[3] - b[1])
+                if b is None or len(b) < 4:
+                    return max(0, len(s) * 6), 10
+                
+                w = int(b[2] - b[0])
+                h = int(b[3] - b[1])
+                return max(0, w), max(0, h)
+            except (AttributeError, OSError, RuntimeError, ValueError, TypeError):
+                # Fallback rough estimate for any PIL/access errors.
+                return max(0, len(s) * 6), 10
             except Exception:
-                # Fallback rough estimate.
+                # Catch-all for unexpected errors.
                 return max(0, len(s) * 6), 10
 
         def _split_long_word(word: str, font_obj, max_w: int) -> list[str]:
@@ -1636,6 +1897,10 @@ class StreamDeckXLBridge(QObject):
             best_font = _load_font(10)
             best_lines = _wrap_lines(best_font, max_w=max_w, max_lines=max_lines) if best_font else []
 
+        # Final safety: ensure we have a valid font before drawing
+        if best_font is None:
+            best_font = _load_font(8)
+        
         lines = best_lines
 
         # Vertical center.
@@ -1651,7 +1916,12 @@ class StreamDeckXLBridge(QObject):
             else:
                 tw, th = (len(ln) * 6, 10)
             x = max(pad, int((w - tw) // 2))
-            draw.text((x, y), ln, fill=fg, font=best_font)
+            # Defensive: ensure best_font is valid before draw.text()
+            try:
+                draw.text((x, y), ln, fill=fg, font=best_font)
+            except Exception:
+                # Fall back to unformatted text if font fails
+                pass
             y += th + 2
 
         # Optional small top-left overlay (bank-index/button-index)

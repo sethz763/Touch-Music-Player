@@ -3,7 +3,7 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox, QMessageBox
+from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox, QMessageBox, QCheckBox
 from PySide6.QtGui import QFont
 from PySide6 import QtCore
 from PySide6 import QtWidgets
@@ -73,6 +73,7 @@ class SettingsWindow(QWidget):
             self.sample_rate = 48000
             
             self.usable_devices:dict = {}
+            self.show_all_devices: bool = False  # User preference: show all devices vs. filtered
             try:
                 self.devices = sd.query_devices()
             except Exception:
@@ -156,6 +157,16 @@ class SettingsWindow(QWidget):
             # Lazily initialized on refresh to avoid extra threads and PortAudio churn on open.
             self.check_sound_devices_thread = None
             self.check_sound_devices = None
+
+            # Checkbox to show all devices (including virtual/Dante)
+            device_filter_layout = QHBoxLayout()
+            self.show_all_devices_checkbox = QCheckBox('Show All Devices (including Virtual)')
+            self.show_all_devices_checkbox.setChecked(False)
+            self.show_all_devices_checkbox.stateChanged.connect(self._on_show_all_devices_changed)
+            device_filter_label = QLabel('Device Filter')
+            device_filter_layout.addWidget(device_filter_label)
+            device_filter_layout.addWidget(self.show_all_devices_checkbox)
+            self.main_layout.addLayout(device_filter_layout)
 
             main_output_label = QLabel('Main Output')
             self.main_layout.addWidget(main_output_label)
@@ -423,6 +434,62 @@ class SettingsWindow(QWidget):
             self.editor_audio_output_combo.setCurrentIndex(selected_index)
             self.editor_output_device = device
 
+    def _is_real_device(self, device: dict, name: str) -> bool:
+        """
+        Filter out virtual devices and loopback endpoints.
+        
+        If show_all_devices is True, allow all devices with output.
+        Otherwise, looks for common virtual/fake device patterns and whitelists pro audio.
+        
+        Returns True if device should be shown.
+        """
+        name_lower = name.lower()
+        
+        # Whitelist professional virtual audio devices (must come before exclusion patterns)
+        whitelist_patterns = [
+            'dante',           # Dante virtual audio
+            'network audio',   # Generic network audio
+            'madi',            # Multichannel Audio Digital Interface
+            'aes67',           # AES67 audio networking
+        ]
+        for pattern in whitelist_patterns:
+            if pattern in name_lower:
+                return True  # Whitelist: allow pro audio networking
+        
+        # If show_all_devices is enabled, allow any device with output channels
+        if self.show_all_devices:
+            return device.get('max_output_channels', 0) > 0
+        
+        # Virtual/loopback patterns to exclude
+        virtual_patterns = [
+            'virtual',
+            'loopback',
+            'stereo mix',
+            'what u hear',
+            'wave out mix',
+            'microphone',  # Exclude input devices
+            'input',
+            'mono',  # Prefer stereo
+            'dummy',
+            'none',
+            'disabled',
+            'cable',  # VB-Cable, VB-Audio, etc.
+        ]
+        
+        for pattern in virtual_patterns:
+            if pattern in name_lower:
+                return False
+        
+        # Must have at least 2 output channels to be useful
+        if device.get('max_output_channels', 0) < 2:
+            return False
+        
+        # Device must not be marked as an input-only device
+        if device.get('max_output_channels', 0) == 0:
+            return False
+        
+        return True
+
     def populate_audio_combo_box(self):     
         try:
             self.audio_output_combo.clear()
@@ -435,27 +502,33 @@ class SettingsWindow(QWidget):
             
             for api in self.apis:
                 if api['name'] in self.acceptable_apis:
-                    for device in api['devices']:
-                        if self.devices[device]['max_output_channels'] > 0:
-                            self.usable_devices[device] = api['name']
-                            settings = ''
+                    for device_idx in api['devices']:
+                        device = self.devices[device_idx]
+                        device_name = device.get('name', '')
+                        
+                        # Filter: must be output device with 2+ channels and be "real"
+                        if (device.get('max_output_channels', 0) > 0 and 
+                            self._is_real_device(device, device_name)):
+                            
+                            # Test sample rate compatibility
                             for sample_rate in self.sample_rates:
                                 try:
-                                    sd.check_output_settings(device, channels=2, samplerate=sample_rate)
-                                    usable_device = self.devices[device]
+                                    sd.check_output_settings(device_idx, channels=2, samplerate=sample_rate)
+                                    usable_device = self.devices[device_idx].copy()
                                     usable_device['sample_rate'] = sample_rate
                                     usable_device['hostapi_name'] = api['name']
-                                    self.usable_devices[device] = usable_device
+                                    usable_device['index'] = device_idx
+                                    self.usable_devices[device_idx] = usable_device
                                     break
                                 
                                 except:
                                     pass
             
             
-            for device in self.usable_devices:
-                device = self.usable_devices[device]
-                i = device['hostapi']
-                api = self.apis[i]
+            for device_idx in self.usable_devices:
+                device = self.usable_devices[device_idx]
+                api_idx = device.get('hostapi', 0)
+                api = self.apis[api_idx]
                 self.audio_output_combo.addItem(device['name'] +', ' + api['name'], userData=device)
                 self.editor_audio_output_combo.addItem(device['name'] + ', ' + api['name'], userData=device)
 
@@ -633,6 +706,12 @@ class SettingsWindow(QWidget):
         rows=self.rows_spinbox.value()
         columns=self.columns_spinbox.value()
         self.settings_signals.change_rows_and_columns_signal.emit(rows, columns)
+
+    def _on_show_all_devices_changed(self, state: int) -> None:
+        """Handler for show_all_devices checkbox state change."""
+        self.show_all_devices = bool(state)
+        # Refresh device lists immediately
+        self.refresh_devices()
 
     def closeEvent(self,event): 
         try:

@@ -1,27 +1,34 @@
 Timeout (0:00:15)!
-Thread 0x00010158 (most recent call first):
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Transport\LibUSBHIDAPI.py", line 318 in write
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Transport\LibUSBHIDAPI.py", line 405 in write
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Devices\StreamDeckXL.py", line 141 in set_key_image
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\gui\streamdeck_xl.py", line 1377 in _io_loop
-  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
-  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
-  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
-
-Thread 0x000059a8 (most recent call first):
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Devices\StreamDeck.py", line 171 in _read
-  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
-  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
-  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
-
-Thread 0x0000fb84 (most recent call first):
+Thread 0x000115d8 (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
   File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
   File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x0000c4d0 (most recent call first):
+Thread 0x0000a398 (most recent call first):
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Transport\LibUSBHIDAPI.py", line 318 in write
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Transport\LibUSBHIDAPI.py", line 405 in write
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Devices\StreamDeckXL.py", line 141 in set_key_image
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\gui\streamdeck_xl.py", line 1566 in _io_loop
+  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
+  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
+  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
+
+Thread 0x000100ac (most recent call first):
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\StreamDeck\Devices\StreamDeck.py", line 171 in _read
+  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
+  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
+  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
+
+Thread 0x00010d74 (most recent call first):
+  File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
+  File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
+  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
+  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
+  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
+
+Thread 0x0000bbb0 (most recent call first):
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\app\music_player.py", line 103 in main
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\app\music_player.py", line 123 in <module>
   File "<frozen runpy>", line 88 in _run_code

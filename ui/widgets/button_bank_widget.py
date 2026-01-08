@@ -520,7 +520,12 @@ class ButtonBankWidget(QWidget):
         self.transport_set_loop_for_active(True)
 
     def transport_set_loop_for_active(self, enabled: bool) -> None:
-        """Set looping on/off for all currently playing cues (per-cue update)."""
+        """Set looping on/off for all currently playing cues (per-cue update).
+        
+        NOTE: This updates the engine ONLY, not the persistent button state.
+        The button's loop_enabled property is only changed by user interaction,
+        not by transport/override controls.
+        """
         if not self.engine_adapter:
             return
 
@@ -528,10 +533,8 @@ class ButtonBankWidget(QWidget):
             try:
                 cue_id = getattr(btn, "current_cue_id", None)
                 if getattr(btn, "is_playing", False) and cue_id:
-                    # Update engine
+                    # Update engine only; do NOT modify persistent button state
                     self.engine_adapter.update_cue(cue_id, loop_enabled=bool(enabled))
-                    # Update local button state/UI
-                    btn.set_loop_enabled_from_transport(bool(enabled))
             except Exception:
                 continue
     
