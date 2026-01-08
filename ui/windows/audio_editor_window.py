@@ -10,6 +10,8 @@ from dataclasses import dataclass
 import traceback
 from typing import Any, Optional
 
+from ui.widgets.AudioLevelMeter import AudioLevelMeter
+
 import numpy as np
 
 from PySide6 import QtCore, QtGui, QtWidgets
@@ -32,6 +34,7 @@ from PySide6.QtWidgets import (
 
 from engine.editor_audio_service import (
 	Jog,
+	JogStop,
 	LoadFile,
 	Playhead,
 	Levels,
@@ -45,6 +48,8 @@ from engine.editor_audio_service import (
 	TransportPause,
 	TransportPlay,
 	TransportStop,
+	TransportFastForward,
+	TransportRewind,
 	start_editor_audio_backend,
 )
 
@@ -521,10 +526,17 @@ class AudioEditorWindow(QWidget):
 		self.waveform_slider.setRange(0, 0)
 		self.waveform_slider.setSizePolicy(QSizePolicy.Policy.Expanding, QSizePolicy.Policy.Fixed)
 
+		
+		self.meters_layout = QHBoxLayout()
+		self.level_meter_ch1 = AudioLevelMeter(height=150,width=20)
+		self.level_meter_ch2 = AudioLevelMeter(height=150,width=20)
+		self.meters_layout.addWidget(self.level_meter_ch1)
+		self.meters_layout.addWidget(self.level_meter_ch2)
+  
 		# Gain
 		self.gain_slider = QSlider(Qt.Orientation.Vertical)
 		self.gain_slider.setRange(-64, 30)
-		self.gain_slider.setValue(int(round(self._model.gain_db)))
+		self.gain_slider.setValue(int(round(self._model.gain_db)))	
 		self.gain_line_edit = QLineEdit()
 		self.gain_line_edit.setFixedWidth(40)
 		self.gain_line_edit.setText(str(int(round(self._model.gain_db))))
@@ -556,7 +568,6 @@ class AudioEditorWindow(QWidget):
 		self.jog_dial.setNotchTarget(10)
 		self.jog_dial.setRange(0, 50)
 		self._jog_position = 0
-		self._jog_last_time = time.time()
 
 		# Time displays
 		self.in_display = QLabel("00:00:00:00")
@@ -580,6 +591,7 @@ class AudioEditorWindow(QWidget):
 		waveform_and_gain = QHBoxLayout()
 		waveform_and_gain.addWidget(self.scroll_area)
 		waveform_and_gain.addLayout(self.gain_layout)
+		waveform_and_gain.addLayout(self.meters_layout)
 		self.main_layout.addLayout(waveform_and_gain)
 		self.main_layout.addWidget(self.waveform_slider)
 
@@ -642,6 +654,7 @@ class AudioEditorWindow(QWidget):
 		self.scroll_area.horizontalScrollBar().valueChanged.connect(self._scroll_changed)
 		self.scroll_area.scale_changed.connect(self._on_scroll_area_scale_changed)
 		self.jog_dial.valueChanged.connect(self._jog_dial_changed)
+		self.jog_dial.sliderReleased.connect(self._jog_dial_released)
 
 	# ----------------------
 	# Backend comms
@@ -726,6 +739,17 @@ class AudioEditorWindow(QWidget):
 
 			elif isinstance(evt, Playhead):
 				self._set_playhead(float(evt.time_s))
+    
+			if isinstance(evt, Levels):		
+				ch1_lvl, ch2_lvl = float(evt.rms_l), float(evt.rms_r)
+    
+				#convert to dbfs
+				eps=1e-12
+				ch1_lvl = 20 * np.log10(ch1_lvl + eps)
+				ch2_lvl = 20 * np.log10(ch2_lvl + eps)
+				self.level_meter_ch1.setValue(ch1_lvl, ch1_lvl)
+				self.level_meter_ch2.setValue(ch2_lvl, ch1_lvl)	
+	
 	# ----------------------
 	# Waveform building (background)
 	# ----------------------
@@ -1229,21 +1253,21 @@ class AudioEditorWindow(QWidget):
 		self._rebuild_waveform_for_scale()
 
 	def _jog_dial_changed(self) -> None:
-		# Mimic legacy jog: compute sign and rough speed based on interval.
 		v = int(self.jog_dial.value())
-		now = time.time()
-		dt = max(1e-3, now - float(self._jog_last_time))
-		self._jog_last_time = now
-
-		# Convert to a small seek delta. Faster dial => larger step.
-		# Keep it conservative for stability.
-		factor = max(0.02, min(0.25, 0.03 + (0.12 / dt)))
-
 		if v == self._jog_position:
 			return
-		delta = factor if v > self._jog_position else -factor
+		# Calculate delta units, handling wrapping
+		delta_units = (v - self._jog_position) % 50
+		if delta_units > 25:
+			delta_units -= 50
+		# Calculate delta degrees: dial has 50 units for 360 degrees
+		degrees_per_unit = 360.0 / 50.0
+		delta_degrees = delta_units * degrees_per_unit
 		self._jog_position = v
-		self._send(Jog(delta))
+		self._send(Jog(delta_degrees))
+
+	def _jog_dial_released(self) -> None:
+		self._send(JogStop())
 
 	# ----------------------
 	# Qt events
@@ -1251,11 +1275,11 @@ class AudioEditorWindow(QWidget):
 
 	def keyPressEvent(self, event: QtGui.QKeyEvent) -> None:
 		if event.key() == Qt.Key.Key_J:
-			self._send(Jog(-0.15))
+			self._send(TransportRewind())
 		if event.key() == Qt.Key.Key_K:
-			self._play_pause()
+			self._send(TransportPause())
 		if event.key() == Qt.Key.Key_L:
-			self._send(Jog(0.15))
+			self._send(TransportFastForward())
 		if event.key() == Qt.Key.Key_I:
 			self._mark_in()
 		if event.key() == Qt.Key.Key_O:

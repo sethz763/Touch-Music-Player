@@ -63,6 +63,13 @@ class TransportPause:
 class TransportStop:
     pass
 
+@dataclass(frozen=True)
+class TransportFastForward:
+    pass
+
+@dataclass(frozen=True)
+class TransportRewind:
+    pass
 
 @dataclass(frozen=True)
 class Seek:
@@ -71,7 +78,12 @@ class Seek:
 
 @dataclass(frozen=True)
 class Jog:
-    delta_s: float
+    delta_degrees: float
+
+
+@dataclass(frozen=True)
+class JogStop:
+    pass
 
 
 @dataclass(frozen=True)
@@ -275,6 +287,42 @@ class _PcmCache:
         return int(n)
 
 
+def update_jog_playback_speed(state: _BackendState) -> None:
+    """Update jog playback speed from recent jog events (degrees/sec)."""
+    if not state.jog_events:
+        state.jog_playback_speed = 1.0
+        return
+
+    now = time.monotonic()
+    # Calculate speed over the last 0.5 seconds
+    window_start = now - 0.5
+    recent_events = [(t, d) for t, d in state.jog_events if t >= window_start]
+
+    if len(recent_events) < 2:
+        state.jog_playback_speed = 1.0
+        return
+
+    # Total degrees and time span
+    total_degrees = sum(d for t, d in recent_events)
+    time_span = recent_events[-1][0] - recent_events[0][0]
+
+    if time_span <= 0:
+        state.jog_playback_speed = 1.0
+        return
+
+    degrees_per_sec = total_degrees / time_span
+
+    # Map 360°/sec to 1.0x speed, clamp to reasonable range
+    speed = degrees_per_sec / 360.0
+    speed = max(-10.0, min(10.0, speed))
+
+    # If speed is very small, set to 1.0 (no jog)
+    if abs(speed) < 0.1:
+        speed = 1.0
+
+    state.jog_playback_speed = speed
+
+
 class _BackendState:
     def __init__(self) -> None:
         self.lock = threading.Lock()
@@ -305,6 +353,14 @@ class _BackendState:
 
         # Bump whenever stream format changes (e.g., channels) so worker threads can reset buffers.
         self.config_version: int = 0
+        # Playback speed multiplier (1.0 = normal)
+        self.playback_speed: float = 1.0
+        # Playback direction: 1 for forward, -1 for reverse
+        self.playback_direction: int = 1
+
+        # Jog wheel tracking
+        self.jog_events = []  # list of (timestamp, delta_degrees)
+        self.jog_playback_speed: float = 1.0
 
 
 def _get_cache_dir() -> Path:
@@ -433,6 +489,13 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
             device = None
             with state.lock:
                 device = state.output_device
+            # Log device info before opening stream
+            logger.info(f"Attempting OutputStream open: device={device}")
+            try:
+                all_devices = sd.query_devices()
+                logger.info(f"Available devices: {all_devices}")
+            except Exception as dev_exc:
+                logger.warning(f"Device enumeration failed: {type(dev_exc).__name__}: {dev_exc}")
 
             return sd.OutputStream(
                 samplerate=state.target_sample_rate,
@@ -443,7 +506,12 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                 callback=audio_callback,
             )
         except Exception as e:
-            logger.exception("OutputStream open failed")
+            logger.error(f"OutputStream open failed for device={device}: {type(e).__name__}: {e}")
+            try:
+                all_devices = sd.query_devices()
+                logger.error(f"Available devices at failure: {all_devices}")
+            except Exception as dev_exc:
+                logger.warning(f"Device enumeration failed at failure: {type(dev_exc).__name__}: {dev_exc}")
             _safe_put(evt_q_local, Status(f"OutputStream open failed: {type(e).__name__}: {e}"))
             raise
 
@@ -691,11 +759,38 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
             with pcm_cache_lock:
                 cache = pcm_cache
 
+            playback_speed = 1.0
+            playback_direction = 1
+            with state.lock:
+                playback_speed = float(getattr(state, "playback_speed", 1.0))
+                playback_direction = int(getattr(state, "playback_direction", 1))
+                jog_speed = float(getattr(state, "jog_playback_speed", 1.0))
+                # Jog overrides FF/RW if active
+                if jog_speed != 1.0:
+                    playback_speed = abs(jog_speed)
+                    playback_direction = 1 if jog_speed >= 0 else -1
+
+            # Read PCM data
             if cache is None:
                 outdata[:out_frames, :] = 0
             else:
                 try:
-                    cache.read_into(outdata, int(playhead), out_frames)
+                    # Calculate number of source frames needed
+                    src_frames = int(out_frames * playback_speed)
+                    src = np.zeros((src_frames, cache.channels), dtype=np.float32)
+                    cache.read_into(src, int(playhead), src_frames)
+
+                    # Fast forward/rewind: resample and reverse if needed
+                    if playback_speed != 1.0:
+                        # Resample using numpy (simple linear interpolation)
+                        idx = np.linspace(0, src_frames - 1, out_frames)
+                        for ch in range(cache.channels):
+                            outdata[:out_frames, ch] = np.interp(idx, np.arange(src_frames), src[:, ch])
+                    else:
+                        outdata[:out_frames, :] = src[:out_frames, :]
+
+                    if playback_direction == -1:
+                        outdata[:out_frames, :] = outdata[:out_frames, :][::-1]
                 except Exception:
                     outdata[:out_frames, :] = 0
 
@@ -708,12 +803,13 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
             np.clip(outdata, -1.0, 1.0, out=outdata)
 
             # Update playhead
-            playhead_next = playhead + int(out_frames)
+            advance = int(out_frames * playback_speed) * playback_direction
+            playhead_next = playhead + advance
 
             # Out-point enforcement
             if out_s is not None:
                 out_frame = int(max(0.0, float(out_s)) * state.target_sample_rate)
-                if playhead_next >= out_frame:
+                if (playback_direction == 1 and playhead_next >= out_frame) or (playback_direction == -1 and playhead_next <= 0):
                     if loop:
                         in_frame = int(max(0.0, in_s) * state.target_sample_rate)
                         with state.lock:
@@ -897,6 +993,8 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                 elif isinstance(cmd, TransportPlay):
                     with state.lock:
                         state.playing = True
+                        state.playback_speed = 1.0
+                        state.playback_direction = 1
                     try:
                         last_callback_t = 0.0
                         _reset_play_ref(time.monotonic())
@@ -912,6 +1010,7 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                 elif isinstance(cmd, TransportPause):
                     with state.lock:
                         state.playing = False
+                        state.playback_speed = 0.0
                     try:
                         _reset_play_ref(time.monotonic())
                     except Exception:
@@ -922,14 +1021,57 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                 elif isinstance(cmd, TransportStop):
                     with state.lock:
                         state.playing = False
+                        state.playback_speed = 0.0
+                        state.playback_direction = 1
                         # stop resets to in-point
                         state.playhead_frame = int(max(0.0, state.in_s) * state.target_sample_rate)
+                elif isinstance(cmd, TransportFastForward):
+                    # Increase speed up to 10.0x, set direction forward
+                    with state.lock:
+                        state.playing = True
+                        if state.playback_speed >= 0.0 and state.playback_direction == -1:
+                            state.playback_speed = 0.5
+                            state.playback_direction = 1
+                        speed = float(getattr(state, "playback_speed", 1.0))
+                        if speed < 10.0:
+                            speed = min(10.0, round(speed + 0.5, 2))
+                        state.playback_speed = speed
+                        state.playback_direction = 1
                     try:
                         _reset_play_ref(time.monotonic())
                     except Exception:
                         pass
-                    logger.debug("TransportStop")
-                    _safe_put(evt_q_local, Status("TransportStop"))
+                    try:
+                        _start_stream_async()
+                    except Exception:
+                        pass
+                    logger.info(f"TransportFastForward: speed={speed}x")
+                    _safe_put(evt_q_local, Status(f"FastForward: {speed}x"))
+
+                elif isinstance(cmd, TransportRewind):
+                    # Increase speed up to 10.0x, set direction reverse
+                    with state.lock:
+                        state.playing = True
+                        if state.playback_speed >= 0.0 and state.playback_direction == 1:
+                            state.playback_speed = 0.5
+                            state.playback_direction = -1
+                        speed = float(getattr(state, "playback_speed", 1.0))
+                        if speed == 0.0:
+                            speed = 0.5
+                        if speed < 10.0:
+                            speed = min(10.0, round(speed + 0.5, 2))
+                        state.playback_speed = speed
+                        state.playback_direction = -1
+                    try:
+                        _reset_play_ref(time.monotonic())
+                    except Exception:
+                        pass
+                    try:
+                        _start_stream_async()
+                    except Exception:
+                        pass
+                    logger.info(f"TransportRewind: speed={speed}x")
+                    _safe_put(evt_q_local, Status(f"Rewind: {speed}x"))
 
                 elif isinstance(cmd, Seek):
                     logger.debug("Seek: %.3fs", float(cmd.time_s))
@@ -942,25 +1084,34 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                         _reset_play_ref(time.monotonic())
                     except Exception:
                         pass
+                    
 
                 elif isinstance(cmd, Jog):
-                    logger.debug("Jog: %.3fs", float(cmd.delta_s))
-                    # Jog = small seek + short scrub
+                    logger.info("Jog: %.3f degrees", float(cmd.delta_degrees))
                     with state.lock:
-                        delta = float(cmd.delta_s)
-                        now_frame = int(state.playhead_frame)
-                        target = now_frame + int(delta * state.target_sample_rate)
-                        target = max(0, target)
-                        if state.total_frames > 0:
-                            target = min(target, state.total_frames)
-                        state.playhead_frame = target
-                        state.playing = True
-                        state.scrub_until_monotonic = time.monotonic() + 0.15
-                    try:
-                        last_callback_t = 0.0
-                        _reset_play_ref(time.monotonic())
-                    except Exception:
-                        pass
+                        now = time.monotonic()
+                        state.jog_events.append((now, float(cmd.delta_degrees)))
+                        # Keep only recent events (last 1 second)
+                        cutoff = now - 1.0
+                        state.jog_events = [(t, d) for t, d in state.jog_events if t >= cutoff]
+                        # Update jog playback speed
+                        update_jog_playback_speed(state)
+                        # Start playing if not already
+                        start_stream = not state.playing
+                        if start_stream:
+                            state.playing = True
+                    if start_stream:
+                        try:
+                            _start_stream_async()
+                        except Exception:
+                            pass
+
+                elif isinstance(cmd, JogStop):
+                    logger.info("JogStop")
+                    with state.lock:
+                        state.playing = False
+                        state.jog_events.clear()
+                        state.jog_playback_speed = 1.0
 
             # Emit playhead periodically.
             # Keep the rate modest to avoid filling the Pipe if the UI thread is busy.

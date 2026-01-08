@@ -300,10 +300,11 @@ class BankSelectorWidget(QWidget):
 		self._ensure_all_buttons_persisted()
 
 		# Force all banks to restore again from the new store.
+		# ButtonBankWidget uses `_restored_from_disk` as its one-time restore flag.
 		for bank in self._bank_widgets:
 			try:
-				if hasattr(bank, "_restored"):
-					bank._restored = False
+				if hasattr(bank, "_restored_from_disk"):
+					bank._restored_from_disk = False
 			except Exception:
 				continue
 

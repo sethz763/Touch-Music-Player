@@ -326,11 +326,14 @@ class MainWindow(QMainWindow):
 
     def save_project(self) -> None:
         """Save a portable project JSON containing app/button/log settings."""
-        filename, _filter = QFileDialog.getSaveFileName(
+        from ui.dialogs import get_save_file_name
+
+        filename, _filter = get_save_file_name(
             self,
             "Save Project",
             "",
             "Project Files (*.json)",
+            settings_key="last_project_dir",
         )
         if not filename:
             return
@@ -345,11 +348,14 @@ class MainWindow(QMainWindow):
 
     def load_project(self) -> None:
         """Load a project JSON and apply settings immediately where possible."""
-        filename, _filter = QFileDialog.getOpenFileName(
+        from ui.dialogs import get_open_file_name
+
+        filename, _filter = get_open_file_name(
             self,
             "Load Project",
             "",
             "Project Files (*.json)",
+            settings_key="last_project_dir",
         )
         if not filename:
             return

@@ -602,16 +602,20 @@ class SoundFileButton(QPushButton):
 
     def _set_background_image_dialog(self) -> None:
         """Open a file picker to set the button background image."""
+        from ui.dialogs import get_open_file_name
+
         start_dir = ""
         try:
             start_dir = self._default_button_bg_assets_dir()
         except Exception:
             start_dir = ""
-        fp, _ = QFileDialog.getOpenFileName(
+
+        fp, _ = get_open_file_name(
             self,
             "Choose background image",
             start_dir,
             "Images (*.png *.jpg *.jpeg *.bmp *.gif);;PNG (*.png);;All Files (*)",
+            settings_key="last_bg_image_dir",
         )
         if fp:
             self.set_background_asset(fp)
@@ -1246,11 +1250,23 @@ class SoundFileButton(QPushButton):
     
     def _choose_file(self) -> None:
         """Open file dialog to select an audio file."""
-        fp, _ = QFileDialog.getOpenFileName(
+        from ui.dialogs import get_open_file_name
+
+        # Prefer the current file's folder if assigned; otherwise fall back to the
+        # last folder the user used.
+        start_dir = ""
+        try:
+            if self.file_path:
+                start_dir = os.path.dirname(str(self.file_path))
+        except Exception:
+            start_dir = ""
+
+        fp, _ = get_open_file_name(
             self,
             "Choose audio file",
-            "",
-            "Audio Files (*.wav *.mp3 *.flac *.aac *.m4a);;All Files (*)"
+            start_dir,
+            "Audio Files (*.wav *.mp3 *.flac *.aac *.m4a);;All Files (*)",
+            settings_key="last_audio_dir",
         )
         if fp:
             self._set_new_file(fp)

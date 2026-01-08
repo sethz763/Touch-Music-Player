@@ -20,7 +20,7 @@
                 "file_path": "C:/Users/Seth Zwiebel/Music/All I Need - Radiohead.mp3",
                 "custom_text": null,
                 "in_frame": 1177129,
-                "out_frame": 1287721,
+                "out_frame": 6432837,
                 "loop_enabled": true,
                 "auto_fade_enabled": false,
                 "gain_db": -2.9,
@@ -131,7 +131,7 @@
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Easy Rider.mp3",
                 "custom_text": "",
-                "in_frame": 0,
+                "in_frame": 989842,
                 "out_frame": 12446457,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
@@ -1370,7 +1370,8 @@
                 "text_color": null
             },
             "12": {
-                "file_path": null,
+                "file_path": "C:/Users/Seth Zwiebel/Music/American Life - Primus.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -1379,10 +1380,12 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "13": {
-                "file_path": null,
+                "file_path": "C:/Users/Seth Zwiebel/Music/Eleven - Primus.mp3",
+                "custom_text": null,
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
@@ -1391,7 +1394,8 @@
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "14": {
                 "file_path": null,
