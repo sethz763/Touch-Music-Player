@@ -1,0 +1,5 @@
+Timeout (0:00:03)!
+Thread 0x00003554 (most recent call first):
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_jog_scroll.py", line 174 in run_steps
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_jog_scroll.py", line 203 in main
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_jog_scroll.py", line 222 in <module>

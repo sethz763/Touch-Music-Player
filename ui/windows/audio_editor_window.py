@@ -36,6 +36,7 @@ from engine.editor_audio_service import (
 	Jog,
 	JogStop,
 	LoadFile,
+	SetOutputDevice,
 	Playhead,
 	Levels,
 	Loaded,
@@ -153,14 +154,30 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
 	"""
 
 	# Default to a stable file in the repo root (not dependent on CWD).
+	# Use per-component files so the UI process and backend process don't rotate the same file.
 	# Override with `STEPD_EDITOR_LOG_PATH` if you want a different location.
-	log_path = os.environ.get("STEPD_EDITOR_LOG_PATH")
+	log_path_env = os.environ.get("STEPD_EDITOR_LOG_PATH")
+	log_path = None
+	if log_path_env:
+		try:
+			safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "ui"
+			p = Path(str(log_path_env))
+			# Treat as directory if it exists as a dir, or if it ends with a separator.
+			if (p.exists() and p.is_dir()) or str(log_path_env).endswith(("/", "\\")):
+				log_path = str((p / f"audio_editor_{safe_component}.log").resolve())
+			else:
+				log_path = str(p)
+		except Exception:
+			log_path = str(log_path_env)
+
 	if not log_path:
 		try:
 			root_dir = Path(__file__).resolve().parents[2]
-			log_path = str((root_dir / "audio_editor.log").resolve())
+			safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "ui"
+			log_path = str((root_dir / f"audio_editor_{safe_component}.log").resolve())
 		except Exception:
-			log_path = "audio_editor.log"
+			safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "ui"
+			log_path = f"audio_editor_{safe_component}.log"
 
 	name = f"stepd.editor.{component}"
 	logger = logging.getLogger(name)
@@ -174,6 +191,10 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
 	logger.setLevel(level)
 	configured = False
 	try:
+		try:
+			Path(str(log_path)).parent.mkdir(parents=True, exist_ok=True)
+		except Exception:
+			pass
 		h = RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
 		h.setLevel(level)
 		h.setFormatter(
@@ -485,7 +506,16 @@ class AudioEditorWindow(QWidget):
 			pass
 
 		# Start backend + load
-		self._send(LoadFile(self._model.file_path, None))
+		# Register with MainWindow (if present) so live output-device changes can be applied.
+		try:
+			mw = self._find_main_window()
+			reg = getattr(mw, "_register_audio_editor_window", None)
+			if callable(reg):
+				reg(self)
+		except Exception:
+			pass
+
+		self._send(LoadFile(self._model.file_path, self._initial_output_device()))
 		self._send(SetGain(self._model.gain_db))
 		self._send(SetLoop(self._model.loop_enabled))
 		self._send(SetInOut(self._model.in_point_s, self._model.out_point_s))
@@ -503,6 +533,67 @@ class AudioEditorWindow(QWidget):
 		try:
 			QtCore.QTimer.singleShot(0, self._sync_waveform_viewport)
 			QtCore.QTimer.singleShot(0, self._ensure_on_screen)
+		except Exception:
+			pass
+
+	def _initial_output_device(self) -> Optional[int | str]:
+		"""Best-effort: derive desired editor output device from MainWindow."""
+		try:
+			mw = self._find_main_window()
+			dev = getattr(mw, "editor_output_device", None)
+			if isinstance(dev, dict):
+				idx = dev.get("index")
+				if idx is None:
+					return None
+				try:
+					return int(idx)
+				except Exception:
+					return idx
+		except Exception:
+			pass
+		return None
+
+	def _find_main_window(self) -> object:
+		"""Best-effort: locate the MainWindow instance that owns settings/state."""
+		candidates: list[object] = []
+		try:
+			p = self.parent()
+			if p is not None:
+				candidates.append(p)
+		except Exception:
+			pass
+		try:
+			w = self.window()
+			if w is not None:
+				candidates.append(w)
+		except Exception:
+			pass
+		try:
+			app = QtWidgets.QApplication.instance()
+			if app is not None:
+				aw = app.activeWindow()
+				if aw is not None:
+					candidates.append(aw)
+		except Exception:
+			pass
+
+		for c in candidates:
+			try:
+				if c is None:
+					continue
+				# Heuristic: MainWindow has the registration methods and editor_output_device.
+				if hasattr(c, "_register_audio_editor_window") or hasattr(c, "editor_output_device"):
+					return c
+			except Exception:
+				continue
+
+		# Fallback: return a dummy object so getattr() works.
+		return object()
+
+	def set_output_device(self, output_device: Optional[int | str]) -> None:
+		"""Called by MainWindow when the Settings 'Editor Output' changes."""
+		try:
+			self._send(SetOutputDevice(output_device))
 		except Exception:
 			pass
 
@@ -1295,6 +1386,13 @@ class AudioEditorWindow(QWidget):
 
 	def closeEvent(self, event: QtGui.QCloseEvent) -> None:
 		self._closing = True
+		try:
+			mw = self._find_main_window()
+			unreg = getattr(mw, "_unregister_audio_editor_window", None)
+			if callable(unreg):
+				unreg(self)
+		except Exception:
+			pass
 		try:
 			self._evt_timer.stop()
 		except Exception:

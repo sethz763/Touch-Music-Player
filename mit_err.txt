@@ -1,0 +1,155 @@
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_integration.py", line 147, in <module>
+    raise SystemExit(main())
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_integration.py", line 75, in main
+    btn._open_editor()
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\widgets\sound_file_button.py", line 1590, in _open_editor
+    win = AudioEditorWindow(
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\windows\audio_editor_window.py", line 402, in __init__
+    self._logger.info("AudioEditorWindow open track_id=%s file_path=%s", track_id, file_path)
+Message: 'AudioEditorWindow open track_id=%s file_path=%s'
+Arguments: ('0-1', 'C:\\Users\\SETHZW~1\\AppData\\Local\\Temp\\stepd_editor_manual\\editor_integration_test.wav')
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_integration.py", line 147, in <module>
+    raise SystemExit(main())
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\manual_test_audio_editor_integration.py", line 75, in main
+    btn._open_editor()
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\widgets\sound_file_button.py", line 1590, in _open_editor
+    win = AudioEditorWindow(
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\windows\audio_editor_window.py", line 510, in __init__
+    self._start_waveform_build()
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\windows\audio_editor_window.py", line 797, in _start_waveform_build
+    self._logger.info("Waveform build start")
+Message: 'Waveform build start'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Program Files\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Program Files\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Program Files\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Program Files\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 433, in _editor_backend_main
+    logger.info("Editor backend starting (log=%s)", log_path)
+Message: 'Editor backend starting (log=%s)'
+Arguments: ('C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log',)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Program Files\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Program Files\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Program Files\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Program Files\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 874, in _editor_backend_main
+    logger.info("Backend started")
+Message: 'Backend started'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "<string>", line 1, in <module>
+  File "C:\Program Files\Python312\Lib\multiprocessing\spawn.py", line 122, in spawn_main
+    exitcode = _main(fd, parent_sentinel)
+  File "C:\Program Files\Python312\Lib\multiprocessing\spawn.py", line 135, in _main
+    return self._bootstrap(parent_sentinel)
+  File "C:\Program Files\Python312\Lib\multiprocessing\process.py", line 314, in _bootstrap
+    self.run()
+  File "C:\Program Files\Python312\Lib\multiprocessing\process.py", line 108, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 896, in _editor_backend_main
+    logger.info("LoadFile: %s", cmd.path)
+Message: 'LoadFile: %s'
+Arguments: ('C:\\Users\\SETHZW~1\\AppData\\Local\\Temp\\stepd_editor_manual\\editor_integration_test.wav',)
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "C:\Program Files\Python312\Lib\threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Program Files\Python312\Lib\threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "C:\Program Files\Python312\Lib\threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 564, in worker
+    s = rebuild_stream()
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 498, in rebuild_stream
+    logger.info(f"Attempting OutputStream open: device={device}")
+Message: 'Attempting OutputStream open: device=None'
+Arguments: ()
+--- Logging error ---
+Traceback (most recent call last):
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 74, in emit
+    self.doRollover()
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 179, in doRollover
+    self.rotate(self.baseFilename, dfn)
+  File "C:\Program Files\Python312\Lib\logging\handlers.py", line 115, in rotate
+    os.rename(source, dest)
+PermissionError: [WinError 32] The process cannot access the file because it is being used by another process: 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log' -> 'C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\audio_editor.log.1'
+Call stack:
+  File "C:\Program Files\Python312\Lib\threading.py", line 1030, in _bootstrap
+    self._bootstrap_inner()
+  File "C:\Program Files\Python312\Lib\threading.py", line 1073, in _bootstrap_inner
+    self.run()
+  File "C:\Program Files\Python312\Lib\threading.py", line 1010, in run
+    self._target(*self._args, **self._kwargs)
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 564, in worker
+    s = rebuild_stream()
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\engine\editor_audio_service.py", line 501, in rebuild_stream
+    logger.info(f"Available devices: {all_devices}")
+Message: "Available devices:    0 Microsoft Sound Mapper - Input, MME (2 in, 0 out)\n>  1 Microphone Array (Intel® Smart , MME (4 in, 0 out)\n   2 Webcam 2 (NDI Webcam Audio), MME (2 in, 0 out)\n   3 Webcam 4 (NDI Webcam Audio), MME (2 in, 0 out)\n   4 Webcam 1 (NDI Webcam Audio), MME (2 in, 0 out)\n   5 Webcam 3 (NDI Webcam Audio), MME (2 in, 0 out)\n   6 Microsoft Sound Mapper - Output, MME (0 in, 2 out)\n<  7 Speaker (Realtek(R) Audio), MME (0 in, 2 out)\n   8 Primary Sound Capture Driver, Windows DirectSound (2 in, 0 out)\n   9 Microphone Array (Intel® Smart Sound Technology for Digital Microphones), Windows DirectSound (4 in, 0 out)\n  10 Webcam 2 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)\n  11 Webcam 4 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)\n  12 Webcam 1 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)\n  13 Webcam 3 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)\n  14 Primary Sound Driver, Windows DirectSound (0 in, 2 out)\n  15 Speaker (Realtek(R) Audio), Windows DirectSound (0 in, 2 out)\n  16 Speaker (Realtek(R) Audio), Windows WASAPI (0 in, 2 out)\n  17 Webcam 2 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)\n  18 Microphone Array (Intel® Smart Sound Technology for Digital Microphones), Windows WASAPI (2 in, 0 out)\n  19 Webcam 4 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)\n  20 Webcam 1 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)\n  21 Webcam 3 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)\n  22 Headphones 1 (Realtek HD Audio 2nd output with SST), Windows WDM-KS (0 in, 2 out)\n  23 Headphones 2 (Realtek HD Audio 2nd output with SST), Windows WDM-KS (0 in, 2 out)\n  24 PC Speaker (Realtek HD Audio 2nd output with SST), Windows WDM-KS (2 in, 0 out)\n  25 Speakers 1 (Realtek HD Audio output with SST), Windows WDM-KS (0 in, 2 out)\n  26 Speakers 2 (Realtek HD Audio output with SST), Windows WDM-KS (0 in, 2 out)\n  27 PC Speaker (Realtek HD Audio output with SST), Windows WDM-KS (2 in, 0 out)\n  28 Microphone (Realtek HD Audio Mic input), Windows WDM-KS (2 in, 0 out)\n  29 Stereo Mix (Realtek HD Audio Stereo input), Windows WDM-KS (2 in, 0 out)\n  30 Headphones (), Windows WDM-KS (0 in, 2 out)\n  31 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(PLT_BBTPRO)), Windows WDM-KS (0 in, 1 out)\n  32 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(PLT_BBTPRO)), Windows WDM-KS (1 in, 0 out)\n  33 Headphones (), Windows WDM-KS (0 in, 2 out)\n  34 Headphones (), Windows WDM-KS (0 in, 2 out)\n  35 Webcam 1 (Web Camera Wave Mic 1), Windows WDM-KS (2 in, 0 out)\n  36 Webcam 2 (Web Camera Wave Mic 2), Windows WDM-KS (2 in, 0 out)\n  37 Webcam 3 (Web Camera Wave Mic 3), Windows WDM-KS (2 in, 0 out)\n  38 Webcam 4 (Web Camera Wave Mic 4), Windows WDM-KS (2 in, 0 out)\n  39 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(soundcore Q20i)), Windows WDM-KS (0 in, 1 out)\n  40 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(soundcore Q20i)), Windows WDM-KS (1 in, 0 out)\n  41 Headphones (), Windows WDM-KS (0 in, 2 out)\n  42 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Tesla Model S)), Windows WDM-KS (0 in, 1 out)\n  43 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Tesla Model S)), Windows WDM-KS (1 in, 0 out)\n  44 Output (@System32\\drivers\\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0\r\n;(Pixel 6)), Windows WDM-KS (0 in, 1 out)\n  45 Input (@System32\\drivers\\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0\r\n;(Pixel 6)), Windows WDM-KS (1 in, 0 out)\n  46 Headphones (), Windows WDM-KS (0 in, 2 out)\n  47 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Seth's Pixel Buds Pro)), Windows WDM-KS (0 in, 1 out)\n  48 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Seth's Pixel Buds Pro)), Windows WDM-KS (1 in, 0 out)\n  49 Microphone Array 1 (), Windows WDM-KS (2 in, 0 out)\n  50 Microphone Array 2 (), Windows WDM-KS (2 in, 0 out)\n  51 Microphone Array 3 (), Windows WDM-KS (4 in, 0 out)\n  52 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(soundcore Q20i)), Windows WDM-KS (0 in, 1 out)\n  53 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(soundcore Q20i)), Windows WDM-KS (1 in, 0 out)\n  54 Input (), Windows WDM-KS (2 in, 0 out)\n  55 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Soundcore Space A40)), Windows WDM-KS (0 in, 1 out)\n  56 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Soundcore Space A40)), Windows WDM-KS (1 in, 0 out)\n  57 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Avantree HS063)), Windows WDM-KS (0 in, 1 out)\n  58 Headset (@System32\\drivers\\bthhfenum.sys,#2;%1 Hands-Free%0\r\n;(Avantree HS063)), Windows WDM-KS (1 in, 0 out)\n  59 Headphones (), Windows WDM-KS (0 in, 2 out)\n  60 Headphones (), Windows WDM-KS (0 in, 2 out)"
+Arguments: ()

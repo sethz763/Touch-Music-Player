@@ -5,6 +5,7 @@ import os
 import time
 import pathlib
 import datetime
+import weakref
 from typing import Optional, TYPE_CHECKING
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout, QFileDialog, QMessageBox
 from PySide6.QtWidgets import QApplication, QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox
@@ -36,6 +37,9 @@ class MainWindow(QMainWindow):
     def __init__(self) -> None:
         super().__init__()
         self.setWindowTitle("Touch Music Player — Step D")
+
+        # Track open AudioEditorWindow instances so we can push live output-device changes.
+        self._audio_editor_windows: "weakref.WeakSet[object]" = weakref.WeakSet()
 
         # Create queues for communication with audio service process
         ctx = mp.get_context("spawn")
@@ -113,6 +117,31 @@ class MainWindow(QMainWindow):
             app_settings = SaveSettings("Settings.json").get_settings() or {}
         except Exception:
             app_settings = {}
+
+        # Persisted editor output device (used by the Audio Editor backend).
+        # Stored in the same schema as SettingsWindow emits/saves.
+        self.editor_output_device = {}
+        try:
+            editor_out = app_settings.get("Editor_Output")
+            if isinstance(editor_out, (list, tuple)):
+                # new schema: [index, name, hostapi, sample_rate]
+                if len(editor_out) >= 4:
+                    self.editor_output_device = {
+                        "index": editor_out[0],
+                        "name": editor_out[1],
+                        "hostapi_name": editor_out[2],
+                        "sample_rate": editor_out[3],
+                    }
+                # old schema: [name, hostapi, sample_rate]
+                elif len(editor_out) >= 3:
+                    self.editor_output_device = {
+                        "index": None,
+                        "name": editor_out[0],
+                        "hostapi_name": editor_out[1],
+                        "sample_rate": editor_out[2],
+                    }
+        except Exception:
+            self.editor_output_device = {}
 
         # Audio service configuration
         # Fade defaults can be overridden by persisted Settings.json (legacy settings window).
@@ -955,6 +984,18 @@ class MainWindow(QMainWindow):
                     engine_adapter=self.engine_adapter,
                 )
 
+            # Wire editor output changes so any open Audio Editor windows can re-route.
+            try:
+                sig = getattr(getattr(self._settings_dialog, "settings_signals", None), "editor_output_signal", None)
+                if sig is not None:
+                    try:
+                        sig.disconnect(self._on_editor_output_changed)
+                    except Exception:
+                        pass
+                    sig.connect(self._on_editor_output_changed)
+            except Exception:
+                pass
+
             # Wire keyboard shortcut bindings (runtime only).
             # Do this every time in case the dialog already existed.
             try:
@@ -977,6 +1018,43 @@ class MainWindow(QMainWindow):
                 self._settings_dialog.activateWindow()
             except Exception:
                 pass
+        except Exception:
+            pass
+
+    def _register_audio_editor_window(self, win: object) -> None:
+        try:
+            self._audio_editor_windows.add(win)
+        except Exception:
+            pass
+
+    def _unregister_audio_editor_window(self, win: object) -> None:
+        try:
+            self._audio_editor_windows.discard(win)
+        except Exception:
+            pass
+
+    def _broadcast_editor_output_device(self, output_device: object) -> None:
+        # Push live changes to all open editors (best-effort).
+        for w in list(self._audio_editor_windows):
+            try:
+                setter = getattr(w, "set_output_device", None)
+                if callable(setter):
+                    setter(output_device)
+            except Exception:
+                continue
+
+    def _on_editor_output_changed(self, device_index: int, sample_rate: float) -> None:
+        # Update cached device and re-route any open Audio Editor windows.
+        try:
+            self.editor_output_device = {
+                "index": int(device_index),
+                "sample_rate": float(sample_rate),
+            }
+        except Exception:
+            self.editor_output_device = {"index": device_index, "sample_rate": sample_rate}
+
+        try:
+            self._broadcast_editor_output_device(device_index)
         except Exception:
             pass
 

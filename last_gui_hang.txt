@@ -1,19 +1,5 @@
 Timeout (0:00:15)!
-Thread 0x0000bb90 (most recent call first):
-  File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
-  File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
-  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
-  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
-  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
-
-Thread 0x0000fe68 (most recent call first):
-  File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
-  File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
-  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
-  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
-  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
-
-Thread 0x0000e01c (most recent call first):
+Thread 0x000021d4 (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 359 in wait
   File "C:\Program Files\Python312\Lib\queue.py", line 180 in get
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\gui\streamdeck_xl.py", line 1690 in _io_loop
@@ -21,15 +7,15 @@ Thread 0x0000e01c (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x00011198 (most recent call first):
+Thread 0x0000627c (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
   File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
   File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x0000876c (most recent call first):
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\widgets\sound_file_button.py", line 776 in paintEvent
+Thread 0x0000e358 (most recent call first):
+  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\widgets\sound_file_button.py", line 1196 in _show_context_menu
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\app\music_player.py", line 103 in main
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\app\music_player.py", line 123 in <module>
   File "<frozen runpy>", line 88 in _run_code

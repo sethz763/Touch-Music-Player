@@ -34,6 +34,11 @@ class LoadFile:
 
 
 @dataclass(frozen=True)
+class SetOutputDevice:
+    output_device: Optional[int | str] = None  # None => system default
+
+
+@dataclass(frozen=True)
 class SetInOut:
     in_s: float
     out_s: Optional[float]
@@ -133,14 +138,30 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
     """
 
     # Default to a stable file in the repo root (not dependent on CWD).
+    # Use per-component files so the UI process and backend process don't rotate the same file.
     # Override with `STEPD_EDITOR_LOG_PATH` if you want a different location.
-    log_path = os.environ.get("STEPD_EDITOR_LOG_PATH")
+    log_path_env = os.environ.get("STEPD_EDITOR_LOG_PATH")
+    log_path = None
+    if log_path_env:
+        try:
+            safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
+            p = Path(str(log_path_env))
+            # Treat as directory if it exists as a dir, or if it ends with a separator.
+            if (p.exists() and p.is_dir()) or str(log_path_env).endswith(("/", "\\")):
+                log_path = str((p / f"audio_editor_{safe_component}.log").resolve())
+            else:
+                log_path = str(p)
+        except Exception:
+            log_path = str(log_path_env)
+
     if not log_path:
         try:
             root_dir = Path(__file__).resolve().parents[1]
-            log_path = str((root_dir / "audio_editor.log").resolve())
+            safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
+            log_path = str((root_dir / f"audio_editor_{safe_component}.log").resolve())
         except Exception:
-            log_path = "audio_editor.log"
+            safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
+            log_path = f"audio_editor_{safe_component}.log"
 
     name = f"stepd.editor.{component}"
     logger = logging.getLogger(name)
@@ -155,6 +176,10 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
 
     configured = False
     try:
+        try:
+            Path(str(log_path)).parent.mkdir(parents=True, exist_ok=True)
+        except Exception:
+            pass
         handler = RotatingFileHandler(log_path, maxBytes=1_000_000, backupCount=3, encoding="utf-8")
         handler.setLevel(level)
         handler.setFormatter(
@@ -1007,6 +1032,19 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                 elif isinstance(cmd, SetLoop):
                     with state.lock:
                         state.loop = bool(cmd.loop)
+
+                elif isinstance(cmd, SetOutputDevice):
+                    with state.lock:
+                        state.output_device = cmd.output_device
+                        state.config_version += 1
+                    try:
+                        _start_stream_async()
+                    except Exception:
+                        pass
+                    try:
+                        _safe_put(evt_q_local, Status(f"SetOutputDevice: {cmd.output_device}"))
+                    except Exception:
+                        pass
 
                 elif isinstance(cmd, TransportPlay):
                     with state.lock:

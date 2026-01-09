@@ -14,13 +14,37 @@ from PySide6.QtMultimedia import QMediaDevices
 from PySide6.QtCore import QObject, Signal, Qt, QSettings
 
 from persistence.SaveSettings import SaveSettings
-from legacy.CheckSoundDevices import CheckSoundDevices
 
 from gui.engine_adapter import EngineAdapter
 
 import sounddevice as sd
 
 from inspect import currentframe, getframeinfo
+
+
+class _DeviceRefreshWorker(QObject):
+    """Background worker to enumerate audio devices without blocking the UI."""
+
+    done = Signal(list, tuple, bool, str)  # devices, apis, ok, err
+
+    def __init__(self):
+        super().__init__()
+
+    @QtCore.Slot()
+    def run(self) -> None:
+        try:
+            try:
+                devices = sd.query_devices()
+            except Exception:
+                devices = []
+            try:
+                apis = sd.query_hostapis()
+            except Exception:
+                apis = ()
+
+            self.done.emit(devices, apis, True, "")
+        except Exception as e:
+            self.done.emit([], (), False, f"{type(e).__name__}: {e}")
 
 
 class SettingSignals(QObject):
@@ -613,16 +637,25 @@ class SettingsWindow(QWidget):
 
             self.refresh_layout = QHBoxLayout()
             self.refresh_outputs_button = QPushButton('REFRESH OUTPUT COMBO BOXES')
-            self.refresh_outs_label = QLabel('Note: Output change or refresh stops output')
-            self.refresh_outs_label.setFont(QFont('Arial', 8))
             self.refresh_layout.addWidget(self.refresh_outputs_button)
-            self.refresh_layout.addWidget(self.refresh_outs_label)
             self.main_layout.addLayout(self.refresh_layout)
             self.refresh_outputs_button.clicked.connect(self.refresh_devices)
             
-            # Lazily initialized on refresh to avoid extra threads and PortAudio churn on open.
-            self.check_sound_devices_thread = None
-            self.check_sound_devices = None
+            # Device refresh worker (runs enumeration off the UI thread).
+            self._device_refresh_thread: QThread | None = None
+            self._device_refresh_worker: _DeviceRefreshWorker | None = None
+            self._device_refresh_in_flight: bool = False
+
+            # Optional: listen for OS device changes and refresh while window is open.
+            # (Best-effort; safe even if unavailable on some platforms.)
+            self._qt_media_devices = None
+            try:
+                self._qt_media_devices = QMediaDevices(self)
+                sig = getattr(self._qt_media_devices, "audioOutputsChanged", None)
+                if sig is not None:
+                    sig.connect(self._on_qt_audio_outputs_changed)
+            except Exception:
+                self._qt_media_devices = None
 
             # Checkbox to show all devices (including virtual/Dante)
             device_filter_layout = QHBoxLayout()
@@ -704,6 +737,13 @@ class SettingsWindow(QWidget):
             self._send_transition_fade_settings()
 
             self._initializing = False
+
+            # Soft refresh after the window is created so device lists are current,
+            # without blocking the UI or disrupting playback.
+            try:
+                QtCore.QTimer.singleShot(0, self.refresh_devices)
+            except Exception:
+                pass
             
         except Exception as e:
             print(e)
@@ -1001,48 +1041,197 @@ class SettingsWindow(QWidget):
         except Exception as e:
             info = getframeinfo(currentframe())
             print(f'{e}{info.filename}:{info.lineno}')
+
+    def _ensure_device_refresh_worker(self) -> None:
+        if self._device_refresh_thread is not None and self._device_refresh_worker is not None:
+            return
+        try:
+            self._device_refresh_thread = QThread(self)
+            self._device_refresh_worker = _DeviceRefreshWorker()
+            self._device_refresh_worker.moveToThread(self._device_refresh_thread)
+            self._device_refresh_worker.done.connect(self._on_device_refresh_done)
+            self._device_refresh_thread.start()
+        except Exception:
+            self._device_refresh_thread = None
+            self._device_refresh_worker = None
+
+    def _select_combo_by_device(self, combo: QComboBox, device: dict | None) -> int:
+        """Return an index in combo matching device (by index, else name+hostapi)."""
+        if not device or not isinstance(device, dict):
+            return -1
+
+        try:
+            target_index = device.get("index")
+        except Exception:
+            target_index = None
+        if target_index is not None:
+            try:
+                target_index = int(target_index)
+            except Exception:
+                target_index = None
+
+        if target_index is not None:
+            for i in range(1, combo.count()):
+                try:
+                    d = combo.itemData(i)
+                    if isinstance(d, dict) and int(d.get("index")) == int(target_index):
+                        return i
+                except Exception:
+                    continue
+
+        try:
+            name = (device.get("name") or "").strip()
+            hostapi_name = (device.get("hostapi_name") or "").strip()
+        except Exception:
+            name = ""
+            hostapi_name = ""
+
+        if name and hostapi_name:
+            search = f"{name}, {hostapi_name}"
+            try:
+                idx = combo.findText(search, flags=Qt.MatchFlag.MatchContains)
+            except Exception:
+                idx = -1
+            if idx >= 1:
+                return idx
+
+        return -1
             
     def refresh_devices(self):
-        self.refresh_outputs_button.setEnabled(False)
-        # Kick off a safe refresh in a background thread (legacy helper does PortAudio re-init).
+        """Refresh audio device lists without blocking the GUI.
+
+        Uses a background worker to call sounddevice enumeration. Does not modify
+        playback state or engine output configuration.
+        """
+
         try:
-            if self.check_sound_devices_thread is None:
-                self.check_sound_devices_thread = QThread(self)
-                self.check_sound_devices = CheckSoundDevices()
-                self.check_sound_devices.moveToThread(self.check_sound_devices_thread)
-                self.check_sound_devices.device_list_signal.connect(self.re_populate_audio_combo_box)
-                self.check_sound_devices_thread.start()
-            self.check_sound_devices.get_devices()
+            self.refresh_outputs_button.setEnabled(False)
         except Exception:
-            self.refresh_outputs_button.setEnabled(True)
+            pass
+
+        # Prevent overlapping refresh calls (checkbox toggles can spam).
+        if getattr(self, "_device_refresh_in_flight", False):
+            return
+        self._device_refresh_in_flight = True
+
+        self._ensure_device_refresh_worker()
+        if self._device_refresh_worker is None:
+            self._device_refresh_in_flight = False
+            try:
+                self.refresh_outputs_button.setEnabled(True)
+            except Exception:
+                pass
+            return
+
+        try:
+            QtCore.QMetaObject.invokeMethod(self._device_refresh_worker, "run", QtCore.Qt.ConnectionType.QueuedConnection)
+        except Exception:
+            # Fallback: run in UI thread (still best-effort, should be quick).
+            try:
+                self._device_refresh_worker.run()
+            except Exception:
+                self._device_refresh_in_flight = False
+                try:
+                    self.refresh_outputs_button.setEnabled(True)
+                except Exception:
+                    pass
         
     def re_populate_audio_combo_box(self, device_list:list, api_dict:tuple):
-        
+        # NOTE: called from UI thread via worker signal.
+        prev_main = None
+        prev_editor = None
+        try:
+            prev_main = self.audio_output_combo.currentData()
+        except Exception:
+            prev_main = None
+        try:
+            prev_editor = self.editor_audio_output_combo.currentData()
+        except Exception:
+            prev_editor = None
+
+        # Always re-enable UI controls, even if something throws.
         try:
             self.devices = device_list
-            self.apis = api_dict 
-            
-            self.audio_output_combo.currentIndexChanged.disconnect(self.main_output_changed)
-            self.editor_audio_output_combo.currentIndexChanged.disconnect(self.editor_output_changed)
+            self.apis = api_dict
+
+            # Block signals instead of disconnect/reconnect (more reliable).
+            self.audio_output_combo.blockSignals(True)
+            self.editor_audio_output_combo.blockSignals(True)
             self.audio_output_combo.setEnabled(False)
             self.editor_audio_output_combo.setEnabled(False)
-            
+
             self.populate_audio_combo_box()
-            
-            self.audio_output_combo.currentIndexChanged.connect(self.main_output_changed)
-            self.editor_audio_output_combo.currentIndexChanged.connect(self.editor_output_changed)
-            
-            self.restore_outputs()
-            
-            self.audio_output_combo.setEnabled(True)
-            self.editor_audio_output_combo.setEnabled(True)
-            
-            # self.restart_output_signal.emit()
-            self.refresh_outputs_button.setEnabled(True)
-            
+
+            # Try to keep the user's current selection stable across refresh.
+            idx = self._select_combo_by_device(self.audio_output_combo, prev_main)
+            if idx >= 1:
+                self.audio_output_combo.setCurrentIndex(idx)
+            idx = self._select_combo_by_device(self.editor_audio_output_combo, prev_editor)
+            if idx >= 1:
+                self.editor_audio_output_combo.setCurrentIndex(idx)
+
+            # Update cached devices to whatever is selected now.
+            try:
+                self.main_output_device = self.audio_output_combo.currentData() or {}
+            except Exception:
+                self.main_output_device = {}
+            try:
+                self.editor_output_device = self.editor_audio_output_combo.currentData() or {}
+            except Exception:
+                self.editor_output_device = {}
+
         except Exception as e:
             info = getframeinfo(currentframe())
             print(f'{e}{info.filename}:{info.lineno}')
+        finally:
+            try:
+                self.audio_output_combo.setEnabled(True)
+                self.editor_audio_output_combo.setEnabled(True)
+                self.audio_output_combo.blockSignals(False)
+                self.editor_audio_output_combo.blockSignals(False)
+            except Exception:
+                pass
+
+            try:
+                self.refresh_outputs_button.setEnabled(True)
+            except Exception:
+                pass
+
+            try:
+                self._device_refresh_in_flight = False
+            except Exception:
+                pass
+
+    def _on_device_refresh_done(self, device_list: list, api_dict: tuple, ok: bool, err: str) -> None:
+        # Even on failure, make sure UI isn't left disabled.
+        if not ok:
+            try:
+                print(f"Device refresh failed: {err}")
+            except Exception:
+                pass
+            try:
+                self.audio_output_combo.setEnabled(True)
+                self.editor_audio_output_combo.setEnabled(True)
+            except Exception:
+                pass
+            try:
+                self.refresh_outputs_button.setEnabled(True)
+            except Exception:
+                pass
+            try:
+                self._device_refresh_in_flight = False
+            except Exception:
+                pass
+            return
+
+        self.re_populate_audio_combo_box(device_list, api_dict)
+
+    def _on_qt_audio_outputs_changed(self) -> None:
+        # Best-effort, non-blocking refresh when OS reports changes.
+        try:
+            self.refresh_devices()
+        except Exception:
+            pass
             
     def check_device_capabilites(self, device=sd):
         sample_rates = [8000.0, 11025.0, 16000.0, 22050.0, 32000.0, 44100.0, 48000.0] #96000.0
@@ -1205,9 +1394,9 @@ class SettingsWindow(QWidget):
 
         # Best-effort cleanup of refresh thread.
         try:
-            if self.check_sound_devices_thread is not None:
-                self.check_sound_devices_thread.quit()
-                self.check_sound_devices_thread.wait(250)
+            if self._device_refresh_thread is not None:
+                self._device_refresh_thread.quit()
+                self._device_refresh_thread.wait(250)
         except Exception:
             pass
 

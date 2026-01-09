@@ -47,7 +47,7 @@
             "4": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Arnie - Primus.mp3",
                 "custom_text": null,
-                "in_frame": 131072,
+                "in_frame": 0,
                 "out_frame": 11273472,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,

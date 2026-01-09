@@ -1,1 +1,216 @@
 2026-01-07 00:56:58 INFO [MainProcess:28744] [MainThread] stepd.editor.backend: backend test
+2026-01-08 23:12:29 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Editor backend starting (log=C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\audio_editor_backend.log)
+2026-01-08 23:12:29 [pid=41548] Editor backend starting
+2026-01-08 23:12:30 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Backend started
+2026-01-08 23:12:30 [pid=41548] Backend started
+2026-01-08 23:12:30 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 23:12:30 [pid=41548] LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 23:12:30 INFO [EditorAudioBackend:41548] [EditorOutputStreamStart] stepd.editor.backend: Attempting OutputStream open: device=None
+2026-01-08 23:12:30 INFO [EditorAudioBackend:41548] [EditorOutputStreamStart] stepd.editor.backend: Available devices:    0 Microsoft Sound Mapper - Input, MME (2 in, 0 out)
+>  1 Microphone Array (Intel® Smart , MME (4 in, 0 out)
+   2 Webcam 2 (NDI Webcam Audio), MME (2 in, 0 out)
+   3 Webcam 4 (NDI Webcam Audio), MME (2 in, 0 out)
+   4 Webcam 1 (NDI Webcam Audio), MME (2 in, 0 out)
+   5 Webcam 3 (NDI Webcam Audio), MME (2 in, 0 out)
+   6 Microsoft Sound Mapper - Output, MME (0 in, 2 out)
+<  7 Speaker (Realtek(R) Audio), MME (0 in, 2 out)
+   8 Primary Sound Capture Driver, Windows DirectSound (2 in, 0 out)
+   9 Microphone Array (Intel® Smart Sound Technology for Digital Microphones), Windows DirectSound (4 in, 0 out)
+  10 Webcam 2 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  11 Webcam 4 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  12 Webcam 1 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  13 Webcam 3 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  14 Primary Sound Driver, Windows DirectSound (0 in, 2 out)
+  15 Speaker (Realtek(R) Audio), Windows DirectSound (0 in, 2 out)
+  16 Speaker (Realtek(R) Audio), Windows WASAPI (0 in, 2 out)
+  17 Webcam 2 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  18 Microphone Array (Intel® Smart Sound Technology for Digital Microphones), Windows WASAPI (2 in, 0 out)
+  19 Webcam 4 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  20 Webcam 1 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  21 Webcam 3 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  22 Headphones 1 (Realtek HD Audio 2nd output with SST), Windows WDM-KS (0 in, 2 out)
+  23 Headphones 2 (Realtek HD Audio 2nd output with SST), Windows WDM-KS (0 in, 2 out)
+  24 PC Speaker (Realtek HD Audio 2nd output with SST), Windows WDM-KS (2 in, 0 out)
+  25 Speakers 1 (Realtek HD Audio output with SST), Windows WDM-KS (0 in, 2 out)
+  26 Speakers 2 (Realtek HD Audio output with SST), Windows WDM-KS (0 in, 2 out)
+  27 PC Speaker (Realtek HD Audio output with SST), Windows WDM-KS (2 in, 0 out)
+  28 Microphone (Realtek HD Audio Mic input), Windows WDM-KS (2 in, 0 out)
+  29 Stereo Mix (Realtek HD Audio Stereo input), Windows WDM-KS (2 in, 0 out)
+  30 Headphones (), Windows WDM-KS (0 in, 2 out)
+  31 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(PLT_BBTPRO)), Windows WDM-KS (0 in, 1 out)
+  32 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(PLT_BBTPRO)), Windows WDM-KS (1 in, 0 out)
+  33 Headphones (), Windows WDM-KS (0 in, 2 out)
+  34 Headphones (), Windows WDM-KS (0 in, 2 out)
+  35 Webcam 1 (Web Camera Wave Mic 1), Windows WDM-KS (2 in, 0 out)
+  36 Webcam 2 (Web Camera Wave Mic 2), Windows WDM-KS (2 in, 0 out)
+  37 Webcam 3 (Web Camera Wave Mic 3), Windows WDM-KS (2 in, 0 out)
+  38 Webcam 4 (Web Camera Wave Mic 4), Windows WDM-KS (2 in, 0 out)
+  39 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (0 in, 1 out)
+  40 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (1 in, 0 out)
+  41 Headphones (), Windows WDM-KS (0 in, 2 out)
+  42 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Tesla Model S)), Windows WDM-KS (0 in, 1 out)
+  43 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Tesla Model S)), Windows WDM-KS (1 in, 0 out)
+  44 Output (@System32\drivers\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0
+;(Pixel 6)), Windows WDM-KS (0 in, 1 out)
+  45 Input (@System32\drivers\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0
+;(Pixel 6)), Windows WDM-KS (1 in, 0 out)
+  46 Headphones (), Windows WDM-KS (0 in, 2 out)
+  47 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Seth's Pixel Buds Pro)), Windows WDM-KS (0 in, 1 out)
+  48 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Seth's Pixel Buds Pro)), Windows WDM-KS (1 in, 0 out)
+  49 Microphone Array 1 (), Windows WDM-KS (2 in, 0 out)
+  50 Microphone Array 2 (), Windows WDM-KS (2 in, 0 out)
+  51 Microphone Array 3 (), Windows WDM-KS (4 in, 0 out)
+  52 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (0 in, 1 out)
+  53 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (1 in, 0 out)
+  54 Input (), Windows WDM-KS (2 in, 0 out)
+  55 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Soundcore Space A40)), Windows WDM-KS (0 in, 1 out)
+  56 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Soundcore Space A40)), Windows WDM-KS (1 in, 0 out)
+  57 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Avantree HS063)), Windows WDM-KS (0 in, 1 out)
+  58 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Avantree HS063)), Windows WDM-KS (1 in, 0 out)
+  59 Headphones (), Windows WDM-KS (0 in, 2 out)
+  60 Headphones (), Windows WDM-KS (0 in, 2 out)
+2026-01-08 23:12:31 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: 72.000 degrees
+2026-01-08 23:12:31 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: 72.000 degrees
+2026-01-08 23:12:31 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: 72.000 degrees
+2026-01-08 23:12:31 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: 72.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: -36.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: -72.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: -72.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: -72.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: -36.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: 36.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Jog: 36.000 degrees
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Shutdown received
+2026-01-08 23:12:32 [pid=41548] Shutdown received
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Editor backend stopping
+2026-01-08 23:12:32 [pid=41548] Editor backend stopping
+2026-01-08 23:12:32 INFO [EditorAudioBackend:41548] [MainThread] stepd.editor.backend: Editor backend stopped
+2026-01-08 23:12:32 [pid=41548] Editor backend stopped
+2026-01-08 23:14:26 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Editor backend starting (log=C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\audio_editor_backend.log)
+2026-01-08 23:14:26 [pid=51272] Editor backend starting
+2026-01-08 23:14:27 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Backend started
+2026-01-08 23:14:27 [pid=51272] Backend started
+2026-01-08 23:14:27 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: LoadFile: C:/Users/Seth Zwiebel/Music/Arnie - Primus.mp3
+2026-01-08 23:14:27 [pid=51272] LoadFile: C:/Users/Seth Zwiebel/Music/Arnie - Primus.mp3
+2026-01-08 23:14:27 INFO [EditorAudioBackend:51272] [EditorOutputStreamStart] stepd.editor.backend: Attempting OutputStream open: device=7
+2026-01-08 23:14:27 INFO [EditorAudioBackend:51272] [EditorOutputStreamStart] stepd.editor.backend: Available devices:    0 Microsoft Sound Mapper - Input, MME (2 in, 0 out)
+>  1 Microphone Array (Intel® Smart , MME (4 in, 0 out)
+   2 Webcam 2 (NDI Webcam Audio), MME (2 in, 0 out)
+   3 Webcam 4 (NDI Webcam Audio), MME (2 in, 0 out)
+   4 Webcam 1 (NDI Webcam Audio), MME (2 in, 0 out)
+   5 Webcam 3 (NDI Webcam Audio), MME (2 in, 0 out)
+   6 Microsoft Sound Mapper - Output, MME (0 in, 2 out)
+<  7 Speaker (Realtek(R) Audio), MME (0 in, 2 out)
+   8 Primary Sound Capture Driver, Windows DirectSound (2 in, 0 out)
+   9 Microphone Array (Intel® Smart Sound Technology for Digital Microphones), Windows DirectSound (4 in, 0 out)
+  10 Webcam 2 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  11 Webcam 4 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  12 Webcam 1 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  13 Webcam 3 (NDI Webcam Audio), Windows DirectSound (2 in, 0 out)
+  14 Primary Sound Driver, Windows DirectSound (0 in, 2 out)
+  15 Speaker (Realtek(R) Audio), Windows DirectSound (0 in, 2 out)
+  16 Speaker (Realtek(R) Audio), Windows WASAPI (0 in, 2 out)
+  17 Webcam 2 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  18 Microphone Array (Intel® Smart Sound Technology for Digital Microphones), Windows WASAPI (2 in, 0 out)
+  19 Webcam 4 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  20 Webcam 1 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  21 Webcam 3 (NDI Webcam Audio), Windows WASAPI (2 in, 0 out)
+  22 Headphones 1 (Realtek HD Audio 2nd output with SST), Windows WDM-KS (0 in, 2 out)
+  23 Headphones 2 (Realtek HD Audio 2nd output with SST), Windows WDM-KS (0 in, 2 out)
+  24 PC Speaker (Realtek HD Audio 2nd output with SST), Windows WDM-KS (2 in, 0 out)
+  25 Speakers 1 (Realtek HD Audio output with SST), Windows WDM-KS (0 in, 2 out)
+  26 Speakers 2 (Realtek HD Audio output with SST), Windows WDM-KS (0 in, 2 out)
+  27 PC Speaker (Realtek HD Audio output with SST), Windows WDM-KS (2 in, 0 out)
+  28 Microphone (Realtek HD Audio Mic input), Windows WDM-KS (2 in, 0 out)
+  29 Stereo Mix (Realtek HD Audio Stereo input), Windows WDM-KS (2 in, 0 out)
+  30 Headphones (), Windows WDM-KS (0 in, 2 out)
+  31 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(PLT_BBTPRO)), Windows WDM-KS (0 in, 1 out)
+  32 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(PLT_BBTPRO)), Windows WDM-KS (1 in, 0 out)
+  33 Headphones (), Windows WDM-KS (0 in, 2 out)
+  34 Headphones (), Windows WDM-KS (0 in, 2 out)
+  35 Webcam 1 (Web Camera Wave Mic 1), Windows WDM-KS (2 in, 0 out)
+  36 Webcam 2 (Web Camera Wave Mic 2), Windows WDM-KS (2 in, 0 out)
+  37 Webcam 3 (Web Camera Wave Mic 3), Windows WDM-KS (2 in, 0 out)
+  38 Webcam 4 (Web Camera Wave Mic 4), Windows WDM-KS (2 in, 0 out)
+  39 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (0 in, 1 out)
+  40 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (1 in, 0 out)
+  41 Headphones (), Windows WDM-KS (0 in, 2 out)
+  42 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Tesla Model S)), Windows WDM-KS (0 in, 1 out)
+  43 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Tesla Model S)), Windows WDM-KS (1 in, 0 out)
+  44 Output (@System32\drivers\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0
+;(Pixel 6)), Windows WDM-KS (0 in, 1 out)
+  45 Input (@System32\drivers\bthhfenum.sys,#4;%1 Hands-Free HF Audio%0
+;(Pixel 6)), Windows WDM-KS (1 in, 0 out)
+  46 Headphones (), Windows WDM-KS (0 in, 2 out)
+  47 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Seth's Pixel Buds Pro)), Windows WDM-KS (0 in, 1 out)
+  48 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Seth's Pixel Buds Pro)), Windows WDM-KS (1 in, 0 out)
+  49 Microphone Array 1 (), Windows WDM-KS (2 in, 0 out)
+  50 Microphone Array 2 (), Windows WDM-KS (2 in, 0 out)
+  51 Microphone Array 3 (), Windows WDM-KS (4 in, 0 out)
+  52 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (0 in, 1 out)
+  53 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(soundcore Q20i)), Windows WDM-KS (1 in, 0 out)
+  54 Input (), Windows WDM-KS (2 in, 0 out)
+  55 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Soundcore Space A40)), Windows WDM-KS (0 in, 1 out)
+  56 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Soundcore Space A40)), Windows WDM-KS (1 in, 0 out)
+  57 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Avantree HS063)), Windows WDM-KS (0 in, 1 out)
+  58 Headset (@System32\drivers\bthhfenum.sys,#2;%1 Hands-Free%0
+;(Avantree HS063)), Windows WDM-KS (1 in, 0 out)
+  59 Headphones (), Windows WDM-KS (0 in, 2 out)
+  60 Headphones (), Windows WDM-KS (0 in, 2 out)
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 21.600 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 14.400 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:52 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: 7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: -7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: -7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: -7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Jog: -7.200 degrees
+2026-01-08 23:14:53 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: JogStop
+2026-01-08 23:14:55 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Shutdown received
+2026-01-08 23:14:55 [pid=51272] Shutdown received
+2026-01-08 23:14:55 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Editor backend stopping
+2026-01-08 23:14:55 [pid=51272] Editor backend stopping
+2026-01-08 23:14:56 INFO [EditorAudioBackend:51272] [MainThread] stepd.editor.backend: Editor backend stopped
+2026-01-08 23:14:56 [pid=51272] Editor backend stopped

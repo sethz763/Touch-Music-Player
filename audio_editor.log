@@ -10061,3 +10061,71 @@ editor.backend: LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manu
 2026-01-08 21:40:50 [pid=33788] Shutdown received
 2026-01-08 21:40:50 [pid=33788] Editor backend stopping
 2026-01-08 21:40:50 [pid=33788] Editor backend stopped
+2026-01-08 22:14:02 [pid=13052] AudioEditorWindow open track_id=jog-scroll-test file_path=C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 22:14:02 [pid=13052] Waveform build start
+2026-01-08 22:14:03 [pid=63056] Editor backend starting
+2026-01-08 22:14:03 [pid=13052] Waveform build complete frames=288000
+2026-01-08 22:14:03 [pid=63056] Backend started
+2026-01-08 22:14:03 [pid=63056] LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 22:14:05 [pid=63056] Shutdown received
+2026-01-08 22:14:05 [pid=63056] Editor backend stopping
+2026-01-08 22:14:05 [pid=63056] Editor backend stopped
+2026-01-08 22:19:25 [pid=63672] AudioEditorWindow open track_id=0-12 file_path=C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:19:25 [pid=63672] Waveform build start
+2026-01-08 22:19:25 [pid=59824] Editor backend starting
+2026-01-08 22:19:25 [pid=59824] Backend started
+2026-01-08 22:19:25 [pid=59824] LoadFile: C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:19:26 [pid=63672] Waveform build complete frames=12070656
+2026-01-08 22:19:36 [pid=59824] Shutdown received
+2026-01-08 22:19:36 [pid=59824] Editor backend stopping
+2026-01-08 22:19:36 [pid=59824] Editor backend stopped
+2026-01-08 22:19:56 [pid=63672] AudioEditorWindow open track_id=0-12 file_path=C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:19:56 [pid=63672] Waveform build start
+2026-01-08 22:19:57 [pid=49972] Editor backend starting
+2026-01-08 22:19:57 [pid=63672] Waveform build complete frames=12070656
+2026-01-08 22:19:59 [pid=49972] Backend started
+2026-01-08 22:19:59 [pid=49972] LoadFile: C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:20:02 [pid=49972] Shutdown received
+2026-01-08 22:20:02 [pid=49972] Editor backend stopping
+2026-01-08 22:20:03 [pid=49972] Editor backend stopped
+2026-01-08 22:20:15 [pid=63672] AudioEditorWindow open track_id=0-12 file_path=C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:20:15 [pid=63672] Waveform build start
+2026-01-08 22:20:16 [pid=41940] Editor backend starting
+2026-01-08 22:20:16 [pid=63672] Waveform build complete frames=12070656
+2026-01-08 22:20:16 [pid=41940] Backend started
+2026-01-08 22:20:16 [pid=41940] LoadFile: C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:20:31 [pid=41940] Shutdown received
+2026-01-08 22:20:31 [pid=41940] Editor backend stopping
+2026-01-08 22:20:33 [pid=41940] Editor backend stopped
+2026-01-08 22:20:52 [pid=63672] AudioEditorWindow open track_id=0-11 file_path=C:/Users/Seth Zwiebel/Music/American Life - Primus.mp3
+2026-01-08 22:20:52 [pid=63672] Waveform build start
+2026-01-08 22:20:52 [pid=38436] Editor backend starting
+2026-01-08 22:20:53 [pid=63672] Waveform build complete frames=12966912
+2026-01-08 22:20:53 [pid=38436] Backend started
+2026-01-08 22:20:53 [pid=38436] LoadFile: C:/Users/Seth Zwiebel/Music/American Life - Primus.mp3
+2026-01-08 22:21:01 [pid=38436] Shutdown received
+2026-01-08 22:21:01 [pid=38436] Editor backend stopping
+2026-01-08 22:21:02 [pid=38436] Editor backend stopped
+2026-01-08 22:23:25 [pid=63672] AudioEditorWindow open track_id=0-12 file_path=C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:23:25 [pid=63672] Waveform build start
+2026-01-08 22:23:26 [pid=53744] Editor backend starting
+2026-01-08 22:23:26 [pid=63672] Waveform build complete frames=12070656
+2026-01-08 22:23:27 [pid=53744] Backend started
+2026-01-08 22:23:27 [pid=53744] LoadFile: C:/Users/Seth Zwiebel/Music/Everything In Its Right Place - Radiohead.mp3
+2026-01-08 22:23:36 [pid=53744] Shutdown received
+2026-01-08 22:23:36 [pid=53744] Editor backend stopping
+2026-01-08 22:23:37 [pid=53744] Editor backend stopped
+2026-01-08 22:53:36 [pid=37336] AudioEditorWindow open track_id=jog-scroll-test file_path=C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 22:53:36 [pid=37336] Waveform build start
+2026-01-08 22:53:36 [pid=59676] Editor backend starting
+2026-01-08 22:53:37 [pid=59676] Backend started
+2026-01-08 22:53:37 [pid=59676] LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 22:53:39 [pid=59676] Shutdown received
+2026-01-08 22:53:39 [pid=59676] Editor backend stopping
+2026-01-08 22:53:39 [pid=59676] Editor backend stopped
+2026-01-08 22:53:39 [pid=37336] Waveform build complete frames=288000
+2026-01-08 22:59:26 [pid=41560] AudioEditorWindow open track_id=0-1 file_path=C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_integration_test.wav
+2026-01-08 22:59:26 [pid=41560] Waveform build start
+2026-01-08 22:59:27 [pid=44164] Editor backend starting
+2026-01-08 22:59:28 [pid=44164] Backend started
+2026-01-08 22:59:28 [pid=44164] LoadFile: C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_integration_test.wav

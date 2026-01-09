@@ -1,1 +1,13 @@
 2026-01-07 00:55:58 INFO [MainProcess:60268] [MainThread] stepd.editor.ui: ui test
+2026-01-08 23:12:29 INFO [MainProcess:49584] [MainThread] stepd.editor.ui: AudioEditorWindow open track_id=jog-scroll-test file_path=C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 23:12:29 [pid=49584] AudioEditorWindow open track_id=jog-scroll-test file_path=C:\Users\SETHZW~1\AppData\Local\Temp\stepd_editor_manual\editor_jog_scroll_test.wav
+2026-01-08 23:12:29 INFO [MainProcess:49584] [MainThread] stepd.editor.ui: Waveform build start
+2026-01-08 23:12:29 [pid=49584] Waveform build start
+2026-01-08 23:12:31 INFO [MainProcess:49584] [WaveformBuild] stepd.editor.ui: Waveform build complete: frames=288000
+2026-01-08 23:12:31 [pid=49584] Waveform build complete frames=288000
+2026-01-08 23:14:26 INFO [MainProcess:63692] [MainThread] stepd.editor.ui: AudioEditorWindow open track_id=0-4 file_path=C:/Users/Seth Zwiebel/Music/Arnie - Primus.mp3
+2026-01-08 23:14:26 [pid=63692] AudioEditorWindow open track_id=0-4 file_path=C:/Users/Seth Zwiebel/Music/Arnie - Primus.mp3
+2026-01-08 23:14:26 INFO [MainProcess:63692] [MainThread] stepd.editor.ui: Waveform build start
+2026-01-08 23:14:26 [pid=63692] Waveform build start
+2026-01-08 23:14:26 INFO [MainProcess:63692] [WaveformBuild] stepd.editor.ui: Waveform build complete: frames=11273472
+2026-01-08 23:14:26 [pid=63692] Waveform build complete frames=11273472
