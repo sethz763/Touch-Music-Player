@@ -441,15 +441,17 @@
             },
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Me Name Jr. Gong.mp3",
+                "custom_text": null,
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 11071280,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "11": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Medication.mp3",
@@ -1065,7 +1067,7 @@
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-dog-barking-twice-1.wav",
                 "custom_text": "DOG BARK",
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 71463,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
@@ -1169,15 +1171,17 @@
             },
             "20": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-little-birds-singing-in-the-trees-17.wav",
+                "custom_text": null,
                 "in_frame": 0,
-                "out_frame": null,
+                "out_frame": 367457,
                 "loop_enabled": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "21": {
                 "file_path": "C:/Users/Seth Zwiebel/OneDrive/Documents/GPI on air light/sfx/mixkit-retro-game-emergency-alarm-1000.wav",

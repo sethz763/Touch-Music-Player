@@ -806,18 +806,36 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
             advance = int(out_frames * playback_speed) * playback_direction
             playhead_next = playhead + advance
 
-            # Out-point enforcement
+            # In/Out-point enforcement (editor region).
+            # When loop is off, stop exactly at the boundary and emit one final Playhead
+            # so the UI shows the precise in/out point.
+            in_frame = int(max(0.0, in_s) * state.target_sample_rate)
+            out_frame: Optional[int] = None
             if out_s is not None:
                 out_frame = int(max(0.0, float(out_s)) * state.target_sample_rate)
-                if (playback_direction == 1 and playhead_next >= out_frame) or (playback_direction == -1 and playhead_next <= 0):
-                    if loop:
-                        in_frame = int(max(0.0, in_s) * state.target_sample_rate)
-                        with state.lock:
-                            state.playhead_frame = in_frame
-                    else:
-                        with state.lock:
-                            state.playing = False
+
+            hit_out = (out_frame is not None) and (playback_direction == 1) and (playhead_next >= int(out_frame))
+            hit_in = (playback_direction == -1) and (playhead_next <= int(in_frame))
+            if hit_out or hit_in:
+                if loop and (out_frame is not None):
+                    # Loop within the in/out region.
+                    with state.lock:
+                        state.playhead_frame = in_frame if hit_out else int(out_frame)
                     return
+
+                # No loop: clamp and stop.
+                with state.lock:
+                    boundary = int(out_frame) if hit_out and out_frame is not None else int(in_frame)
+                    state.playhead_frame = boundary
+                    state.playing = False
+                    # Reset jog state so further jog ticks can restart cleanly.
+                    state.jog_events.clear()
+                    state.jog_playback_speed = 1.0
+                try:
+                    _safe_put(evt_q_local, Playhead(time_s=float(boundary) / float(state.target_sample_rate)))
+                except Exception:
+                    pass
+                return
 
             with state.lock:
                 state.playhead_frame = playhead_next
@@ -1096,11 +1114,31 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                         state.jog_events = [(t, d) for t, d in state.jog_events if t >= cutoff]
                         # Update jog playback speed
                         update_jog_playback_speed(state)
+
+                        # If this is the first jog tick (or the movement is very slow),
+                        # update_jog_playback_speed may leave jog_speed at 1.0, which we use
+                        # as a sentinel for "inactive". In that case, force a small jog speed
+                        # so the very first notch visibly moves the playhead even from Pause.
+                        try:
+                            if float(state.jog_playback_speed) == 1.0 and float(cmd.delta_degrees) != 0.0:
+                                state.jog_playback_speed = 0.25 if float(cmd.delta_degrees) > 0.0 else -0.25
+                        except Exception:
+                            pass
+
                         # Start playing if not already
                         start_stream = not state.playing
                         if start_stream:
                             state.playing = True
                     if start_stream:
+                        # Prevent wallclock fallback from "catching up" using stale refs.
+                        try:
+                            _reset_play_ref(time.monotonic())
+                        except Exception:
+                            pass
+                        try:
+                            last_callback_t = 0.0
+                        except Exception:
+                            pass
                         try:
                             _start_stream_async()
                         except Exception:
@@ -1124,26 +1162,65 @@ def _editor_backend_main(cmd_conn: mp_connection.Connection, evt_conn: mp_connec
                     with state.lock:
                         if state.playing:
                             sr = float(state.target_sample_rate)
-                            expected = int(play_ref_frame + (now - float(play_ref_t)) * sr)
+                            # Respect effective speed + direction, including jog override.
+                            eff_speed = float(getattr(state, "playback_speed", 1.0))
+                            eff_dir = int(getattr(state, "playback_direction", 1))
+                            try:
+                                jog_speed = float(getattr(state, "jog_playback_speed", 1.0))
+                                if jog_speed != 1.0:
+                                    eff_speed = abs(jog_speed)
+                                    eff_dir = 1 if jog_speed >= 0.0 else -1
+                            except Exception:
+                                pass
 
-                            # Out-point enforcement (same semantics as callback).
+                            expected = int(play_ref_frame + (now - float(play_ref_t)) * sr * eff_speed * float(eff_dir))
+
+                            # In/Out-point enforcement (same semantics as callback).
+                            in_frame = int(max(0.0, float(state.in_s)) * sr)
                             out_s = state.out_s
+                            out_frame: Optional[int] = None
                             if out_s is not None:
                                 out_frame = int(max(0.0, float(out_s)) * sr)
-                                if expected >= out_frame:
-                                    if state.loop:
-                                        in_frame = int(max(0.0, float(state.in_s)) * sr)
-                                        state.playhead_frame = in_frame
-                                        play_ref_frame = in_frame
-                                        play_ref_t = now
-                                    else:
-                                        state.playing = False
-                                        expected = int(state.playhead_frame)
 
-                            if state.playing and expected > int(state.playhead_frame):
-                                state.playhead_frame = expected
-            except Exception:
-                pass
+                            hit_out = (out_frame is not None) and (eff_dir >= 0) and (expected >= int(out_frame))
+                            hit_in = (eff_dir < 0) and (expected <= int(in_frame))
+                            if hit_out or hit_in:
+                                if state.loop and (out_frame is not None):
+                                    boundary = in_frame if hit_out else int(out_frame)
+                                    state.playhead_frame = int(boundary)
+                                    play_ref_frame = int(boundary)
+                                    play_ref_t = now
+                                else:
+                                    boundary = int(out_frame) if hit_out and out_frame is not None else int(in_frame)
+                                    state.playhead_frame = int(boundary)
+                                    state.playing = False
+                                    # Reset jog state so further jog ticks can restart cleanly.
+                                    state.jog_events.clear()
+                                    state.jog_playback_speed = 1.0
+                                    expected = int(boundary)
+                                    try:
+                                        _safe_put(evt_q_local, Playhead(time_s=float(boundary) / float(sr)))
+                                    except Exception:
+                                        pass
+                            else:
+                                # If no out-point is set, still clamp to start-of-file for safety.
+                                if expected < 0:
+                                    expected = 0
+
+                            if state.playing:
+                                cur = int(state.playhead_frame)
+                                if eff_dir >= 0:
+                                    if expected > cur:
+                                        state.playhead_frame = expected
+                                else:
+                                    if expected < cur:
+                                        state.playhead_frame = expected
+            except Exception as e:
+                try:
+                    if os.environ.get("STEPD_EDITOR_DEBUG", "0") == "1":
+                        logger.debug("Wallclock fallback failed: %s: %s", type(e).__name__, e)
+                except Exception:
+                    pass
 
             try:
                 with state.lock:
