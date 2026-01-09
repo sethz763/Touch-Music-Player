@@ -11,3 +11,24 @@
 2026-01-08 23:14:26 [pid=63692] Waveform build start
 2026-01-08 23:14:26 INFO [MainProcess:63692] [WaveformBuild] stepd.editor.ui: Waveform build complete: frames=11273472
 2026-01-08 23:14:26 [pid=63692] Waveform build complete frames=11273472
+2026-01-09 13:03:36 INFO [MainProcess:63440] [MainThread] stepd.editor.ui: AudioEditorWindow open track_id=1-11 file_path=C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3
+2026-01-09 13:03:36 [pid=63440] AudioEditorWindow open track_id=1-11 file_path=C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3
+2026-01-09 13:03:36 INFO [MainProcess:63440] [MainThread] stepd.editor.ui: Waveform build start
+2026-01-09 13:03:36 [pid=63440] Waveform build start
+2026-01-09 13:03:37 INFO [MainProcess:63440] [WaveformBuild] stepd.editor.ui: Waveform viewport-fill refresh: samples_decoded=13427712 target=22900 scale=50 scroll=0 width=426
+2026-01-09 13:03:41 INFO [MainProcess:63440] [WaveformBuild] stepd.editor.ui: Waveform build complete: frames=49160448
+2026-01-09 13:03:41 [pid=63440] Waveform build complete frames=49160448
+2026-01-09 13:05:39 INFO [MainProcess:63440] [MainThread] stepd.editor.ui: AudioEditorWindow open track_id=1-11 file_path=C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3
+2026-01-09 13:05:39 [pid=63440] AudioEditorWindow open track_id=1-11 file_path=C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3
+2026-01-09 13:05:39 INFO [MainProcess:63440] [MainThread] stepd.editor.ui: Waveform build start
+2026-01-09 13:05:39 [pid=63440] Waveform build start
+2026-01-09 13:05:41 INFO [MainProcess:63440] [WaveformBuild] stepd.editor.ui: Waveform viewport-fill refresh: samples_decoded=7572096 target=22900 scale=50 scroll=0 width=426
+2026-01-09 13:05:48 INFO [MainProcess:63440] [WaveformBuild] stepd.editor.ui: Waveform build complete: frames=49160448
+2026-01-09 13:05:48 [pid=63440] Waveform build complete frames=49160448
+2026-01-09 13:06:36 INFO [MainProcess:63440] [MainThread] stepd.editor.ui: AudioEditorWindow open track_id=1-11 file_path=C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3
+2026-01-09 13:06:36 [pid=63440] AudioEditorWindow open track_id=1-11 file_path=C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3
+2026-01-09 13:06:36 INFO [MainProcess:63440] [MainThread] stepd.editor.ui: Waveform build start
+2026-01-09 13:06:36 [pid=63440] Waveform build start
+2026-01-09 13:06:37 INFO [MainProcess:63440] [WaveformBuild] stepd.editor.ui: Waveform viewport-fill refresh: samples_decoded=3612672 target=22900 scale=50 scroll=0 width=426
+2026-01-09 13:06:47 INFO [MainProcess:63440] [WaveformBuild] stepd.editor.ui: Waveform build complete: frames=49160448
+2026-01-09 13:06:47 [pid=63440] Waveform build complete frames=49160448

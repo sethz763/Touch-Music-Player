@@ -21,6 +21,7 @@ from ui.widgets.bank_selector_widget import BankSelectorWidget
 from ui.widgets.AudioLevelMeterHorizontal_LR import AudioLevelMeterHorizontal
 from ui.widgets.PlayControls import PlayControls
 from engine.audio_service import audio_service_main, AudioServiceConfig
+from engine.commands import StopCueCommand
 from gui.engine_adapter import EngineAdapter
 
 from log.cue_logger import CueLogger
@@ -713,15 +714,6 @@ class MainWindow(QMainWindow):
         is_press = str(getattr(ev, 'action', '')) == 'press'
         is_release = str(getattr(ev, 'action', '')) == 'release'
 
-        # Robust: allow clearing fade even if the release combo doesn't match the binding.
-        try:
-            if is_release and self._fade_modifier_active and self._fade_modifier_combo_down is not None:
-                if int(key_val) == int(self._fade_modifier_combo_down) or int(key_val_stripped) == int(self._fade_modifier_combo_down):
-                    self._set_fade_modifier_active(False)
-                    return
-        except Exception:
-            pass
-
         # Lookup: prefer exact match; fall back to stripping KeypadModifier for
         # backward compatibility with older saved bindings.
         action = self._keyboard_shortcuts.get(int(key_val))
@@ -729,32 +721,6 @@ class MainWindow(QMainWindow):
             action = self._keyboard_shortcuts.get(int(key_val_stripped))
         if not action:
             return
-
-        # Special: Fade is a hold modifier (press=enable, release=disable).
-        if str(action).strip().lower() == 'trigger fade':
-            if is_press:
-                try:
-                    self._fade_modifier_key_down = int(qt_key)
-                except Exception:
-                    self._fade_modifier_key_down = None
-                try:
-                    self._fade_modifier_combo_down = int(key_val)
-                except Exception:
-                    self._fade_modifier_combo_down = None
-                self._set_fade_modifier_active(True)
-                return
-            if is_release:
-                self._set_fade_modifier_active(False)
-                return
-
-        # Allow clearing the fade modifier even if modifier state changed at key release.
-        try:
-            if is_release and self._fade_modifier_active:
-                if self._fade_modifier_key_down is not None and int(qt_key) == int(self._fade_modifier_key_down):
-                    self._set_fade_modifier_active(False)
-                    return
-        except Exception:
-            pass
 
         # All other actions: only fire on key press.
         if not is_press:
@@ -867,14 +833,6 @@ class MainWindow(QMainWindow):
             pass
 
         # Allow clearing the fade modifier even if modifier state changed at key release.
-        try:
-            if event.type() == QEvent.KeyRelease and self._fade_modifier_active:
-                if self._fade_modifier_key_down is not None and int(self._resolve_key_int(event)) == int(self._fade_modifier_key_down):
-                    self._set_fade_modifier_active(False)
-                    return True
-        except Exception:
-            pass
-
         action = self._keyboard_shortcuts.get(int(key_val))
         if not action:
             try:
@@ -883,19 +841,6 @@ class MainWindow(QMainWindow):
             except Exception:
                 pass
             return False
-
-        # Special: Fade is a hold modifier (press=enable, release=disable).
-        if str(action).strip().lower() == "trigger fade":
-            if event.type() == QEvent.Type.KeyPress:
-                try:
-                    self._fade_modifier_key_down = int(self._resolve_key_int(event))
-                except Exception:
-                    self._fade_modifier_key_down = None
-                self._set_fade_modifier_active(True)
-                return True
-            if event.type() == QEvent.Type.KeyRelease:
-                self._set_fade_modifier_active(False)
-                return True
 
         # All other actions: only fire on key press.
         if event.type() != QEvent.Type.KeyPress:
@@ -1317,8 +1262,7 @@ class MainWindow(QMainWindow):
         """Create QShortcut objects for configured bindings.
 
         This acts as a robust fallback when QApplication-level event filtering is unreliable.
-        We intentionally skip the "Trigger fade" action here because it needs key-release
-        handling (hold modifier semantics).
+        All actions fire on activation (key press).
         """
         try:
             for sc in list(self._qshortcuts or []):
@@ -1336,12 +1280,6 @@ class MainWindow(QMainWindow):
 
         created = 0
         for key_val, action in (self._keyboard_shortcuts or {}).items():
-            try:
-                if str(action).strip().lower() == 'trigger fade':
-                    continue
-            except Exception:
-                continue
-
             try:
                 seq = QKeySequence(int(key_val))
             except Exception:
@@ -1442,8 +1380,8 @@ class MainWindow(QMainWindow):
                 return False
 
         # Trigger fade: fade out the most recently started cue in the visible bank.
-        if action.strip().lower() == "trigger fade":
-            return self._trigger_fade_for_visible_bank()
+        if action.strip().lower() in {"trigger fade", "fade all active cues"}:
+            return self._fade_all_active_cues_batch()
 
         # Transport controls (engine-level).
         if action == "Transport Play":
@@ -1476,6 +1414,82 @@ class MainWindow(QMainWindow):
                 return False
 
         return False
+
+    def _fade_all_active_cues_batch(self) -> bool:
+        """Fade out (stop with fade) all active cues across all banks.
+
+        This is intended for a simple one-shot shortcut / StreamDeck macro:
+        one press fades everything currently playing.
+        """
+        try:
+            bank_widgets = list(getattr(self.bank, "_bank_widgets", []) or [])
+        except Exception:
+            bank_widgets = []
+
+        if not bank_widgets:
+            # Fallback: at least try the visible bank.
+            try:
+                bank_widgets = [self.bank.current_bank()]
+            except Exception:
+                bank_widgets = []
+
+        stop_cmds = []
+        seen_cues: set[str] = set()
+
+        for bank_widget in bank_widgets:
+            try:
+                buttons = list(getattr(bank_widget, "buttons", []) or [])
+            except Exception:
+                buttons = []
+
+            for btn in buttons:
+                try:
+                    cue_ids = list(getattr(btn, "_active_cue_ids", []) or [])
+                except Exception:
+                    cue_ids = []
+                if not cue_ids:
+                    continue
+
+                try:
+                    fade_out_ms = int(getattr(btn, "fade_out_ms", 0) or 0)
+                except Exception:
+                    fade_out_ms = 0
+
+                for cue_id in cue_ids:
+                    try:
+                        cue_id_str = str(cue_id)
+                    except Exception:
+                        continue
+                    if not cue_id_str or cue_id_str in seen_cues:
+                        continue
+                    seen_cues.add(cue_id_str)
+                    try:
+                        stop_cmds.append(StopCueCommand(cue_id=cue_id_str, fade_out_ms=fade_out_ms))
+                    except Exception:
+                        continue
+
+        if not stop_cmds:
+            return False
+
+        # Prefer batching into one queue put when supported.
+        try:
+            batch_fn = getattr(self.engine_adapter, "batch_commands", None)
+            if callable(batch_fn):
+                batch_fn(stop_cmds)
+            else:
+                for cmd in stop_cmds:
+                    try:
+                        self.engine_adapter.stop_cue(cmd.cue_id, int(getattr(cmd, "fade_out_ms", 0) or 0))
+                    except Exception:
+                        continue
+        except Exception:
+            return False
+
+        try:
+            self.status.setText(f"Fading {len(stop_cmds)} cue(s)")
+        except Exception:
+            pass
+        return True
 
     def _trigger_fade_for_visible_bank(self) -> bool:
         """Best-effort: fade out the last-started button in the visible bank."""

@@ -94,45 +94,48 @@
             },
             "6": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Bodysnatchers - Radiohead.mp3",
-                "custom_text": null,
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
+                "background_asset_path": null
             },
             "7": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
-                "custom_text": "25",
+                "custom_text": "MUSIC",
                 "in_frame": 18538,
                 "out_frame": 8284032,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
+                "background_asset_path": null
             },
             "8": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
-                "custom_text": "25",
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
+                "background_asset_path": null
             },
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Easy Rider.mp3",
@@ -196,45 +199,48 @@
             },
             "14": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Faust Arp - Radiohead.mp3",
-                "custom_text": null,
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\dollars.png"
+                "background_asset_path": null
             },
             "15": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
-                "custom_text": "25",
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
+                "background_asset_path": null
             },
             "16": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Coddingtown - Primus.mp3",
-                "custom_text": "25",
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\STAR.png"
+                "background_asset_path": null
             },
             "17": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Float Into The Sky - Cage The Elephant.mp3",
@@ -313,43 +319,48 @@
             },
             "22": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/HiFi (True Light) - Cage The Elephant.mp3",
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "23": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/House Of Cards - Radiohead.mp3",
-                "custom_text": null,
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": true,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
+                "background_asset_path": null
             },
             "24": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/How to Disappear Completely - Radiohead.mp3",
-                "custom_text": null,
+                "custom_text": "MUSIC",
                 "in_frame": 0,
                 "out_frame": null,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
                 "text_color": null,
-                "background_asset_path": "C:\\Users\\Seth Zwiebel\\OneDrive\\Documents\\step_d_audio_fix\\assets\\button_images\\x.png"
+                "background_asset_path": null
             }
         },
         "1": {
@@ -476,16 +487,19 @@
                 "background_asset_path": null
             },
             "11": {
-                "file_path": "C:/Users/Seth Zwiebel/Music/Medication.mp3",
-                "in_frame": 0,
-                "out_frame": null,
+                "file_path": "C:/Users/Seth Zwiebel/Music/In-A-Gadda-Da-Vida (2006 Remaster Full-Length) - Iron Butterfly.mp3",
+                "custom_text": null,
+                "in_frame": 31420766,
+                "out_frame": 49160448,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,
                 "fade_out_ms": 500,
                 "bg_color": "#808080",
-                "text_color": null
+                "text_color": null,
+                "background_asset_path": null
             },
             "12": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Metaverse - Cage The Elephant.mp3",

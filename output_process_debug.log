@@ -1,38 +1,1437 @@
-[1767979764.874] Opened output stream device=None sr=48000 ch=2 block=2048
-[1767979764.874] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice
-[1767979764.874] OutputSetDevice received: 15
-[1767979765.737] Opened output stream device=15 sr=48000 ch=2 block=2048
-[1767979765.738] [PA-STATUS] output underflow
-[1767979765.738] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig
-[1767979765.738] OutputSetConfig received: sr=48000 ch=2 block=2048
-[1767979766.709] Opened output stream device=15 sr=48000 ch=2 block=2048
-[1767979766.709] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=1/0 finished=0/0
-[1767979767.218] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767979767.721] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979768.226] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979768.731] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979769.240] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767979769.742] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979770.247] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979770.752] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979771.261] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979771.765] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979772.273] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767979772.778] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979773.284] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979773.788] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979774.291] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979774.794] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979775.301] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767979775.805] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979776.309] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979776.813] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979777.314] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979777.818] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979778.321] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979778.822] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979779.328] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979779.836] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767979780.336] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979780.842] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767979781.115] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=9/0 finished=0/0
+[1767987060.585] Opened output stream device=None sr=48000 ch=2 block=2048
+[1767987060.593] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice
+[1767987060.593] OutputSetDevice received: 15
+[1767987061.452] Opened output stream device=15 sr=48000 ch=2 block=2048
+[1767987061.452] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig
+[1767987061.453] OutputSetConfig received: sr=48000 ch=2 block=2048
+[1767987062.208] Opened output stream device=15 sr=48000 ch=2 block=2048
+[1767987062.208] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987062.208] [START-CUE] cue=4e8fd8e3 is_new=True fade_in=61
+[1767987062.218] [START-CUE-BUFFER] cue=4e8fd8e3 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987062.239] [PA-STATUS] output underflow
+[1767987062.273] [DRAIN-ACTIVATE] cue=4e8fd8e3 first PCM, gain=-120.0
+[1767987062.273] [DRAIN-FADE-IN] cue=4e8fd8e3 fade_in=2928fr
+[1767987062.273] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987062.273] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=131072 eof=False ring.eof=False
+[1767987062.286] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987062.286] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=262144 eof=False ring.eof=False
+[1767987062.299] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987062.299] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=393216 eof=False ring.eof=False
+[1767987062.300] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987062.300] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=524288 eof=False ring.eof=False
+[1767987062.309] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987062.309] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=653312 eof=False ring.eof=False
+[1767987062.709] [OUTPUT-PROBE] status=1/0 levels=14/0 times=14/0 master=16/0 finished=0/0
+[1767987063.218] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987063.724] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987064.233] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987064.744] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987065.253] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987065.763] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987066.271] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987066.774] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987067.279] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987067.779] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987068.287] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987068.789] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987069.291] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987069.798] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987070.305] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987070.808] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987071.313] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987071.816] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987071.905] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987071.905] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=323584 eof=False ring.eof=False
+[1767987071.906] [DECODE-HB] cue=4e8fd8e3 wid=0 frames=131072 ring_frames=323584 decode_work_ms=16.00000006146729 total_ms=14.999999897554517 engine_hold_ms=14.999999897554517 decode_to_engine_ms=14.999999897554517 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=9594.000000040978 expected_gap_ms=4096.0
+[1767987071.907] [DECODE-CHUNK] cue=4e8fd8e3 received 67584 frames, eof=False
+[1767987071.907] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=67584 total=391168 eof=False ring.eof=False
+[1767987072.324] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987072.831] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987073.343] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987073.843] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987074.352] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987074.853] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987075.354] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987075.855] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987076.032] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987076.032] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=325632 eof=False ring.eof=False
+[1767987076.032] [DECODE-CHUNK] cue=4e8fd8e3 received 67584 frames, eof=False
+[1767987076.032] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=67584 total=393216 eof=False ring.eof=False
+[1767987076.357] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987076.868] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987077.375] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987077.882] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987078.384] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987078.894] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987079.403] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987079.905] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987080.186] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987080.186] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=323584 eof=False ring.eof=False
+[1767987080.199] [DECODE-CHUNK] cue=4e8fd8e3 received 67584 frames, eof=False
+[1767987080.199] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=67584 total=391168 eof=False ring.eof=False
+[1767987080.412] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987080.920] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987081.421] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987081.928] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987082.438] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987082.938] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987083.441] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987083.948] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987084.305] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987084.305] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=325632 eof=False ring.eof=False
+[1767987084.306] [DECODE-CHUNK] cue=4e8fd8e3 received 67584 frames, eof=False
+[1767987084.306] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=67584 total=393216 eof=False ring.eof=False
+[1767987084.458] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987084.963] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987085.465] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987085.967] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987086.471] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987086.980] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987087.486] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987087.993] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987088.456] [DECODE-CHUNK] cue=4e8fd8e3 received 131072 frames, eof=False
+[1767987088.456] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=131072 total=325632 eof=False ring.eof=False
+[1767987088.468] [DECODE-CHUNK] cue=4e8fd8e3 received 67584 frames, eof=False
+[1767987088.470] [DRAIN-PCM-PUSH] cue=4e8fd8e3 frames=67584 total=391168 eof=False ring.eof=False
+[1767987088.502] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987089.004] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987089.513] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987089.740] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987089.740] [OUTPUT-FADE-START] cue=4e8fd8e3 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=329728
+[1767987089.740] [OUTPUT-FADE-CREATED] cue=4e8fd8e3 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987089.773] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987089.773] [OUTPUT-FADE-START] cue=4e8fd8e3 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=329728
+[1767987089.773] [OUTPUT-FADE-CREATED] cue=4e8fd8e3 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987089.788] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987089.788] [OUTPUT-FADE-START] cue=4e8fd8e3 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=327680
+[1767987089.788] [OUTPUT-FADE-CREATED] cue=4e8fd8e3 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987089.814] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987089.814] [OUTPUT-FADE-START] cue=4e8fd8e3 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=327680
+[1767987089.814] [OUTPUT-FADE-CREATED] cue=4e8fd8e3 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987089.823] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987089.823] [OUTPUT-FADE-START] cue=4e8fd8e3 target_db=-120.0 duration_ms=500 current_gain=0.8366913350694445 eof=0 ring_frames=325632
+[1767987089.823] [OUTPUT-FADE-CREATED] cue=4e8fd8e3 cur=0.8366913350694445 target=0.0 frames=24000 curve=linear
+[1767987089.835] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987089.835] [OUTPUT-FADE-START] cue=4e8fd8e3 target_db=-120.0 duration_ms=500 current_gain=0.8366913350694445 eof=0 ring_frames=325632
+[1767987089.835] [OUTPUT-FADE-CREATED] cue=4e8fd8e3 cur=0.8366913350694445 target=0.0 frames=24000 curve=linear
+[1767987090.017] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987090.338] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987090.338] [STOP-CUE] cue=4e8fd8e3 BEFORE: eof=False frames=303104 finished_pending=False
+[1767987090.338] [STOP-CUE] cue=4e8fd8e3 fade_out_ms=10 truncated_frames=480
+[1767987090.360] [FINISHED] cue=4e8fd8e3 removal_reason=output_stop
+[1767987090.521] [OUTPUT-PROBE] status=0/0 levels=12/0 times=12/0 master=17/0 finished=1/0
+[1767987091.029] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987091.536] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987092.046] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987092.190] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987092.190] [START-CUE] cue=c00c5a80 is_new=True fade_in=61
+[1767987092.190] [START-CUE-BUFFER] cue=c00c5a80 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987092.298] [DRAIN-ACTIVATE] cue=c00c5a80 first PCM, gain=-120.0
+[1767987092.298] [DRAIN-FADE-IN] cue=c00c5a80 fade_in=2928fr
+[1767987092.298] [DECODE-CHUNK] cue=c00c5a80 received 131072 frames, eof=False
+[1767987092.298] [DRAIN-PCM-PUSH] cue=c00c5a80 frames=131072 total=131072 eof=False ring.eof=False
+[1767987092.298] [DECODE-HB] cue=c00c5a80 wid=1 frames=131072 ring_frames=131072 decode_work_ms=62.99999984912574 total_ms=0.0 engine_hold_ms=0.0 decode_to_engine_ms=0.0 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=NA expected_gap_ms=4096.0
+[1767987092.311] [DECODE-CHUNK] cue=c00c5a80 received 131072 frames, eof=False
+[1767987092.311] [DRAIN-PCM-PUSH] cue=c00c5a80 frames=131072 total=260096 eof=False ring.eof=False
+[1767987092.324] [DECODE-CHUNK] cue=c00c5a80 received 131072 frames, eof=False
+[1767987092.324] [DRAIN-PCM-PUSH] cue=c00c5a80 frames=131072 total=391168 eof=False ring.eof=False
+[1767987092.335] [DECODE-CHUNK] cue=c00c5a80 received 131072 frames, eof=False
+[1767987092.335] [DRAIN-PCM-PUSH] cue=c00c5a80 frames=131072 total=522240 eof=False ring.eof=False
+[1767987092.348] [DECODE-CHUNK] cue=c00c5a80 received 131072 frames, eof=False
+[1767987092.348] [DRAIN-PCM-PUSH] cue=c00c5a80 frames=131072 total=653312 eof=False ring.eof=False
+[1767987092.550] [OUTPUT-PROBE] status=0/0 levels=9/0 times=9/0 master=17/0 finished=0/0
+[1767987093.056] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987093.566] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987093.694] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987093.694] [OUTPUT-FADE-START] cue=c00c5a80 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=587776
+[1767987093.694] [OUTPUT-FADE-CREATED] cue=c00c5a80 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987093.705] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987093.705] [OUTPUT-FADE-START] cue=c00c5a80 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=587776
+[1767987093.705] [OUTPUT-FADE-CREATED] cue=c00c5a80 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987093.717] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987093.717] [OUTPUT-FADE-START] cue=c00c5a80 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=585728
+[1767987093.717] [OUTPUT-FADE-CREATED] cue=c00c5a80 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987093.730] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987093.730] [OUTPUT-FADE-START] cue=c00c5a80 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=585728
+[1767987093.730] [OUTPUT-FADE-CREATED] cue=c00c5a80 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987093.743] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987093.743] [OUTPUT-FADE-START] cue=c00c5a80 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=585728
+[1767987093.743] [OUTPUT-FADE-CREATED] cue=c00c5a80 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987093.770] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987093.770] [OUTPUT-FADE-START] cue=c00c5a80 target_db=-120.0 duration_ms=500 current_gain=0.8366913350694445 eof=0 ring_frames=583680
+[1767987093.770] [OUTPUT-FADE-CREATED] cue=c00c5a80 cur=0.8366913350694445 target=0.0 frames=24000 curve=linear
+[1767987094.074] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987094.266] [FINISHED] cue=c00c5a80 removal_reason=eof_natural
+[1767987094.576] [OUTPUT-PROBE] status=0/0 levels=7/0 times=7/0 master=16/0 finished=1/0
+[1767987095.083] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987095.589] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987096.095] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987096.602] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987097.108] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987097.610] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987098.115] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987098.622] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987099.128] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987099.633] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987100.136] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987100.642] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987101.146] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987101.653] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987102.161] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987102.665] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987103.170] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987103.678] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987104.185] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987104.691] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987105.197] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987105.699] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987106.202] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987106.710] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987107.219] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987107.726] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987108.233] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987108.734] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987109.243] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987109.441] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987109.441] [START-CUE] cue=f678dd49 is_new=True fade_in=61
+[1767987109.443] [START-CUE-BUFFER] cue=f678dd49 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987109.526] [DRAIN-ACTIVATE] cue=f678dd49 first PCM, gain=-120.0
+[1767987109.527] [DRAIN-FADE-IN] cue=f678dd49 fade_in=2928fr
+[1767987109.527] [DECODE-CHUNK] cue=f678dd49 received 131072 frames, eof=False
+[1767987109.527] [DRAIN-PCM-PUSH] cue=f678dd49 frames=131072 total=131072 eof=False ring.eof=False
+[1767987109.538] [DECODE-CHUNK] cue=f678dd49 received 131072 frames, eof=False
+[1767987109.538] [DRAIN-PCM-PUSH] cue=f678dd49 frames=131072 total=262144 eof=False ring.eof=False
+[1767987109.549] [DECODE-CHUNK] cue=f678dd49 received 131072 frames, eof=False
+[1767987109.550] [DRAIN-PCM-PUSH] cue=f678dd49 frames=131072 total=391168 eof=False ring.eof=False
+[1767987109.561] [DECODE-CHUNK] cue=f678dd49 received 131072 frames, eof=False
+[1767987109.561] [DRAIN-PCM-PUSH] cue=f678dd49 frames=131072 total=522240 eof=False ring.eof=False
+[1767987109.572] [DECODE-CHUNK] cue=f678dd49 received 131072 frames, eof=False
+[1767987109.572] [DRAIN-PCM-PUSH] cue=f678dd49 frames=131072 total=653312 eof=False ring.eof=False
+[1767987109.745] [OUTPUT-PROBE] status=0/0 levels=7/0 times=7/0 master=16/0 finished=0/0
+[1767987110.236] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987110.236] [START-CUE] cue=c5664d6e is_new=True fade_in=61
+[1767987110.236] [START-CUE-BUFFER] cue=c5664d6e BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987110.246] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987110.331] [DRAIN-ACTIVATE] cue=c5664d6e first PCM, gain=-120.0
+[1767987110.333] [DRAIN-FADE-IN] cue=c5664d6e fade_in=2928fr
+[1767987110.333] [DECODE-CHUNK] cue=c5664d6e received 131072 frames, eof=False
+[1767987110.333] [DRAIN-PCM-PUSH] cue=c5664d6e frames=131072 total=131072 eof=False ring.eof=False
+[1767987110.333] [DECODE-HB] cue=c5664d6e wid=3 frames=131072 ring_frames=131072 decode_work_ms=77.9999999795109 total_ms=16.00000006146729 engine_hold_ms=0.0 decode_to_engine_ms=0.0 engine_internal_ms=0.0 engine_to_output_ms=16.00000006146729 produced_gap_ms=NA expected_gap_ms=4096.0
+[1767987110.333] [DECODE-CHUNK] cue=c5664d6e received 66911 frames, eof=False
+[1767987110.333] [DRAIN-PCM-PUSH] cue=c5664d6e frames=66911 total=197983 eof=False ring.eof=False
+[1767987110.355] [DECODE-CHUNK] cue=c5664d6e received 131072 frames, eof=False
+[1767987110.355] [DRAIN-PCM-PUSH] cue=c5664d6e frames=131072 total=329055 eof=False ring.eof=False
+[1767987110.356] [DECODE-CHUNK] cue=c5664d6e received 64161 frames, eof=False
+[1767987110.356] [DRAIN-PCM-PUSH] cue=c5664d6e frames=64161 total=393216 eof=False ring.eof=False
+[1767987110.664] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987110.664] [START-CUE] cue=e29f8e6c is_new=True fade_in=61
+[1767987110.665] [START-CUE-BUFFER] cue=e29f8e6c BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987110.749] [DRAIN-ACTIVATE] cue=e29f8e6c first PCM, gain=-120.0
+[1767987110.749] [DRAIN-FADE-IN] cue=e29f8e6c fade_in=2928fr
+[1767987110.749] [DECODE-CHUNK] cue=e29f8e6c received 71463 frames, eof=True
+[1767987110.749] [DRAIN-PCM-PUSH] cue=e29f8e6c frames=71463 total=71463 eof=True ring.eof=True
+[1767987110.750] [DECODE-HB] cue=e29f8e6c wid=4 frames=71463 ring_frames=71463 decode_work_ms=62.99999984912574 total_ms=0.0 engine_hold_ms=0.0 decode_to_engine_ms=0.0 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=NA expected_gap_ms=4096.0
+[1767987110.750] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987110.995] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987110.996] [START-CUE] cue=32fecc3a is_new=True fade_in=61
+[1767987110.996] [START-CUE-BUFFER] cue=32fecc3a BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987111.093] [DRAIN-ACTIVATE] cue=32fecc3a first PCM, gain=-120.0
+[1767987111.093] [DRAIN-FADE-IN] cue=32fecc3a fade_in=2928fr
+[1767987111.093] [DECODE-CHUNK] cue=32fecc3a received 131072 frames, eof=False
+[1767987111.093] [DRAIN-PCM-PUSH] cue=32fecc3a frames=131072 total=131072 eof=False ring.eof=False
+[1767987111.093] [DECODE-HB] cue=32fecc3a wid=5 frames=131072 ring_frames=131072 decode_work_ms=61.99999991804361 total_ms=16.00000006146729 engine_hold_ms=16.00000006146729 decode_to_engine_ms=16.00000006146729 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=NA expected_gap_ms=4096.0
+[1767987111.104] [DECODE-CHUNK] cue=32fecc3a received 96787 frames, eof=True
+[1767987111.104] [DRAIN-PCM-PUSH] cue=32fecc3a frames=96787 total=227859 eof=True ring.eof=True
+[1767987111.253] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987111.418] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987111.418] [START-CUE] cue=856bebc9 is_new=True fade_in=61
+[1767987111.418] [START-CUE-BUFFER] cue=856bebc9 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987111.491] [DRAIN-ACTIVATE] cue=856bebc9 first PCM, gain=-120.0
+[1767987111.491] [DRAIN-FADE-IN] cue=856bebc9 fade_in=2928fr
+[1767987111.491] [DECODE-CHUNK] cue=856bebc9 received 79983 frames, eof=True
+[1767987111.492] [DRAIN-PCM-PUSH] cue=856bebc9 frames=79983 total=79983 eof=True ring.eof=True
+[1767987111.753] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987111.796] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987111.796] [START-CUE] cue=7ea21c8b is_new=True fade_in=61
+[1767987111.796] [START-CUE-BUFFER] cue=7ea21c8b BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987111.839] [DRAIN-ACTIVATE] cue=7ea21c8b first PCM, gain=-120.0
+[1767987111.839] [DRAIN-FADE-IN] cue=7ea21c8b fade_in=2928fr
+[1767987111.839] [DECODE-CHUNK] cue=7ea21c8b received 61171 frames, eof=True
+[1767987111.839] [DRAIN-PCM-PUSH] cue=7ea21c8b frames=61171 total=61171 eof=True ring.eof=True
+[1767987112.261] [STARVATION] cue=e29f8e6c underflows=0 missing_total=0 last_missing=0 partials=1 padded_total=217 last_padded=217 step_to_zero=0.0000 loop_jumps=0 last_loop_jump=0.0000 max_loop_jump=0.0000 ring_frames=0 eof=True hb{wid=4 decode_work_ms=62.99999984912574 total_ms=0.0 engine_hold_ms=0.0 decode_to_engine_ms=0.0 engine_internal_ms=0.0 engine_to_output_ms=0.0}
+[1767987112.261] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987112.272] [FINISHED] cue=e29f8e6c removal_reason=eof_natural
+[1767987112.768] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=1/0
+[1767987113.127] [FINISHED] cue=7ea21c8b removal_reason=eof_natural
+[1767987113.213] [FINISHED] cue=856bebc9 removal_reason=eof_natural
+[1767987113.278] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=2/0
+[1767987113.782] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987113.783] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.783] [OUTPUT-FADE-START] cue=f678dd49 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=450560
+[1767987113.783] [OUTPUT-FADE-CREATED] cue=f678dd49 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.786] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.786] [OUTPUT-FADE-START] cue=c5664d6e target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=227328
+[1767987113.786] [OUTPUT-FADE-CREATED] cue=c5664d6e cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.786] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.786] [OUTPUT-FADE-START] cue=32fecc3a target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=98835
+[1767987113.786] [OUTPUT-FADE-CREATED] cue=32fecc3a cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.787] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.788] [OUTPUT-FADE-START] cue=f678dd49 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=450560
+[1767987113.788] [OUTPUT-FADE-CREATED] cue=f678dd49 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.788] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.788] [OUTPUT-FADE-START] cue=c5664d6e target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=227328
+[1767987113.788] [OUTPUT-FADE-CREATED] cue=c5664d6e cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.789] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.789] [OUTPUT-FADE-START] cue=32fecc3a target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=98835
+[1767987113.789] [OUTPUT-FADE-CREATED] cue=32fecc3a cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.789] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.789] [OUTPUT-FADE-START] cue=f678dd49 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=450560
+[1767987113.790] [OUTPUT-FADE-CREATED] cue=f678dd49 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.790] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.791] [OUTPUT-FADE-START] cue=c5664d6e target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=227328
+[1767987113.791] [OUTPUT-FADE-CREATED] cue=c5664d6e cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.791] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.791] [OUTPUT-FADE-START] cue=32fecc3a target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=98835
+[1767987113.791] [OUTPUT-FADE-CREATED] cue=32fecc3a cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.792] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.792] [OUTPUT-FADE-START] cue=f678dd49 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=450560
+[1767987113.792] [OUTPUT-FADE-CREATED] cue=f678dd49 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.794] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.794] [OUTPUT-FADE-START] cue=c5664d6e target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=227328
+[1767987113.794] [OUTPUT-FADE-CREATED] cue=c5664d6e cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.794] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.795] [OUTPUT-FADE-START] cue=32fecc3a target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=98835
+[1767987113.795] [OUTPUT-FADE-CREATED] cue=32fecc3a cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.796] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.797] [OUTPUT-FADE-START] cue=f678dd49 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=450560
+[1767987113.797] [OUTPUT-FADE-CREATED] cue=f678dd49 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.797] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.797] [OUTPUT-FADE-START] cue=c5664d6e target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=227328
+[1767987113.797] [OUTPUT-FADE-CREATED] cue=c5664d6e cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.797] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.797] [OUTPUT-FADE-START] cue=32fecc3a target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=98835
+[1767987113.797] [OUTPUT-FADE-CREATED] cue=32fecc3a cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.798] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.798] [OUTPUT-FADE-START] cue=f678dd49 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=450560
+[1767987113.798] [OUTPUT-FADE-CREATED] cue=f678dd49 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.802] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.803] [OUTPUT-FADE-START] cue=c5664d6e target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=227328
+[1767987113.803] [OUTPUT-FADE-CREATED] cue=c5664d6e cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987113.803] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987113.803] [OUTPUT-FADE-START] cue=32fecc3a target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=98835
+[1767987113.804] [OUTPUT-FADE-CREATED] cue=32fecc3a cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987114.284] [FINISHED] cue=f678dd49 removal_reason=eof_natural
+[1767987114.285] [FINISHED] cue=c5664d6e removal_reason=eof_natural
+[1767987114.285] [FINISHED] cue=32fecc3a removal_reason=eof_natural
+[1767987114.286] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=3/0
+[1767987114.791] [OUTPUT-PROBE] status=0/0 levels=1/0 times=1/0 master=16/0 finished=0/0
+[1767987115.291] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987115.802] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987116.303] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987116.803] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987117.310] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987117.481] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987117.481] [START-CUE] cue=91c7afcf is_new=True fade_in=61
+[1767987117.482] [START-CUE-BUFFER] cue=91c7afcf BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987117.527] [DRAIN-ACTIVATE] cue=91c7afcf first PCM, gain=-120.0
+[1767987117.527] [DRAIN-FADE-IN] cue=91c7afcf fade_in=2928fr
+[1767987117.528] [DECODE-CHUNK] cue=91c7afcf received 131072 frames, eof=False
+[1767987117.528] [DRAIN-PCM-PUSH] cue=91c7afcf frames=131072 total=131072 eof=False ring.eof=False
+[1767987117.549] [DECODE-CHUNK] cue=91c7afcf received 131072 frames, eof=False
+[1767987117.551] [DRAIN-PCM-PUSH] cue=91c7afcf frames=131072 total=262144 eof=False ring.eof=False
+[1767987117.563] [DECODE-CHUNK] cue=91c7afcf received 131072 frames, eof=False
+[1767987117.565] [DRAIN-PCM-PUSH] cue=91c7afcf frames=131072 total=393216 eof=False ring.eof=False
+[1767987117.604] [DECODE-CHUNK] cue=91c7afcf received 131072 frames, eof=False
+[1767987117.604] [DRAIN-PCM-PUSH] cue=91c7afcf frames=131072 total=651264 eof=False ring.eof=False
+[1767987117.810] [OUTPUT-PROBE] status=0/0 levels=8/0 times=8/0 master=16/0 finished=0/0
+[1767987118.313] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987118.639] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987118.639] [START-CUE] cue=f5e8af02 is_new=True fade_in=61
+[1767987118.640] [START-CUE-BUFFER] cue=f5e8af02 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987118.710] [DRAIN-ACTIVATE] cue=f5e8af02 first PCM, gain=-120.0
+[1767987118.711] [DRAIN-FADE-IN] cue=f5e8af02 fade_in=2928fr
+[1767987118.711] [DECODE-CHUNK] cue=f5e8af02 received 131072 frames, eof=False
+[1767987118.711] [DRAIN-PCM-PUSH] cue=f5e8af02 frames=131072 total=131072 eof=False ring.eof=False
+[1767987118.718] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987118.719] [START-CUE] cue=f1bfda40 is_new=True fade_in=61
+[1767987118.719] [START-CUE-BUFFER] cue=f1bfda40 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987118.729] [DECODE-CHUNK] cue=f5e8af02 received 131072 frames, eof=False
+[1767987118.731] [DRAIN-PCM-PUSH] cue=f5e8af02 frames=131072 total=262144 eof=False ring.eof=False
+[1767987118.753] [DECODE-CHUNK] cue=f5e8af02 received 131072 frames, eof=False
+[1767987118.753] [DRAIN-PCM-PUSH] cue=f5e8af02 frames=131072 total=393216 eof=False ring.eof=False
+[1767987118.794] [DRAIN-ACTIVATE] cue=f1bfda40 first PCM, gain=-120.0
+[1767987118.794] [DRAIN-FADE-IN] cue=f1bfda40 fade_in=2928fr
+[1767987118.794] [DECODE-CHUNK] cue=f1bfda40 received 131072 frames, eof=False
+[1767987118.795] [DRAIN-PCM-PUSH] cue=f1bfda40 frames=131072 total=131072 eof=False ring.eof=False
+[1767987118.813] [DECODE-CHUNK] cue=f5e8af02 received 131072 frames, eof=False
+[1767987118.813] [DRAIN-PCM-PUSH] cue=f5e8af02 frames=131072 total=520192 eof=False ring.eof=False
+[1767987118.813] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987118.834] [DECODE-CHUNK] cue=f1bfda40 received 131072 frames, eof=False
+[1767987118.834] [DRAIN-PCM-PUSH] cue=f1bfda40 frames=131072 total=260096 eof=False ring.eof=False
+[1767987118.848] [DECODE-CHUNK] cue=f5e8af02 received 131072 frames, eof=False
+[1767987118.848] [DRAIN-PCM-PUSH] cue=f5e8af02 frames=131072 total=651264 eof=False ring.eof=False
+[1767987118.853] [DECODE-CHUNK] cue=f1bfda40 received 131072 frames, eof=False
+[1767987118.853] [DRAIN-PCM-PUSH] cue=f1bfda40 frames=131072 total=389120 eof=False ring.eof=False
+[1767987118.865] [DECODE-CHUNK] cue=f1bfda40 received 131072 frames, eof=False
+[1767987118.866] [DRAIN-PCM-PUSH] cue=f1bfda40 frames=131072 total=520192 eof=False ring.eof=False
+[1767987118.878] [DECODE-CHUNK] cue=f1bfda40 received 131072 frames, eof=False
+[1767987118.879] [DRAIN-PCM-PUSH] cue=f1bfda40 frames=131072 total=651264 eof=False ring.eof=False
+[1767987118.949] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987118.950] [START-CUE] cue=5c0cf064 is_new=True fade_in=61
+[1767987118.950] [START-CUE-BUFFER] cue=5c0cf064 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987118.995] [DRAIN-ACTIVATE] cue=5c0cf064 first PCM, gain=-120.0
+[1767987118.995] [DRAIN-FADE-IN] cue=5c0cf064 fade_in=2928fr
+[1767987118.996] [DECODE-CHUNK] cue=5c0cf064 received 131072 frames, eof=False
+[1767987118.996] [DRAIN-PCM-PUSH] cue=5c0cf064 frames=131072 total=131072 eof=False ring.eof=False
+[1767987119.060] [DECODE-CHUNK] cue=5c0cf064 received 131072 frames, eof=False
+[1767987119.060] [DRAIN-PCM-PUSH] cue=5c0cf064 frames=131072 total=258048 eof=False ring.eof=False
+[1767987119.083] [DECODE-CHUNK] cue=5c0cf064 received 131072 frames, eof=False
+[1767987119.084] [DRAIN-PCM-PUSH] cue=5c0cf064 frames=131072 total=389120 eof=False ring.eof=False
+[1767987119.107] [DECODE-CHUNK] cue=5c0cf064 received 131072 frames, eof=False
+[1767987119.107] [DRAIN-PCM-PUSH] cue=5c0cf064 frames=131072 total=518144 eof=False ring.eof=False
+[1767987119.120] [DECODE-CHUNK] cue=5c0cf064 received 131072 frames, eof=False
+[1767987119.121] [DRAIN-PCM-PUSH] cue=5c0cf064 frames=131072 total=649216 eof=False ring.eof=False
+[1767987119.314] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987119.320] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987119.320] [START-CUE] cue=5650d855 is_new=True fade_in=61
+[1767987119.320] [START-CUE-BUFFER] cue=5650d855 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987119.373] [DRAIN-ACTIVATE] cue=5650d855 first PCM, gain=-120.0
+[1767987119.373] [DRAIN-FADE-IN] cue=5650d855 fade_in=2928fr
+[1767987119.373] [DECODE-CHUNK] cue=5650d855 received 131072 frames, eof=False
+[1767987119.374] [DRAIN-PCM-PUSH] cue=5650d855 frames=131072 total=131072 eof=False ring.eof=False
+[1767987119.397] [DECODE-CHUNK] cue=5650d855 received 131072 frames, eof=False
+[1767987119.397] [DRAIN-PCM-PUSH] cue=5650d855 frames=131072 total=260096 eof=False ring.eof=False
+[1767987119.420] [DECODE-CHUNK] cue=5650d855 received 131072 frames, eof=False
+[1767987119.420] [DRAIN-PCM-PUSH] cue=5650d855 frames=131072 total=391168 eof=False ring.eof=False
+[1767987119.432] [DECODE-CHUNK] cue=5650d855 received 131072 frames, eof=False
+[1767987119.433] [DRAIN-PCM-PUSH] cue=5650d855 frames=131072 total=522240 eof=False ring.eof=False
+[1767987119.446] [DECODE-CHUNK] cue=5650d855 received 131072 frames, eof=False
+[1767987119.446] [DRAIN-PCM-PUSH] cue=5650d855 frames=131072 total=651264 eof=False ring.eof=False
+[1767987119.817] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987120.322] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987120.825] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987120.927] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.927] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=493568
+[1767987120.927] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987120.941] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.941] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=548864
+[1767987120.941] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987120.950] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.950] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=550912
+[1767987120.950] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987120.951] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.951] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3981071705534972 eof=0 ring_frames=561152
+[1767987120.951] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3981071705534972 target=0.0 frames=24000 curve=linear
+[1767987120.955] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.955] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.4841723675840993 eof=0 ring_frames=579584
+[1767987120.956] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.4841723675840993 target=0.0 frames=24000 curve=linear
+[1767987120.959] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.959] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=491520
+[1767987120.959] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987120.960] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.961] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=548864
+[1767987120.961] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987120.962] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.962] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=550912
+[1767987120.962] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987120.963] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.963] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3981071705534972 eof=0 ring_frames=561152
+[1767987120.963] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3981071705534972 target=0.0 frames=24000 curve=linear
+[1767987120.966] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.966] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.4841723675840993 eof=0 ring_frames=579584
+[1767987120.966] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.4841723675840993 target=0.0 frames=24000 curve=linear
+[1767987120.969] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.969] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=491520
+[1767987120.969] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987120.973] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.973] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=548864
+[1767987120.974] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987120.980] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.980] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=548864
+[1767987120.980] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987120.982] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.982] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3641519546508789 eof=0 ring_frames=559104
+[1767987120.982] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3641519546508789 target=0.0 frames=24000 curve=linear
+[1767987120.985] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.985] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.4428764879703522 eof=0 ring_frames=577536
+[1767987120.985] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.4428764879703522 target=0.0 frames=24000 curve=linear
+[1767987120.990] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987120.991] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=489472
+[1767987120.991] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987121.005] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.005] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.6550623774528503 eof=0 ring_frames=546816
+[1767987121.005] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.6550623774528503 target=0.0 frames=24000 curve=linear
+[1767987121.012] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.013] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=546816
+[1767987121.013] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987121.016] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.016] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3330928087234497 eof=0 ring_frames=557056
+[1767987121.016] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3330928087234497 target=0.0 frames=24000 curve=linear
+[1767987121.017] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.017] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.40510281920433044 eof=0 ring_frames=575488
+[1767987121.017] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.40510281920433044 target=0.0 frames=24000 curve=linear
+[1767987121.024] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.024] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=487424
+[1767987121.024] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987121.029] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.029] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.5991910099983215 eof=0 ring_frames=544768
+[1767987121.029] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.5991910099983215 target=0.0 frames=24000 curve=linear
+[1767987121.030] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.030] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=546816
+[1767987121.030] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987121.035] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.036] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3330928087234497 eof=0 ring_frames=557056
+[1767987121.036] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3330928087234497 target=0.0 frames=24000 curve=linear
+[1767987121.039] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.039] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.40510281920433044 eof=0 ring_frames=575488
+[1767987121.039] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.40510281920433044 target=0.0 frames=24000 curve=linear
+[1767987121.041] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.041] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=487424
+[1767987121.041] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987121.045] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.046] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.5991910099983215 eof=0 ring_frames=544768
+[1767987121.046] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.5991910099983215 target=0.0 frames=24000 curve=linear
+[1767987121.049] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.049] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=546816
+[1767987121.049] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987121.049] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.049] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3330928087234497 eof=0 ring_frames=557056
+[1767987121.049] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3330928087234497 target=0.0 frames=24000 curve=linear
+[1767987121.050] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.050] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.40510281920433044 eof=0 ring_frames=575488
+[1767987121.050] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.40510281920433044 target=0.0 frames=24000 curve=linear
+[1767987121.052] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.052] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=487424
+[1767987121.052] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987121.053] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.053] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.5991910099983215 eof=0 ring_frames=544768
+[1767987121.053] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.5991910099983215 target=0.0 frames=24000 curve=linear
+[1767987121.053] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.053] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=546816
+[1767987121.053] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987121.053] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.054] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.3330928087234497 eof=0 ring_frames=557056
+[1767987121.054] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.3330928087234497 target=0.0 frames=24000 curve=linear
+[1767987121.054] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.054] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.40510281920433044 eof=0 ring_frames=575488
+[1767987121.054] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.40510281920433044 target=0.0 frames=24000 curve=linear
+[1767987121.057] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.057] [OUTPUT-FADE-START] cue=91c7afcf target_db=-120.0 duration_ms=500 current_gain=0.7000523805618286 eof=0 ring_frames=485376
+[1767987121.057] [OUTPUT-FADE-CREATED] cue=91c7afcf cur=0.7000523805618286 target=0.0 frames=24000 curve=linear
+[1767987121.059] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.059] [OUTPUT-FADE-START] cue=f5e8af02 target_db=-120.0 duration_ms=500 current_gain=0.5480849742889404 eof=0 ring_frames=542720
+[1767987121.059] [OUTPUT-FADE-CREATED] cue=f5e8af02 cur=0.5480849742889404 target=0.0 frames=24000 curve=linear
+[1767987121.059] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.059] [OUTPUT-FADE-START] cue=f1bfda40 target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=544768
+[1767987121.059] [OUTPUT-FADE-CREATED] cue=f1bfda40 cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987121.059] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.059] [OUTPUT-FADE-START] cue=5c0cf064 target_db=-120.0 duration_ms=500 current_gain=0.30468276143074036 eof=0 ring_frames=555008
+[1767987121.059] [OUTPUT-FADE-CREATED] cue=5c0cf064 cur=0.30468276143074036 target=0.0 frames=24000 curve=linear
+[1767987121.061] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987121.061] [OUTPUT-FADE-START] cue=5650d855 target_db=-120.0 duration_ms=500 current_gain=0.3705509305000305 eof=0 ring_frames=573440
+[1767987121.061] [OUTPUT-FADE-CREATED] cue=5650d855 cur=0.3705509305000305 target=0.0 frames=24000 curve=linear
+[1767987121.327] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987121.558] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987121.558] [STOP-CUE] cue=91c7afcf BEFORE: eof=False frames=462848 finished_pending=False
+[1767987121.558] [STOP-CUE] cue=91c7afcf fade_out_ms=10 truncated_frames=480
+[1767987121.559] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987121.559] [STOP-CUE] cue=f5e8af02 BEFORE: eof=False frames=520192 finished_pending=False
+[1767987121.560] [STOP-CUE] cue=f5e8af02 fade_out_ms=10 truncated_frames=480
+[1767987121.564] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987121.564] [STOP-CUE] cue=f1bfda40 BEFORE: eof=False frames=522240 finished_pending=False
+[1767987121.565] [STOP-CUE] cue=f1bfda40 fade_out_ms=10 truncated_frames=480
+[1767987121.565] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987121.565] [STOP-CUE] cue=5c0cf064 BEFORE: eof=False frames=532480 finished_pending=False
+[1767987121.566] [STOP-CUE] cue=5c0cf064 fade_out_ms=10 truncated_frames=480
+[1767987121.566] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987121.566] [STOP-CUE] cue=5650d855 BEFORE: eof=False frames=550912 finished_pending=False
+[1767987121.566] [STOP-CUE] cue=5650d855 fade_out_ms=10 truncated_frames=480
+[1767987121.608] [FINISHED] cue=91c7afcf removal_reason=output_stop
+[1767987121.608] [FINISHED] cue=f5e8af02 removal_reason=output_stop
+[1767987121.608] [FINISHED] cue=f1bfda40 removal_reason=output_stop
+[1767987121.608] [FINISHED] cue=5c0cf064 removal_reason=output_stop
+[1767987121.608] [FINISHED] cue=5650d855 removal_reason=output_stop
+[1767987121.833] [OUTPUT-PROBE] status=0/0 levels=9/0 times=9/0 master=17/0 finished=5/0
+[1767987122.338] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987122.838] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987123.316] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987123.316] [START-CUE] cue=e0c0b90c is_new=True fade_in=61
+[1767987123.316] [START-CUE-BUFFER] cue=e0c0b90c BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987123.339] [DRAIN-ACTIVATE] cue=e0c0b90c first PCM, gain=-120.0
+[1767987123.339] [DRAIN-FADE-IN] cue=e0c0b90c fade_in=2928fr
+[1767987123.339] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987123.339] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=131072 eof=False ring.eof=False
+[1767987123.339] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987123.363] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987123.369] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=260096 eof=False ring.eof=False
+[1767987123.393] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987123.393] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=391168 eof=False ring.eof=False
+[1767987123.406] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987123.406] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=522240 eof=False ring.eof=False
+[1767987123.417] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987123.419] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=651264 eof=False ring.eof=False
+[1767987123.840] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987124.341] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987124.846] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987125.351] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987125.851] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987126.357] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987126.858] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987127.363] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987127.867] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987128.369] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987128.879] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987129.384] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987129.895] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987130.399] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987130.901] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987131.410] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987131.915] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987132.417] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987132.919] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987132.952] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987132.953] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=325632 eof=False ring.eof=False
+[1767987132.953] [DECODE-HB] cue=e0c0b90c wid=13 frames=131072 ring_frames=325632 decode_work_ms=15.00000013038516 total_ms=15.999999828636646 engine_hold_ms=15.999999828636646 decode_to_engine_ms=15.999999828636646 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=9515.000000130385 expected_gap_ms=4096.0
+[1767987132.954] [DECODE-CHUNK] cue=e0c0b90c received 67584 frames, eof=False
+[1767987132.954] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=67584 total=393216 eof=False ring.eof=False
+[1767987133.423] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987133.926] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987134.433] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987134.935] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987135.439] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987135.941] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987136.450] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987136.953] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987137.104] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987137.104] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=323584 eof=False ring.eof=False
+[1767987137.104] [DECODE-CHUNK] cue=e0c0b90c received 67584 frames, eof=False
+[1767987137.104] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=67584 total=391168 eof=False ring.eof=False
+[1767987137.459] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987137.964] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987138.473] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987138.973] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987139.477] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987139.980] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987140.488] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987140.995] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987141.229] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987141.229] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=325632 eof=False ring.eof=False
+[1767987141.230] [DECODE-CHUNK] cue=e0c0b90c received 67584 frames, eof=False
+[1767987141.230] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=67584 total=393216 eof=False ring.eof=False
+[1767987141.499] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987142.009] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987142.514] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987143.017] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987143.521] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987144.029] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987144.537] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987145.044] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987145.257] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987145.257] [OUTPUT-FADE-START] cue=e0c0b90c target_db=-120.0 duration_ms=500 current_gain=0.3981071705534972 eof=0 ring_frames=198656
+[1767987145.257] [OUTPUT-FADE-CREATED] cue=e0c0b90c cur=0.3981071705534972 target=0.0 frames=24000 curve=linear
+[1767987145.352] [DECODE-CHUNK] cue=e0c0b90c received 131072 frames, eof=False
+[1767987145.352] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=131072 total=325632 eof=False ring.eof=False
+[1767987145.353] [DECODE-CHUNK] cue=e0c0b90c received 67584 frames, eof=False
+[1767987145.353] [DRAIN-PCM-PUSH] cue=e0c0b90c frames=67584 total=393216 eof=False ring.eof=False
+[1767987145.545] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987145.758] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987145.758] [STOP-CUE] cue=e0c0b90c BEFORE: eof=False frames=374784 finished_pending=False
+[1767987145.759] [STOP-CUE] cue=e0c0b90c fade_out_ms=10 truncated_frames=480
+[1767987145.769] [FINISHED] cue=e0c0b90c removal_reason=output_stop
+[1767987146.055] [OUTPUT-PROBE] status=0/0 levels=9/0 times=9/0 master=17/0 finished=1/0
+[1767987146.556] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987147.059] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987147.338] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987147.338] [START-CUE] cue=ed99b5f6 is_new=True fade_in=61
+[1767987147.338] [START-CUE-BUFFER] cue=ed99b5f6 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987147.369] [DRAIN-ACTIVATE] cue=ed99b5f6 first PCM, gain=-120.0
+[1767987147.370] [DRAIN-FADE-IN] cue=ed99b5f6 fade_in=2928fr
+[1767987147.370] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987147.370] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=131072 eof=False ring.eof=False
+[1767987147.395] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987147.395] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=260096 eof=False ring.eof=False
+[1767987147.406] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987147.406] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=391168 eof=False ring.eof=False
+[1767987147.418] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987147.418] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=522240 eof=False ring.eof=False
+[1767987147.431] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987147.431] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=651264 eof=False ring.eof=False
+[1767987147.566] [OUTPUT-PROBE] status=0/0 levels=6/0 times=6/0 master=16/0 finished=0/0
+[1767987148.071] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987148.581] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987149.083] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987149.583] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987150.090] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987150.600] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987151.102] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987151.609] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987152.112] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987152.615] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987153.126] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987153.627] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987154.130] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987154.640] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987155.142] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987155.643] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987156.150] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987156.659] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987156.976] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987156.976] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=325632 eof=False ring.eof=False
+[1767987156.976] [DECODE-HB] cue=ed99b5f6 wid=14 frames=131072 ring_frames=325632 decode_work_ms=16.00000006146729 total_ms=15.00000013038516 engine_hold_ms=15.00000013038516 decode_to_engine_ms=15.00000013038516 engine_internal_ms=0.0 engine_to_output_ms=0.0 produced_gap_ms=9563.000000081956 expected_gap_ms=4096.0
+[1767987156.986] [DECODE-CHUNK] cue=ed99b5f6 received 67584 frames, eof=False
+[1767987156.986] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=67584 total=391168 eof=False ring.eof=False
+[1767987157.164] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987157.667] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987158.169] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987158.674] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987159.179] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987159.684] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987160.193] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987160.695] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987161.144] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987161.144] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=323584 eof=False ring.eof=False
+[1767987161.155] [DECODE-CHUNK] cue=ed99b5f6 received 67584 frames, eof=False
+[1767987161.155] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=67584 total=391168 eof=False ring.eof=False
+[1767987161.199] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987161.707] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987162.215] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987162.716] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987163.218] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987163.720] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987164.227] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987164.729] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987165.238] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987165.271] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987165.272] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=323584 eof=False ring.eof=False
+[1767987165.286] [DECODE-CHUNK] cue=ed99b5f6 received 67584 frames, eof=False
+[1767987165.286] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=67584 total=391168 eof=False ring.eof=False
+[1767987165.744] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987166.249] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987166.750] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987167.255] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987167.759] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987168.267] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987168.777] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987168.988] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987168.988] [OUTPUT-FADE-START] cue=ed99b5f6 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=212992
+[1767987168.988] [OUTPUT-FADE-CREATED] cue=ed99b5f6 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987168.988] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987168.988] [OUTPUT-FADE-START] cue=ed99b5f6 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=212992
+[1767987168.988] [OUTPUT-FADE-CREATED] cue=ed99b5f6 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987169.280] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987169.391] [DECODE-CHUNK] cue=ed99b5f6 received 131072 frames, eof=False
+[1767987169.391] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=131072 total=325632 eof=False ring.eof=False
+[1767987169.391] [DECODE-CHUNK] cue=ed99b5f6 received 67584 frames, eof=False
+[1767987169.391] [DRAIN-PCM-PUSH] cue=ed99b5f6 frames=67584 total=393216 eof=False ring.eof=False
+[1767987169.489] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987169.490] [STOP-CUE] cue=ed99b5f6 BEFORE: eof=False frames=389120 finished_pending=False
+[1767987169.495] [STOP-CUE] cue=ed99b5f6 fade_out_ms=10 truncated_frames=480
+[1767987169.507] [FINISHED] cue=ed99b5f6 removal_reason=output_stop
+[1767987169.783] [OUTPUT-PROBE] status=0/0 levels=8/0 times=8/0 master=16/0 finished=1/0
+[1767987170.293] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987170.796] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987171.302] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987171.803] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987172.307] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987172.811] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987173.319] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987173.778] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987173.778] [START-CUE] cue=af9ce81c is_new=True fade_in=61
+[1767987173.778] [START-CUE-BUFFER] cue=af9ce81c BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987173.820] [DRAIN-ACTIVATE] cue=af9ce81c first PCM, gain=-120.0
+[1767987173.820] [DRAIN-FADE-IN] cue=af9ce81c fade_in=2928fr
+[1767987173.820] [DECODE-CHUNK] cue=af9ce81c received 131072 frames, eof=False
+[1767987173.820] [DRAIN-PCM-PUSH] cue=af9ce81c frames=131072 total=131072 eof=False ring.eof=False
+[1767987173.821] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987173.832] [DECODE-CHUNK] cue=af9ce81c received 99742 frames, eof=True
+[1767987173.832] [DRAIN-PCM-PUSH] cue=af9ce81c frames=99742 total=230814 eof=True ring.eof=True
+[1767987174.324] [OUTPUT-PROBE] status=0/0 levels=15/0 times=15/0 master=16/0 finished=0/0
+[1767987174.825] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987174.881] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.881] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.881] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.882] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.882] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.882] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.883] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.883] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.883] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.883] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.883] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.883] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.883] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.883] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.883] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.884] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.884] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.884] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.885] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.885] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.885] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987174.886] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987174.886] [OUTPUT-FADE-START] cue=af9ce81c target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=179614
+[1767987174.886] [OUTPUT-FADE-CREATED] cue=af9ce81c cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987175.338] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987175.388] [FINISHED] cue=af9ce81c removal_reason=eof_natural
+[1767987175.388] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987175.388] [STOP-CUE] cue=af9ce81c RING_NOT_FOUND (ring doesn't exist yet)
+[1767987175.841] [OUTPUT-PROBE] status=0/0 levels=2/0 times=2/0 master=16/0 finished=1/0
+[1767987176.351] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987176.854] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987177.362] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987177.869] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987177.899] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987177.899] [START-CUE] cue=66a16a4d is_new=True fade_in=61
+[1767987177.899] [START-CUE-BUFFER] cue=66a16a4d BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987177.935] [DRAIN-ACTIVATE] cue=66a16a4d first PCM, gain=-120.0
+[1767987177.935] [DRAIN-FADE-IN] cue=66a16a4d fade_in=2928fr
+[1767987177.935] [DECODE-CHUNK] cue=66a16a4d received 131072 frames, eof=False
+[1767987177.935] [DRAIN-PCM-PUSH] cue=66a16a4d frames=131072 total=131072 eof=False ring.eof=False
+[1767987177.945] [DECODE-CHUNK] cue=66a16a4d received 131072 frames, eof=False
+[1767987177.946] [DRAIN-PCM-PUSH] cue=66a16a4d frames=131072 total=260096 eof=False ring.eof=False
+[1767987177.957] [DECODE-CHUNK] cue=66a16a4d received 131072 frames, eof=False
+[1767987177.958] [DRAIN-PCM-PUSH] cue=66a16a4d frames=131072 total=391168 eof=False ring.eof=False
+[1767987177.973] [DECODE-CHUNK] cue=66a16a4d received 131072 frames, eof=False
+[1767987177.973] [DRAIN-PCM-PUSH] cue=66a16a4d frames=131072 total=520192 eof=False ring.eof=False
+[1767987178.379] [OUTPUT-PROBE] status=0/0 levels=14/0 times=14/0 master=16/0 finished=0/0
+[1767987178.814] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.814] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.814] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.816] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.816] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.817] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.818] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.818] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.818] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.818] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.818] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.818] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.818] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.818] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.818] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.818] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.818] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.818] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.818] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.818] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.819] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.819] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987178.819] [OUTPUT-FADE-START] cue=66a16a4d target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=612352
+[1767987178.819] [OUTPUT-FADE-CREATED] cue=66a16a4d cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987178.882] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987179.313] [FINISHED] cue=66a16a4d removal_reason=eof_natural
+[1767987179.387] [OUTPUT-PROBE] status=0/0 levels=15/0 times=15/0 master=16/0 finished=1/0
+[1767987179.897] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987180.401] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987180.907] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987181.045] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987181.045] [START-CUE] cue=6d9898d9 is_new=True fade_in=61
+[1767987181.046] [START-CUE-BUFFER] cue=6d9898d9 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987181.078] [DRAIN-ACTIVATE] cue=6d9898d9 first PCM, gain=-120.0
+[1767987181.078] [DRAIN-FADE-IN] cue=6d9898d9 fade_in=2928fr
+[1767987181.080] [DECODE-CHUNK] cue=6d9898d9 received 131072 frames, eof=False
+[1767987181.080] [DRAIN-PCM-PUSH] cue=6d9898d9 frames=131072 total=131072 eof=False ring.eof=False
+[1767987181.090] [DECODE-CHUNK] cue=6d9898d9 received 131072 frames, eof=False
+[1767987181.090] [DRAIN-PCM-PUSH] cue=6d9898d9 frames=131072 total=262144 eof=False ring.eof=False
+[1767987181.105] [DECODE-CHUNK] cue=6d9898d9 received 131072 frames, eof=False
+[1767987181.107] [DRAIN-PCM-PUSH] cue=6d9898d9 frames=131072 total=391168 eof=False ring.eof=False
+[1767987181.118] [DECODE-CHUNK] cue=6d9898d9 received 131072 frames, eof=False
+[1767987181.119] [DRAIN-PCM-PUSH] cue=6d9898d9 frames=131072 total=522240 eof=False ring.eof=False
+[1767987181.131] [DECODE-CHUNK] cue=6d9898d9 received 131072 frames, eof=False
+[1767987181.134] [DRAIN-PCM-PUSH] cue=6d9898d9 frames=131072 total=651264 eof=False ring.eof=False
+[1767987181.411] [OUTPUT-PROBE] status=0/0 levels=10/0 times=10/0 master=16/0 finished=0/0
+[1767987181.914] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987182.076] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.076] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=606208
+[1767987182.076] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987182.083] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.083] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=606208
+[1767987182.083] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987182.094] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.095] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=606208
+[1767987182.095] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987182.103] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.103] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=606208
+[1767987182.103] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987182.108] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.108] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=606208
+[1767987182.108] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987182.118] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.118] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=604160
+[1767987182.118] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987182.125] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.125] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=604160
+[1767987182.125] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987182.137] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987182.137] [OUTPUT-FADE-START] cue=6d9898d9 target_db=-120.0 duration_ms=500 current_gain=0.9147083333333333 eof=0 ring_frames=604160
+[1767987182.137] [OUTPUT-FADE-CREATED] cue=6d9898d9 cur=0.9147083333333333 target=0.0 frames=24000 curve=linear
+[1767987182.416] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987182.638] [FINISHED] cue=6d9898d9 removal_reason=eof_natural
+[1767987182.638] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987182.639] [STOP-CUE] cue=6d9898d9 RING_NOT_FOUND (ring doesn't exist yet)
+[1767987182.920] [OUTPUT-PROBE] status=0/0 levels=8/0 times=8/0 master=16/0 finished=1/0
+[1767987183.428] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987183.644] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987183.644] [START-CUE] cue=f3906833 is_new=True fade_in=61
+[1767987183.644] [START-CUE-BUFFER] cue=f3906833 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987183.667] [DRAIN-ACTIVATE] cue=f3906833 first PCM, gain=-120.0
+[1767987183.667] [DRAIN-FADE-IN] cue=f3906833 fade_in=2928fr
+[1767987183.667] [DECODE-CHUNK] cue=f3906833 received 131072 frames, eof=False
+[1767987183.667] [DRAIN-PCM-PUSH] cue=f3906833 frames=131072 total=131072 eof=False ring.eof=False
+[1767987183.679] [DECODE-CHUNK] cue=f3906833 received 131072 frames, eof=False
+[1767987183.679] [DRAIN-PCM-PUSH] cue=f3906833 frames=131072 total=262144 eof=False ring.eof=False
+[1767987183.692] [DECODE-CHUNK] cue=f3906833 received 131072 frames, eof=False
+[1767987183.692] [DRAIN-PCM-PUSH] cue=f3906833 frames=131072 total=391168 eof=False ring.eof=False
+[1767987183.704] [DECODE-CHUNK] cue=f3906833 received 131072 frames, eof=False
+[1767987183.705] [DRAIN-PCM-PUSH] cue=f3906833 frames=131072 total=522240 eof=False ring.eof=False
+[1767987183.716] [DECODE-CHUNK] cue=f3906833 received 131072 frames, eof=False
+[1767987183.717] [DRAIN-PCM-PUSH] cue=f3906833 frames=131072 total=653312 eof=False ring.eof=False
+[1767987183.930] [OUTPUT-PROBE] status=0/0 levels=8/0 times=8/0 master=16/0 finished=0/0
+[1767987184.433] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987184.935] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987185.251] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987185.251] [START-CUE] cue=0acc348d is_new=True fade_in=61
+[1767987185.251] [START-CUE-BUFFER] cue=0acc348d BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987185.273] [DRAIN-ACTIVATE] cue=0acc348d first PCM, gain=-120.0
+[1767987185.274] [DRAIN-FADE-IN] cue=0acc348d fade_in=2928fr
+[1767987185.274] [DECODE-CHUNK] cue=0acc348d received 131072 frames, eof=False
+[1767987185.274] [DRAIN-PCM-PUSH] cue=0acc348d frames=131072 total=131072 eof=False ring.eof=False
+[1767987185.286] [DECODE-CHUNK] cue=0acc348d received 131072 frames, eof=False
+[1767987185.286] [DRAIN-PCM-PUSH] cue=0acc348d frames=131072 total=262144 eof=False ring.eof=False
+[1767987185.299] [DECODE-CHUNK] cue=0acc348d received 131072 frames, eof=False
+[1767987185.299] [DRAIN-PCM-PUSH] cue=0acc348d frames=131072 total=393216 eof=False ring.eof=False
+[1767987185.311] [DECODE-CHUNK] cue=0acc348d received 131072 frames, eof=False
+[1767987185.312] [DRAIN-PCM-PUSH] cue=0acc348d frames=131072 total=524288 eof=False ring.eof=False
+[1767987185.324] [DECODE-CHUNK] cue=0acc348d received 131072 frames, eof=False
+[1767987185.325] [DRAIN-PCM-PUSH] cue=0acc348d frames=131072 total=653312 eof=False ring.eof=False
+[1767987185.435] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987185.942] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987186.442] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987186.740] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987186.740] [START-CUE] cue=52dcd0a4 is_new=True fade_in=61
+[1767987186.740] [START-CUE-BUFFER] cue=52dcd0a4 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987186.784] [DRAIN-ACTIVATE] cue=52dcd0a4 first PCM, gain=-120.0
+[1767987186.784] [DRAIN-FADE-IN] cue=52dcd0a4 fade_in=2928fr
+[1767987186.784] [DECODE-CHUNK] cue=52dcd0a4 received 131072 frames, eof=False
+[1767987186.784] [DRAIN-PCM-PUSH] cue=52dcd0a4 frames=131072 total=131072 eof=False ring.eof=False
+[1767987186.798] [DECODE-CHUNK] cue=52dcd0a4 received 131072 frames, eof=False
+[1767987186.798] [DRAIN-PCM-PUSH] cue=52dcd0a4 frames=131072 total=393216 eof=False ring.eof=False
+[1767987186.810] [DECODE-CHUNK] cue=52dcd0a4 received 131072 frames, eof=False
+[1767987186.810] [DRAIN-PCM-PUSH] cue=52dcd0a4 frames=131072 total=524288 eof=False ring.eof=False
+[1767987186.822] [DECODE-CHUNK] cue=52dcd0a4 received 131072 frames, eof=False
+[1767987186.823] [DRAIN-PCM-PUSH] cue=52dcd0a4 frames=131072 total=653312 eof=False ring.eof=False
+[1767987186.948] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987187.452] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987187.962] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987188.469] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987188.913] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987188.913] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.3981071705534972 eof=0 ring_frames=403456
+[1767987188.913] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.3981071705534972 target=0.0 frames=24000 curve=linear
+[1767987188.942] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987188.942] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=552960
+[1767987188.942] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987188.957] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987188.957] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=479232
+[1767987188.957] [OUTPUT-FADE-CREATED] cue=0acc348d cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987188.974] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987188.974] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.3641519546508789 eof=0 ring_frames=401408
+[1767987188.974] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.3641519546508789 target=0.0 frames=24000 curve=linear
+[1767987188.974] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987188.985] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987188.985] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.8293750286102295 eof=0 ring_frames=548864
+[1767987188.985] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.8293750286102295 target=0.0 frames=24000 curve=linear
+[1767987188.998] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987188.998] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=477184
+[1767987188.998] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987189.007] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.007] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.3330928087234497 eof=0 ring_frames=399360
+[1767987189.007] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.3330928087234497 target=0.0 frames=24000 curve=linear
+[1767987189.014] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.015] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.8293750286102295 eof=0 ring_frames=548864
+[1767987189.015] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.8293750286102295 target=0.0 frames=24000 curve=linear
+[1767987189.021] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.021] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=477184
+[1767987189.023] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987189.033] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.033] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.30468276143074036 eof=0 ring_frames=397312
+[1767987189.033] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.30468276143074036 target=0.0 frames=24000 curve=linear
+[1767987189.042] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.043] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.7586362361907959 eof=0 ring_frames=546816
+[1767987189.043] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.7586362361907959 target=0.0 frames=24000 curve=linear
+[1767987189.050] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.050] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=475136
+[1767987189.050] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987189.056] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.056] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.30468276143074036 eof=0 ring_frames=397312
+[1767987189.056] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.30468276143074036 target=0.0 frames=24000 curve=linear
+[1767987189.062] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.062] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.7586362361907959 eof=0 ring_frames=546816
+[1767987189.062] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.7586362361907959 target=0.0 frames=24000 curve=linear
+[1767987189.075] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.075] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=473088
+[1767987189.075] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987189.083] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.083] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.27869585156440735 eof=0 ring_frames=395264
+[1767987189.083] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.27869585156440735 target=0.0 frames=24000 curve=linear
+[1767987189.087] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.087] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.6939308643341064 eof=0 ring_frames=544768
+[1767987189.087] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.6939308643341064 target=0.0 frames=24000 curve=linear
+[1767987189.094] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.094] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=473088
+[1767987189.094] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987189.102] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.102] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.27869585156440735 eof=0 ring_frames=395264
+[1767987189.102] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.27869585156440735 target=0.0 frames=24000 curve=linear
+[1767987189.107] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.107] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.6939308643341064 eof=0 ring_frames=544768
+[1767987189.107] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.6939308643341064 target=0.0 frames=24000 curve=linear
+[1767987189.111] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.111] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=473088
+[1767987189.111] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987189.117] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.117] [OUTPUT-FADE-START] cue=f3906833 target_db=-120.0 duration_ms=500 current_gain=0.27869585156440735 eof=0 ring_frames=395264
+[1767987189.117] [OUTPUT-FADE-CREATED] cue=f3906833 cur=0.27869585156440735 target=0.0 frames=24000 curve=linear
+[1767987189.122] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.122] [OUTPUT-FADE-START] cue=52dcd0a4 target_db=-120.0 duration_ms=500 current_gain=0.6347443461418152 eof=0 ring_frames=542720
+[1767987189.122] [OUTPUT-FADE-CREATED] cue=52dcd0a4 cur=0.6347443461418152 target=0.0 frames=24000 curve=linear
+[1767987189.135] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987189.135] [OUTPUT-FADE-START] cue=0acc348d target_db=-120.0 duration_ms=500 current_gain=0.7000523805618286 eof=0 ring_frames=471040
+[1767987189.135] [OUTPUT-FADE-CREATED] cue=0acc348d cur=0.7000523805618286 target=0.0 frames=24000 curve=linear
+[1767987189.474] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987189.591] [FINISHED] cue=f3906833 removal_reason=eof_natural
+[1767987189.626] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987189.626] [STOP-CUE] cue=52dcd0a4 BEFORE: eof=False frames=520192 finished_pending=False
+[1767987189.626] [STOP-CUE] cue=52dcd0a4 fade_out_ms=10 truncated_frames=480
+[1767987189.636] [FINISHED] cue=0acc348d removal_reason=eof_natural
+[1767987189.636] [FINISHED] cue=52dcd0a4 removal_reason=output_stop
+[1767987189.985] [OUTPUT-PROBE] status=0/0 levels=6/0 times=6/0 master=16/0 finished=3/0
+[1767987190.495] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987191.001] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987191.508] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987192.018] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987192.521] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987193.023] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987193.525] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987194.029] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987194.537] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987194.806] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987194.806] [START-CUE] cue=9dc14542 is_new=True fade_in=61
+[1767987194.808] [START-CUE-BUFFER] cue=9dc14542 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987194.829] [DRAIN-ACTIVATE] cue=9dc14542 first PCM, gain=-120.0
+[1767987194.829] [DRAIN-FADE-IN] cue=9dc14542 fade_in=2928fr
+[1767987194.830] [DECODE-CHUNK] cue=9dc14542 received 131072 frames, eof=False
+[1767987194.830] [DRAIN-PCM-PUSH] cue=9dc14542 frames=131072 total=131072 eof=False ring.eof=False
+[1767987194.841] [DECODE-CHUNK] cue=9dc14542 received 131072 frames, eof=False
+[1767987194.843] [DRAIN-PCM-PUSH] cue=9dc14542 frames=131072 total=262144 eof=False ring.eof=False
+[1767987194.854] [DECODE-CHUNK] cue=9dc14542 received 131072 frames, eof=False
+[1767987194.855] [DRAIN-PCM-PUSH] cue=9dc14542 frames=131072 total=391168 eof=False ring.eof=False
+[1767987194.868] [DECODE-CHUNK] cue=9dc14542 received 131072 frames, eof=False
+[1767987194.868] [DRAIN-PCM-PUSH] cue=9dc14542 frames=131072 total=522240 eof=False ring.eof=False
+[1767987194.869] [DECODE-CHUNK] cue=9dc14542 received 131072 frames, eof=False
+[1767987194.869] [DRAIN-PCM-PUSH] cue=9dc14542 frames=131072 total=653312 eof=False ring.eof=False
+[1767987195.038] [OUTPUT-PROBE] status=0/0 levels=6/0 times=6/0 master=16/0 finished=0/0
+[1767987195.539] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987195.807] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987195.807] [START-CUE] cue=d59381da is_new=True fade_in=61
+[1767987195.808] [START-CUE-BUFFER] cue=d59381da BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987195.829] [DRAIN-ACTIVATE] cue=d59381da first PCM, gain=-120.0
+[1767987195.831] [DRAIN-FADE-IN] cue=d59381da fade_in=2928fr
+[1767987195.831] [DECODE-CHUNK] cue=d59381da received 131072 frames, eof=False
+[1767987195.831] [DRAIN-PCM-PUSH] cue=d59381da frames=131072 total=131072 eof=False ring.eof=False
+[1767987195.842] [DECODE-CHUNK] cue=d59381da received 131072 frames, eof=False
+[1767987195.843] [DRAIN-PCM-PUSH] cue=d59381da frames=131072 total=262144 eof=False ring.eof=False
+[1767987195.855] [DECODE-CHUNK] cue=d59381da received 131072 frames, eof=False
+[1767987195.858] [DRAIN-PCM-PUSH] cue=d59381da frames=131072 total=391168 eof=False ring.eof=False
+[1767987195.859] [DECODE-CHUNK] cue=d59381da received 131072 frames, eof=False
+[1767987195.859] [DRAIN-PCM-PUSH] cue=d59381da frames=131072 total=522240 eof=False ring.eof=False
+[1767987195.870] [DECODE-CHUNK] cue=d59381da received 131072 frames, eof=False
+[1767987195.870] [DRAIN-PCM-PUSH] cue=d59381da frames=131072 total=653312 eof=False ring.eof=False
+[1767987196.040] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987196.523] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987196.523] [START-CUE] cue=01fab663 is_new=True fade_in=61
+[1767987196.523] [START-CUE-BUFFER] cue=01fab663 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987196.545] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987196.557] [DRAIN-ACTIVATE] cue=01fab663 first PCM, gain=-120.0
+[1767987196.557] [DRAIN-FADE-IN] cue=01fab663 fade_in=2928fr
+[1767987196.557] [DECODE-CHUNK] cue=01fab663 received 131072 frames, eof=False
+[1767987196.557] [DRAIN-PCM-PUSH] cue=01fab663 frames=131072 total=131072 eof=False ring.eof=False
+[1767987196.568] [DECODE-CHUNK] cue=01fab663 received 131072 frames, eof=False
+[1767987196.569] [DRAIN-PCM-PUSH] cue=01fab663 frames=131072 total=262144 eof=False ring.eof=False
+[1767987196.581] [DECODE-CHUNK] cue=01fab663 received 131072 frames, eof=False
+[1767987196.581] [DRAIN-PCM-PUSH] cue=01fab663 frames=131072 total=393216 eof=False ring.eof=False
+[1767987196.581] [DECODE-CHUNK] cue=01fab663 received 73050 frames, eof=True
+[1767987196.581] [DRAIN-PCM-PUSH] cue=01fab663 frames=73050 total=466266 eof=True ring.eof=True
+[1767987197.046] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987197.221] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.221] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=540672
+[1767987197.221] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767987197.224] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.224] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=589824
+[1767987197.224] [OUTPUT-FADE-CREATED] cue=d59381da cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987197.233] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.233] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=433498
+[1767987197.233] [OUTPUT-FADE-CREATED] cue=01fab663 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987197.239] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.239] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.6550623774528503 eof=0 ring_frames=538624
+[1767987197.239] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.6550623774528503 target=0.0 frames=24000 curve=linear
+[1767987197.245] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.245] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=587776
+[1767987197.245] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987197.253] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.253] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=433498
+[1767987197.253] [OUTPUT-FADE-CREATED] cue=01fab663 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987197.258] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.258] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.6550623774528503 eof=0 ring_frames=538624
+[1767987197.258] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.6550623774528503 target=0.0 frames=24000 curve=linear
+[1767987197.265] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.265] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=585728
+[1767987197.265] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987197.272] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.273] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=1 ring_frames=431450
+[1767987197.273] [OUTPUT-FADE-CREATED] cue=01fab663 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987197.283] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.283] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.5991910099983215 eof=0 ring_frames=536576
+[1767987197.283] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.5991910099983215 target=0.0 frames=24000 curve=linear
+[1767987197.289] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.289] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=585728
+[1767987197.289] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987197.294] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.294] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=1 ring_frames=431450
+[1767987197.294] [OUTPUT-FADE-CREATED] cue=01fab663 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987197.309] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.309] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.5480849742889404 eof=0 ring_frames=534528
+[1767987197.309] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.5480849742889404 target=0.0 frames=24000 curve=linear
+[1767987197.321] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.321] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=583680
+[1767987197.322] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987197.331] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.333] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=1 ring_frames=429402
+[1767987197.333] [OUTPUT-FADE-CREATED] cue=01fab663 cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987197.341] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.341] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.5013378858566284 eof=0 ring_frames=532480
+[1767987197.341] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.5013378858566284 target=0.0 frames=24000 curve=linear
+[1767987197.360] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.360] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.7000523805618286 eof=0 ring_frames=581632
+[1767987197.360] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.7000523805618286 target=0.0 frames=24000 curve=linear
+[1767987197.389] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.391] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=0.6939308643341064 eof=1 ring_frames=425306
+[1767987197.391] [OUTPUT-FADE-CREATED] cue=01fab663 cur=0.6939308643341064 target=0.0 frames=24000 curve=linear
+[1767987197.401] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.401] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.4585779309272766 eof=0 ring_frames=530432
+[1767987197.401] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.4585779309272766 target=0.0 frames=24000 curve=linear
+[1767987197.410] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.410] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.6403437256813049 eof=0 ring_frames=579584
+[1767987197.410] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.6403437256813049 target=0.0 frames=24000 curve=linear
+[1767987197.422] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.422] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=0.6939308643341064 eof=1 ring_frames=425306
+[1767987197.422] [OUTPUT-FADE-CREATED] cue=01fab663 cur=0.6939308643341064 target=0.0 frames=24000 curve=linear
+[1767987197.433] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.433] [OUTPUT-FADE-START] cue=9dc14542 target_db=-120.0 duration_ms=500 current_gain=0.4585779309272766 eof=0 ring_frames=530432
+[1767987197.433] [OUTPUT-FADE-CREATED] cue=9dc14542 cur=0.4585779309272766 target=0.0 frames=24000 curve=linear
+[1767987197.440] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.440] [OUTPUT-FADE-START] cue=d59381da target_db=-120.0 duration_ms=500 current_gain=0.5857277512550354 eof=0 ring_frames=577536
+[1767987197.440] [OUTPUT-FADE-CREATED] cue=d59381da cur=0.5857277512550354 target=0.0 frames=24000 curve=linear
+[1767987197.445] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987197.445] [OUTPUT-FADE-START] cue=01fab663 target_db=-120.0 duration_ms=500 current_gain=0.6347443461418152 eof=1 ring_frames=423258
+[1767987197.445] [OUTPUT-FADE-CREATED] cue=01fab663 cur=0.6347443461418152 target=0.0 frames=24000 curve=linear
+[1767987197.550] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987197.908] [FINISHED] cue=9dc14542 removal_reason=eof_natural
+[1767987197.943] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987197.943] [STOP-CUE] cue=d59381da BEFORE: eof=False frames=555008 finished_pending=False
+[1767987197.944] [STOP-CUE] cue=d59381da fade_out_ms=10 truncated_frames=480
+[1767987197.948] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987197.948] [STOP-CUE] cue=01fab663 BEFORE: eof=True frames=400730 finished_pending=False
+[1767987197.949] [STOP-CUE] cue=01fab663 fade_out_ms=10 truncated_frames=480
+[1767987197.960] [FINISHED] cue=d59381da removal_reason=output_stop
+[1767987197.960] [FINISHED] cue=01fab663 removal_reason=output_stop
+[1767987198.056] [OUTPUT-PROBE] status=0/0 levels=13/0 times=13/0 master=16/0 finished=3/0
+[1767987198.558] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987199.060] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987199.407] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987199.409] [START-CUE] cue=b7993826 is_new=True fade_in=61
+[1767987199.409] [START-CUE-BUFFER] cue=b7993826 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987199.441] [DRAIN-ACTIVATE] cue=b7993826 first PCM, gain=-120.0
+[1767987199.441] [DRAIN-FADE-IN] cue=b7993826 fade_in=2928fr
+[1767987199.441] [DECODE-CHUNK] cue=b7993826 received 131072 frames, eof=False
+[1767987199.441] [DRAIN-PCM-PUSH] cue=b7993826 frames=131072 total=131072 eof=False ring.eof=False
+[1767987199.453] [DECODE-CHUNK] cue=b7993826 received 131072 frames, eof=False
+[1767987199.453] [DRAIN-PCM-PUSH] cue=b7993826 frames=131072 total=262144 eof=False ring.eof=False
+[1767987199.465] [DECODE-CHUNK] cue=b7993826 received 131072 frames, eof=False
+[1767987199.465] [DRAIN-PCM-PUSH] cue=b7993826 frames=131072 total=393216 eof=False ring.eof=False
+[1767987199.476] [DECODE-CHUNK] cue=b7993826 received 131072 frames, eof=False
+[1767987199.476] [DRAIN-PCM-PUSH] cue=b7993826 frames=131072 total=524288 eof=False ring.eof=False
+[1767987199.487] [DECODE-CHUNK] cue=b7993826 received 131072 frames, eof=False
+[1767987199.488] [DRAIN-PCM-PUSH] cue=b7993826 frames=131072 total=653312 eof=False ring.eof=False
+[1767987199.563] [OUTPUT-PROBE] status=0/0 levels=3/0 times=3/0 master=16/0 finished=0/0
+[1767987200.068] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987200.377] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987200.377] [START-CUE] cue=91b9ac0d is_new=True fade_in=61
+[1767987200.377] [START-CUE-BUFFER] cue=91b9ac0d BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987200.398] [DRAIN-ACTIVATE] cue=91b9ac0d first PCM, gain=-120.0
+[1767987200.400] [DRAIN-FADE-IN] cue=91b9ac0d fade_in=2928fr
+[1767987200.400] [DECODE-CHUNK] cue=91b9ac0d received 131072 frames, eof=False
+[1767987200.400] [DRAIN-PCM-PUSH] cue=91b9ac0d frames=131072 total=131072 eof=False ring.eof=False
+[1767987200.411] [DECODE-CHUNK] cue=91b9ac0d received 131072 frames, eof=False
+[1767987200.412] [DRAIN-PCM-PUSH] cue=91b9ac0d frames=131072 total=262144 eof=False ring.eof=False
+[1767987200.423] [DECODE-CHUNK] cue=91b9ac0d received 131072 frames, eof=False
+[1767987200.425] [DRAIN-PCM-PUSH] cue=91b9ac0d frames=131072 total=393216 eof=False ring.eof=False
+[1767987200.429] [DECODE-CHUNK] cue=91b9ac0d received 131072 frames, eof=False
+[1767987200.430] [DRAIN-PCM-PUSH] cue=91b9ac0d frames=131072 total=522240 eof=False ring.eof=False
+[1767987200.441] [DECODE-CHUNK] cue=91b9ac0d received 131072 frames, eof=False
+[1767987200.441] [DRAIN-PCM-PUSH] cue=91b9ac0d frames=131072 total=653312 eof=False ring.eof=False
+[1767987200.578] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987201.023] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987201.023] [START-CUE] cue=f3166889 is_new=True fade_in=61
+[1767987201.023] [START-CUE-BUFFER] cue=f3166889 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987201.045] [DRAIN-ACTIVATE] cue=f3166889 first PCM, gain=-120.0
+[1767987201.045] [DRAIN-FADE-IN] cue=f3166889 fade_in=2928fr
+[1767987201.045] [DECODE-CHUNK] cue=f3166889 received 131072 frames, eof=False
+[1767987201.045] [DRAIN-PCM-PUSH] cue=f3166889 frames=131072 total=131072 eof=False ring.eof=False
+[1767987201.058] [DECODE-CHUNK] cue=f3166889 received 131072 frames, eof=False
+[1767987201.058] [DRAIN-PCM-PUSH] cue=f3166889 frames=131072 total=262144 eof=False ring.eof=False
+[1767987201.072] [DECODE-CHUNK] cue=f3166889 received 131072 frames, eof=False
+[1767987201.072] [DRAIN-PCM-PUSH] cue=f3166889 frames=131072 total=391168 eof=False ring.eof=False
+[1767987201.073] [DECODE-CHUNK] cue=f3166889 received 73050 frames, eof=True
+[1767987201.073] [DRAIN-PCM-PUSH] cue=f3166889 frames=73050 total=464218 eof=True ring.eof=True
+[1767987201.083] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987201.584] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987201.853] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.853] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=540672
+[1767987201.853] [OUTPUT-FADE-CREATED] cue=b7993826 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987201.859] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.859] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=585728
+[1767987201.859] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987201.867] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.867] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=1 ring_frames=427354
+[1767987201.867] [OUTPUT-FADE-CREATED] cue=f3166889 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987201.871] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.871] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=538624
+[1767987201.871] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987201.877] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.878] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=0 ring_frames=583680
+[1767987201.878] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987201.885] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.885] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.9147083163261414 eof=1 ring_frames=425306
+[1767987201.885] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.9147083163261414 target=0.0 frames=24000 curve=linear
+[1767987201.923] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.923] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=536576
+[1767987201.923] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987201.942] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.942] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.8366913199424744 eof=0 ring_frames=581632
+[1767987201.942] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.8366913199424744 target=0.0 frames=24000 curve=linear
+[1767987201.968] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.968] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.7586362361907959 eof=1 ring_frames=421210
+[1767987201.968] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.7586362361907959 target=0.0 frames=24000 curve=linear
+[1767987201.978] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.978] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=534528
+[1767987201.978] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987201.986] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.986] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.7653285264968872 eof=0 ring_frames=579584
+[1767987201.988] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.7653285264968872 target=0.0 frames=24000 curve=linear
+[1767987201.996] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987201.996] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.6939308643341064 eof=1 ring_frames=419162
+[1767987201.996] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.6939308643341064 target=0.0 frames=24000 curve=linear
+[1767987202.001] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.001] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.7000523805618286 eof=0 ring_frames=532480
+[1767987202.001] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.7000523805618286 target=0.0 frames=24000 curve=linear
+[1767987202.009] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.009] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.7000523805618286 eof=0 ring_frames=577536
+[1767987202.009] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.7000523805618286 target=0.0 frames=24000 curve=linear
+[1767987202.027] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.048] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.6347443461418152 eof=1 ring_frames=417114
+[1767987202.048] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.6347443461418152 target=0.0 frames=24000 curve=linear
+[1767987202.048] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.048] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.6403437256813049 eof=0 ring_frames=530432
+[1767987202.048] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.6403437256813049 target=0.0 frames=24000 curve=linear
+[1767987202.055] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.055] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.6403437256813049 eof=0 ring_frames=575488
+[1767987202.055] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.6403437256813049 target=0.0 frames=24000 curve=linear
+[1767987202.059] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.059] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.6347443461418152 eof=1 ring_frames=417114
+[1767987202.059] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.6347443461418152 target=0.0 frames=24000 curve=linear
+[1767987202.066] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.066] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.6403437256813049 eof=0 ring_frames=530432
+[1767987202.066] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.6403437256813049 target=0.0 frames=24000 curve=linear
+[1767987202.073] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.073] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.6403437256813049 eof=0 ring_frames=575488
+[1767987202.073] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.6403437256813049 target=0.0 frames=24000 curve=linear
+[1767987202.083] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.083] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.6347443461418152 eof=1 ring_frames=417114
+[1767987202.083] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.6347443461418152 target=0.0 frames=24000 curve=linear
+[1767987202.089] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.089] [OUTPUT-FADE-START] cue=b7993826 target_db=-120.0 duration_ms=500 current_gain=0.5857277512550354 eof=0 ring_frames=528384
+[1767987202.089] [OUTPUT-FADE-CREATED] cue=b7993826 cur=0.5857277512550354 target=0.0 frames=24000 curve=linear
+[1767987202.089] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987202.101] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.101] [OUTPUT-FADE-START] cue=91b9ac0d target_db=-120.0 duration_ms=500 current_gain=0.5857277512550354 eof=0 ring_frames=573440
+[1767987202.101] [OUTPUT-FADE-CREATED] cue=91b9ac0d cur=0.5857277512550354 target=0.0 frames=24000 curve=linear
+[1767987202.109] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987202.109] [OUTPUT-FADE-START] cue=f3166889 target_db=-120.0 duration_ms=500 current_gain=0.5806059241294861 eof=1 ring_frames=415066
+[1767987202.109] [OUTPUT-FADE-CREATED] cue=f3166889 cur=0.5806059241294861 target=0.0 frames=24000 curve=linear
+[1767987202.592] [FINISHED] cue=b7993826 removal_reason=eof_natural
+[1767987202.592] [FINISHED] cue=91b9ac0d removal_reason=eof_natural
+[1767987202.592] [FINISHED] cue=f3166889 removal_reason=eof_natural
+[1767987202.593] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767987202.593] [STOP-CUE] cue=b7993826 RING_NOT_FOUND (ring doesn't exist yet)
+[1767987202.593] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=3/0
+[1767987203.096] [OUTPUT-PROBE] status=0/0 levels=1/0 times=1/0 master=16/0 finished=0/0
+[1767987203.605] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987204.105] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987204.610] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987205.115] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987205.623] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987206.124] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987206.631] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987207.137] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987207.638] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987208.145] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987208.655] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987209.158] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987209.668] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987210.172] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987210.678] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987211.183] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987211.687] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987212.196] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987212.699] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987213.207] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987213.710] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987214.211] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987214.719] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987215.223] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987215.725] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987216.234] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987216.741] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987217.246] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987217.750] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987218.256] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987218.760] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987219.267] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987219.768] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987220.277] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987220.786] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987221.288] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987221.792] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987222.298] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987222.798] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987223.300] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987223.663] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987223.663] [START-CUE] cue=cbedd559 is_new=True fade_in=61
+[1767987223.663] [START-CUE-BUFFER] cue=cbedd559 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987223.707] [DRAIN-ACTIVATE] cue=cbedd559 first PCM, gain=-120.0
+[1767987223.708] [DRAIN-FADE-IN] cue=cbedd559 fade_in=2928fr
+[1767987223.708] [DECODE-CHUNK] cue=cbedd559 received 131072 frames, eof=False
+[1767987223.708] [DRAIN-PCM-PUSH] cue=cbedd559 frames=131072 total=131072 eof=False ring.eof=False
+[1767987223.719] [DECODE-CHUNK] cue=cbedd559 received 131072 frames, eof=False
+[1767987223.721] [DRAIN-PCM-PUSH] cue=cbedd559 frames=131072 total=260096 eof=False ring.eof=False
+[1767987223.733] [DECODE-CHUNK] cue=cbedd559 received 131072 frames, eof=False
+[1767987223.733] [DRAIN-PCM-PUSH] cue=cbedd559 frames=131072 total=391168 eof=False ring.eof=False
+[1767987223.746] [DECODE-CHUNK] cue=cbedd559 received 131072 frames, eof=False
+[1767987223.746] [DRAIN-PCM-PUSH] cue=cbedd559 frames=131072 total=522240 eof=False ring.eof=False
+[1767987223.757] [DECODE-CHUNK] cue=cbedd559 received 131072 frames, eof=False
+[1767987223.757] [DRAIN-PCM-PUSH] cue=cbedd559 frames=131072 total=653312 eof=False ring.eof=False
+[1767987223.802] [OUTPUT-PROBE] status=0/0 levels=3/0 times=3/0 master=16/0 finished=0/0
+[1767987224.302] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987224.802] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987225.308] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987225.809] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987226.318] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987226.373] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987226.373] [START-CUE] cue=b5ec8ebc is_new=True fade_in=61
+[1767987226.373] [START-CUE-BUFFER] cue=b5ec8ebc BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987226.428] [DRAIN-ACTIVATE] cue=b5ec8ebc first PCM, gain=-120.0
+[1767987226.428] [DRAIN-FADE-IN] cue=b5ec8ebc fade_in=2928fr
+[1767987226.428] [DECODE-CHUNK] cue=b5ec8ebc received 131072 frames, eof=False
+[1767987226.428] [DRAIN-PCM-PUSH] cue=b5ec8ebc frames=131072 total=131072 eof=False ring.eof=False
+[1767987226.430] [DECODE-CHUNK] cue=b5ec8ebc received 99742 frames, eof=True
+[1767987226.431] [DRAIN-PCM-PUSH] cue=b5ec8ebc frames=99742 total=230814 eof=True ring.eof=True
+[1767987226.820] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987227.326] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987227.833] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987228.340] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987228.621] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767987228.621] [START-CUE] cue=e84a5f71 is_new=True fade_in=61
+[1767987228.621] [START-CUE-BUFFER] cue=e84a5f71 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767987228.644] [DRAIN-ACTIVATE] cue=e84a5f71 first PCM, gain=-120.0
+[1767987228.644] [DRAIN-FADE-IN] cue=e84a5f71 fade_in=2928fr
+[1767987228.644] [DECODE-CHUNK] cue=e84a5f71 received 131072 frames, eof=False
+[1767987228.644] [DRAIN-PCM-PUSH] cue=e84a5f71 frames=131072 total=131072 eof=False ring.eof=False
+[1767987228.677] [DECODE-CHUNK] cue=e84a5f71 received 131072 frames, eof=False
+[1767987228.678] [DRAIN-PCM-PUSH] cue=e84a5f71 frames=131072 total=260096 eof=False ring.eof=False
+[1767987228.689] [DECODE-CHUNK] cue=e84a5f71 received 131072 frames, eof=False
+[1767987228.689] [DRAIN-PCM-PUSH] cue=e84a5f71 frames=131072 total=391168 eof=False ring.eof=False
+[1767987228.701] [DECODE-CHUNK] cue=e84a5f71 received 131072 frames, eof=False
+[1767987228.701] [DRAIN-PCM-PUSH] cue=e84a5f71 frames=131072 total=522240 eof=False ring.eof=False
+[1767987228.843] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987229.344] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987229.845] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987230.345] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987230.854] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987231.270] [FINISHED] cue=b5ec8ebc removal_reason=eof_natural
+[1767987231.356] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=1/0
+[1767987231.864] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767987232.373] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987232.518] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.518] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.518] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.518] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.518] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.518] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.519] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.520] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.520] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.520] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.520] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.520] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.520] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.520] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.520] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.520] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.520] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.521] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.521] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.521] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.521] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.521] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.521] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.521] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.521] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.521] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.521] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.523] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.523] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.523] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.523] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.523] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.523] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.523] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.523] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.523] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.523] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.523] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.524] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.524] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.524] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.524] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.524] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.524] [OUTPUT-FADE-START] cue=e84a5f71 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=468992
+[1767987232.524] [OUTPUT-FADE-CREATED] cue=e84a5f71 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.524] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767987232.524] [OUTPUT-FADE-START] cue=cbedd559 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=231424
+[1767987232.524] [OUTPUT-FADE-CREATED] cue=cbedd559 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767987232.879] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767987233.010] [FINISHED] cue=cbedd559 removal_reason=eof_natural
+[1767987233.010] [FINISHED] cue=e84a5f71 removal_reason=eof_natural
+[1767987233.384] [OUTPUT-PROBE] status=0/0 levels=6/0 times=6/0 master=16/0 finished=2/0
+[1767987233.890] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987234.392] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987234.902] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987235.410] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987235.916] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987236.426] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987236.931] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987237.440] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987237.942] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987238.448] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767987238.959] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767987239.262] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=9/0 finished=0/0

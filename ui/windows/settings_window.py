@@ -82,9 +82,14 @@ class KeyboardShortcutsTab(QWidget):
         self.global_capture_checkbox.toggled.connect(self._on_global_capture_toggled)
 
         # Action categories are UI-only for now; more actions can be added later.
+        # Keep stable/canonical action names because we persist by action string.
+        self._action_aliases: dict[str, str] = {
+            # Legacy: fade was previously a hold/modifier action.
+            'Trigger fade': 'Fade all active cues',
+        }
         self.action_categories: dict[str, list[str]] = {
             'Playback': [
-                'Trigger fade',
+                'Fade all active cues',
                 'Transport Play',
                 'Transport Pause',
                 'Transport Stop',
@@ -282,6 +287,12 @@ class KeyboardShortcutsTab(QWidget):
                     action = str(s.value('action', '') or '').strip()
                 except Exception:
                     action = ''
+                # Migrate legacy names to the current canonical action.
+                try:
+                    if action:
+                        action = self._action_aliases.get(action, action)
+                except Exception:
+                    pass
                 try:
                     key_val = int(s.value('key', -1))
                 except Exception:
