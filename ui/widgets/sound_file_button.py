@@ -250,6 +250,7 @@ class SoundFileButton(QPushButton):
         self.in_frame: int = 0
         self.out_frame: Optional[int] = None
         self.loop_enabled: bool = False
+        self.logging_required: bool = False
         self.gain_db: float = 0.0
         self.auto_fade_enabled: bool = False  # If True: fade old cue before new one. If False: layered playback
         self._cleanup_dispatcher: Optional[Callable[["SoundFileButton"], None]] = None
@@ -408,6 +409,7 @@ class SoundFileButton(QPushButton):
                 "in_frame": int(getattr(self, "in_frame", 0) or 0),
                 "out_frame": getattr(self, "out_frame", None),
                 "loop_enabled": bool(getattr(self, "loop_enabled", False)),
+                "logging_required": bool(getattr(self, "logging_required", False)),
                 "auto_fade_enabled": bool(getattr(self, "auto_fade_enabled", False)),
                 "gain_db": float(getattr(self, "gain_db", 0.0) or 0.0),
                 "fade_in_ms": int(getattr(self, "fade_in_ms", 0) or 0),
@@ -471,6 +473,10 @@ class SoundFileButton(QPushButton):
                 self.loop_enabled = bool(state.get("loop_enabled", False))
             except Exception:
                 self.loop_enabled = False
+            try:
+                self.logging_required = bool(state.get("logging_required", False))
+            except Exception:
+                self.logging_required = False
             try:
                 self.auto_fade_enabled = bool(state.get("auto_fade_enabled", False))
             except Exception:
@@ -1177,6 +1183,7 @@ class SoundFileButton(QPushButton):
         
         # Clip parameters
         loop_action = menu.addAction(f"Loop ({self._get_loop_status()})")
+        logging_action = menu.addAction(f"Logging Required ({self._get_logging_required_status()})")
         auto_fade_action = menu.addAction(f"Auto-Fade Mode ({self._get_auto_fade_status()})")
         menu.addSeparator()
         
@@ -1221,6 +1228,19 @@ class SoundFileButton(QPushButton):
             except Exception:
                 pass
             self._notify_state_changed()
+        elif action == logging_action:
+            self.logging_required = not bool(getattr(self, "logging_required", False))
+            # Best-effort: if a cue is active, push settings (EngineAdapter ignores unknown fields).
+            try:
+                self._update_cue_settings()
+            except Exception:
+                pass
+            self.setToolTip(f"Logging Required: {self._get_logging_required_status()}")
+            try:
+                self._refresh_label()
+            except Exception:
+                pass
+            self._notify_state_changed()
         elif action == auto_fade_action:
             self.auto_fade_enabled = not self.auto_fade_enabled
             self.setToolTip(f"Auto-Fade: {self._get_auto_fade_status()}")
@@ -1247,6 +1267,10 @@ class SoundFileButton(QPushButton):
     def _get_auto_fade_status(self) -> str:
         """Return human-readable auto-fade status."""
         return "ON" if self.auto_fade_enabled else "OFF"
+
+    def _get_logging_required_status(self) -> str:
+        """Return human-readable logging-required status."""
+        return "ON" if bool(getattr(self, "logging_required", False)) else "OFF"
     
     def _choose_file(self) -> None:
         """Open file dialog to select an audio file."""
@@ -1757,6 +1781,7 @@ class SoundFileButton(QPushButton):
             "out_frame": self.out_frame,
             "fade_in_ms": self.fade_in_ms,
             "loop_enabled": self.loop_enabled,
+            "logging_required": bool(getattr(self, "logging_required", False)),
             # Per-cue layered should default to False.
             # Global auto-fade-on-new (MainWindow toggle) controls whether existing cues
             # are faded when a new cue starts. Setting layered=True here would override
@@ -1782,6 +1807,7 @@ class SoundFileButton(QPushButton):
             out_frame=self.out_frame,
             fade_in_ms=self.fade_in_ms,
             loop_enabled=self.loop_enabled,
+            logging_required=bool(getattr(self, "logging_required", False)),
         )
         
         self.update_cue_settings.emit(self.current_cue_id, cue)

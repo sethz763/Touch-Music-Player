@@ -16,6 +16,8 @@ class Cue:
     tod_start: Optional[datetime] = None
     # Track total duration in seconds if known
     total_seconds: Optional[float] = None
+    # If True, this cue should be written to CSV/Excel when finished.
+    logging_required: bool = False
 
 
 @dataclass(frozen=True, slots=True)
@@ -34,3 +36,5 @@ class CueInfo:
     stopped_at: Optional[datetime] = None
     loop_enabled: bool = False
     removal_reason: str = ""  # Track why cue was removed (eof, manual_fade, auto_fade, error, forced)
+    # If True, this cue should be written to CSV/Excel when finished.
+    logging_required: bool = False

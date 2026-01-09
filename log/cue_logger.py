@@ -43,6 +43,14 @@ class CueLogger:
         if cue_info is None:
             return
 
+        # New behavior: only log cues that explicitly request logging.
+        # Default is False to make logging opt-in.
+        try:
+            if not bool(getattr(cue_info, "logging_required", False)):
+                return
+        except Exception:
+            return
+
         # Construct CueLogRecord from CueInfo
         cue_log_record = CueLogRecord(
             cue_id=cue_info.cue_id,

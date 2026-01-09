@@ -266,6 +266,7 @@ class ButtonBankWidget(QWidget):
                     loop_enabled=cmd.loop_enabled,
                     layered=cmd.layered,
                     total_seconds=cmd.total_seconds,
+                    logging_required=getattr(cmd, "logging_required", False),
                 )
             elif isinstance(cmd, StopCueCommand):
                 self.engine_adapter.stop_cue(cmd.cue_id, cmd.fade_out_ms)
@@ -314,6 +315,7 @@ class ButtonBankWidget(QWidget):
             loop_enabled=params.get('loop_enabled', False),
             layered=params.get('layered', False),
             total_seconds=params.get('total_seconds'),
+            logging_required=bool(params.get('logging_required', False)),
         )
 
         # Remember which button owns this cue so we can route events deterministically.

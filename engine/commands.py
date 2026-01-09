@@ -110,6 +110,7 @@ class PlayCueCommand:
         loop_enabled (bool): Loop from out_frame to in_frame if True.
         layered (bool): If True, don't auto-fade existing cues.
         total_seconds (float or None): Pre-computed duration in seconds (optional).
+        logging_required (bool): If True, cue will be logged to CSV/Excel on finish.
     """
     cue_id: str
     file_path: str
@@ -123,6 +124,7 @@ class PlayCueCommand:
     loop_enabled: bool = False
     layered: bool = False
     total_seconds: Optional[float] = None
+    logging_required: bool = False
 
 
 @dataclass(frozen=True, slots=True)

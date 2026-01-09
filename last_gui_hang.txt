@@ -1,5 +1,12 @@
 Timeout (0:00:15)!
-Thread 0x0001128c (most recent call first):
+Thread 0x00006f90 (most recent call first):
+  File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
+  File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
+  File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
+  File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
+  File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
+
+Thread 0x00007040 (most recent call first):
   File "C:\Program Files\Python312\Lib\multiprocessing\connection.py", line 293 in _send_bytes
   File "C:\Program Files\Python312\Lib\multiprocessing\connection.py", line 200 in send_bytes
   File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 261 in _feed
@@ -7,7 +14,7 @@ Thread 0x0001128c (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x0000e988 (most recent call first):
+Thread 0x00005ffc (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 359 in wait
   File "C:\Program Files\Python312\Lib\queue.py", line 180 in get
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\gui\streamdeck_xl.py", line 1690 in _io_loop
@@ -15,22 +22,21 @@ Thread 0x0000e988 (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x00004978 (most recent call first):
+Thread 0x0000e3a4 (most recent call first):
   File "C:\Program Files\Python312\Lib\threading.py", line 355 in wait
   File "C:\Program Files\Python312\Lib\multiprocessing\queues.py", line 246 in _feed
   File "C:\Program Files\Python312\Lib\threading.py", line 1010 in run
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x0000e924 (most recent call first):
+Thread 0x00010084 (most recent call first):
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\pynput\_util\win32.py", line 190 in __iter__
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\pynput\_util\win32.py", line 357 in _run
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\venv\Lib\site-packages\pynput\_util\__init__.py", line 212 in run
   File "C:\Program Files\Python312\Lib\threading.py", line 1073 in _bootstrap_inner
   File "C:\Program Files\Python312\Lib\threading.py", line 1030 in _bootstrap
 
-Thread 0x0000096c (most recent call first):
-  File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\ui\windows\settings_window.py", line 357 in _on_table_cell_clicked
+Thread 0x0000eeb4 (most recent call first):
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\app\music_player.py", line 103 in main
   File "C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\app\music_player.py", line 123 in <module>
   File "<frozen runpy>", line 88 in _run_code

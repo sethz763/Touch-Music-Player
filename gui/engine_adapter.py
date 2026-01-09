@@ -392,6 +392,7 @@ class EngineAdapter(QObject):
         loop_enabled: bool = False,
         layered: bool = False,
         total_seconds: Optional[float] = None,
+        logging_required: bool = False,
     ) -> None:
         """
         Request playback of an audio file (cue).
@@ -422,6 +423,7 @@ class EngineAdapter(QObject):
                 loop_enabled=loop_enabled,
                 layered=layered,
                 total_seconds=total_seconds,
+                logging_required=bool(logging_required),
             )
             
             # Track frame boundaries for trimmed duration calculation in time events

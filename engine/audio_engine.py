@@ -656,6 +656,7 @@ class AudioEngine:
             has_played=True,
             tod_start=tod_start,
             total_seconds=(total_seconds if total_seconds is not None else None),
+            logging_required=bool(getattr(cmd, "logging_required", False)),
         )
         self.active_cues[cue_id] = cue
 
@@ -672,6 +673,7 @@ class AudioEngine:
             fade_out_ms=self.fade_out_ms,
             metadata=file_metadata if file_metadata else None,
             started_at=tod_start,
+            logging_required=bool(getattr(cmd, "logging_required", False)),
         )
         self.cue_info_map[cue_id] = cue_info
 
@@ -926,6 +928,7 @@ class AudioEngine:
                     fade_out_ms=self.fade_out_ms,
                     started_at=cue.tod_start,
                     loop_enabled=bool(getattr(cue, "loop_enabled", False)),
+                    logging_required=bool(getattr(cue, "logging_required", False)),
                 )
 
             if cue_info is not None:

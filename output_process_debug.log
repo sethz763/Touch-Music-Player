@@ -1,135 +1,220 @@
-[1767974536.180] Opened output stream device=None sr=48000 ch=2 block=2048
-[1767974536.182] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice
-[1767974536.184] OutputSetDevice received: 15
-[1767974538.230] Opened output stream device=15 sr=48000 ch=2 block=2048
-[1767974538.230] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig
-[1767974538.230] OutputSetConfig received: sr=48000 ch=2 block=2048
-[1767974539.980] Opened output stream device=15 sr=48000 ch=2 block=2048
-[1767974539.992] [PA-STATUS] output underflow
-[1767974540.480] [OUTPUT-PROBE] status=1/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974540.988] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974541.488] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974541.994] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974542.501] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974543.004] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974543.510] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974544.019] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974544.523] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974545.023] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974545.528] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974546.036] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974546.544] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974547.052] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974547.552] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974548.058] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974548.564] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974549.074] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974549.584] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974550.091] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974550.597] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974551.103] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974551.609] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974552.113] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974552.618] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974553.124] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974553.628] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974554.132] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974554.637] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974555.140] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974555.643] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974556.149] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974556.650] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974557.160] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974557.666] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974558.169] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974558.678] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974559.179] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974559.685] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974560.190] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974560.699] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974561.199] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974561.706] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974562.212] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974562.718] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974563.220] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974563.729] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974564.236] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974564.744] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974565.251] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974565.761] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974566.270] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974566.778] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974567.282] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974567.787] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974568.295] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974568.804] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974569.313] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974569.822] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974570.323] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974570.831] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974571.337] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974571.845] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974572.345] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974572.848] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974573.354] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974573.859] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974574.365] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974574.868] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974575.372] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974575.877] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974576.377] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974576.881] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974577.387] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974577.894] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974578.400] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974578.902] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974579.413] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974579.914] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974580.423] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974580.931] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974581.446] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974581.948] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974582.457] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974582.959] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974583.466] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974583.969] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974584.475] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974584.983] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974585.490] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974585.999] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974586.501] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974587.004] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974587.508] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974588.016] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974588.524] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974589.024] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974589.531] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974590.037] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974590.546] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974591.046] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974591.549] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974592.057] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974592.562] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974593.069] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974593.578] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974594.082] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974594.591] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974595.094] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974595.598] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974596.101] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974596.602] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974597.108] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974597.614] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974598.116] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974598.622] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974599.124] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=15/0 finished=0/0
-[1767974599.626] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=15/0 finished=0/0
-[1767974600.126] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=13/0 finished=0/0
-[1767974600.636] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974601.142] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974601.648] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974602.153] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974602.654] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974603.162] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
-[1767974603.666] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
-[1767974603.770] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=3/0 finished=0/0
+[1767976910.737] Opened output stream device=None sr=48000 ch=2 block=2048
+[1767976910.738] [OUTPUT-PROCESS-MSG] Received message type=OutputSetDevice
+[1767976910.738] OutputSetDevice received: 15
+[1767976911.675] Opened output stream device=15 sr=48000 ch=2 block=2048
+[1767976911.675] [OUTPUT-PROCESS-MSG] Received message type=OutputSetConfig
+[1767976911.675] OutputSetConfig received: sr=48000 ch=2 block=2048
+[1767976912.809] Opened output stream device=15 sr=48000 ch=2 block=2048
+[1767976912.819] [PA-STATUS] output underflow
+[1767976913.000] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767976913.001] [START-CUE] cue=74dd1f22 is_new=True fade_in=61
+[1767976913.001] [START-CUE-BUFFER] cue=74dd1f22 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767976913.065] [DRAIN-ACTIVATE] cue=74dd1f22 first PCM, gain=-120.0
+[1767976913.066] [DRAIN-FADE-IN] cue=74dd1f22 fade_in=2928fr
+[1767976913.066] [DECODE-CHUNK] cue=74dd1f22 received 131072 frames, eof=False
+[1767976913.066] [DRAIN-PCM-PUSH] cue=74dd1f22 frames=131072 total=131072 eof=False ring.eof=False
+[1767976913.081] [DECODE-CHUNK] cue=74dd1f22 received 131072 frames, eof=False
+[1767976913.081] [DRAIN-PCM-PUSH] cue=74dd1f22 frames=131072 total=393216 eof=False ring.eof=False
+[1767976913.094] [DECODE-CHUNK] cue=74dd1f22 received 131072 frames, eof=False
+[1767976913.094] [DRAIN-PCM-PUSH] cue=74dd1f22 frames=131072 total=524288 eof=False ring.eof=False
+[1767976913.106] [DECODE-CHUNK] cue=74dd1f22 received 131072 frames, eof=False
+[1767976913.106] [DRAIN-PCM-PUSH] cue=74dd1f22 frames=131072 total=655360 eof=False ring.eof=False
+[1767976913.314] [OUTPUT-PROBE] status=1/0 levels=6/0 times=6/0 master=16/0 finished=0/0
+[1767976913.821] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767976914.328] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976914.372] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767976914.372] [OUTPUT-FADE-START] cue=74dd1f22 target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=593920
+[1767976914.372] [OUTPUT-FADE-CREATED] cue=74dd1f22 cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767976914.831] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976914.875] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767976914.875] [STOP-CUE] cue=74dd1f22 BEFORE: eof=False frames=571392 finished_pending=False
+[1767976914.880] [STOP-CUE] cue=74dd1f22 fade_out_ms=10 truncated_frames=480
+[1767976914.892] [FINISHED] cue=74dd1f22 removal_reason=output_stop
+[1767976915.334] [OUTPUT-PROBE] status=0/0 levels=2/0 times=2/0 master=16/0 finished=1/0
+[1767976915.838] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976916.338] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976916.839] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976917.344] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976917.847] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976918.352] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976918.855] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976919.361] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976919.871] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976920.376] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976920.884] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976921.177] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767976921.177] [START-CUE] cue=f8c63462 is_new=True fade_in=61
+[1767976921.177] [START-CUE-BUFFER] cue=f8c63462 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767976921.244] [DRAIN-ACTIVATE] cue=f8c63462 first PCM, gain=-120.0
+[1767976921.244] [DRAIN-FADE-IN] cue=f8c63462 fade_in=2928fr
+[1767976921.245] [DECODE-CHUNK] cue=f8c63462 received 131072 frames, eof=False
+[1767976921.245] [DRAIN-PCM-PUSH] cue=f8c63462 frames=131072 total=131072 eof=False ring.eof=False
+[1767976921.258] [DECODE-CHUNK] cue=f8c63462 received 131072 frames, eof=False
+[1767976921.258] [DRAIN-PCM-PUSH] cue=f8c63462 frames=131072 total=262144 eof=False ring.eof=False
+[1767976921.290] [DECODE-CHUNK] cue=f8c63462 received 131072 frames, eof=False
+[1767976921.290] [DRAIN-PCM-PUSH] cue=f8c63462 frames=131072 total=391168 eof=False ring.eof=False
+[1767976921.303] [DECODE-CHUNK] cue=f8c63462 received 131072 frames, eof=False
+[1767976921.303] [DRAIN-PCM-PUSH] cue=f8c63462 frames=131072 total=522240 eof=False ring.eof=False
+[1767976921.312] [DECODE-CHUNK] cue=f8c63462 received 131072 frames, eof=False
+[1767976921.312] [DRAIN-PCM-PUSH] cue=f8c63462 frames=131072 total=651264 eof=False ring.eof=False
+[1767976921.387] [OUTPUT-PROBE] status=0/0 levels=4/0 times=4/0 master=16/0 finished=0/0
+[1767976921.481] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767976921.481] [OUTPUT-FADE-START] cue=f8c63462 target_db=-120.0 duration_ms=623 current_gain=0.7161434102129021 eof=0 ring_frames=643072
+[1767976921.481] [OUTPUT-FADE-CREATED] cue=f8c63462 cur=0.7161434102129021 target=0.0 frames=29904 curve=equal_power
+[1767976921.481] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767976921.481] [START-CUE] cue=8d7c87dd is_new=True fade_in=61
+[1767976921.481] [START-CUE-BUFFER] cue=8d7c87dd BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767976921.503] [DRAIN-ACTIVATE] cue=8d7c87dd first PCM, gain=-120.0
+[1767976921.503] [DRAIN-FADE-IN] cue=8d7c87dd fade_in=2928fr
+[1767976921.504] [DECODE-CHUNK] cue=8d7c87dd received 131072 frames, eof=False
+[1767976921.504] [DRAIN-PCM-PUSH] cue=8d7c87dd frames=131072 total=131072 eof=False ring.eof=False
+[1767976921.526] [DECODE-CHUNK] cue=8d7c87dd received 131072 frames, eof=False
+[1767976921.526] [DRAIN-PCM-PUSH] cue=8d7c87dd frames=131072 total=260096 eof=False ring.eof=False
+[1767976921.538] [DECODE-CHUNK] cue=8d7c87dd received 131072 frames, eof=False
+[1767976921.538] [DRAIN-PCM-PUSH] cue=8d7c87dd frames=131072 total=391168 eof=False ring.eof=False
+[1767976921.549] [DECODE-CHUNK] cue=8d7c87dd received 131072 frames, eof=False
+[1767976921.549] [DRAIN-PCM-PUSH] cue=8d7c87dd frames=131072 total=522240 eof=False ring.eof=False
+[1767976921.563] [DECODE-CHUNK] cue=8d7c87dd received 131072 frames, eof=False
+[1767976921.563] [DRAIN-PCM-PUSH] cue=8d7c87dd frames=131072 total=653312 eof=False ring.eof=False
+[1767976921.891] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976922.107] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767976922.107] [STOP-CUE] cue=f8c63462 BEFORE: eof=False frames=614400 finished_pending=False
+[1767976922.108] [STOP-CUE] cue=f8c63462 fade_out_ms=10 truncated_frames=480
+[1767976922.129] [FINISHED] cue=f8c63462 removal_reason=output_stop
+[1767976922.398] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=1/0
+[1767976922.908] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976923.417] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767976923.909] [OUTPUT-PROCESS-MSG] Received message type=UpdateCueCommand
+[1767976923.909] [OUTPUT-UPDATE-CUE] cue=8d7c87dd144c496a8d046347a4d0c4b8 NEW_gain_db=-2.9 linear=0.716143 (from 0.716143), removed_envelope=False
+[1767976923.919] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976924.426] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976924.933] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976925.441] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767976925.752] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767976925.752] [OUTPUT-FADE-START] cue=8d7c87dd target_db=-120.0 duration_ms=500 current_gain=0.7161434102129021 eof=0 ring_frames=450560
+[1767976925.752] [OUTPUT-FADE-CREATED] cue=8d7c87dd cur=0.7161434102129021 target=0.0 frames=24000 curve=linear
+[1767976925.945] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976926.257] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767976926.257] [STOP-CUE] cue=8d7c87dd BEFORE: eof=False frames=428032 finished_pending=False
+[1767976926.257] [STOP-CUE] cue=8d7c87dd fade_out_ms=10 truncated_frames=480
+[1767976926.268] [FINISHED] cue=8d7c87dd removal_reason=output_stop
+[1767976926.446] [OUTPUT-PROBE] status=0/0 levels=11/0 times=11/0 master=16/0 finished=1/0
+[1767976926.951] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976927.457] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976927.965] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976928.467] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976928.970] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976929.472] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976929.977] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976930.478] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976930.987] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976931.491] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976931.991] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976932.497] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976932.997] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976933.455] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767976933.455] [START-CUE] cue=21092ca1 is_new=True fade_in=61
+[1767976933.455] [START-CUE-BUFFER] cue=21092ca1 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767976933.487] [DRAIN-ACTIVATE] cue=21092ca1 first PCM, gain=-120.0
+[1767976933.487] [DRAIN-FADE-IN] cue=21092ca1 fade_in=2928fr
+[1767976933.487] [DECODE-CHUNK] cue=21092ca1 received 131072 frames, eof=False
+[1767976933.487] [DRAIN-PCM-PUSH] cue=21092ca1 frames=131072 total=131072 eof=False ring.eof=False
+[1767976933.499] [DECODE-CHUNK] cue=21092ca1 received 131072 frames, eof=False
+[1767976933.499] [DRAIN-PCM-PUSH] cue=21092ca1 frames=131072 total=262144 eof=False ring.eof=False
+[1767976933.499] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976933.512] [DECODE-CHUNK] cue=21092ca1 received 131072 frames, eof=False
+[1767976933.512] [DRAIN-PCM-PUSH] cue=21092ca1 frames=131072 total=391168 eof=False ring.eof=False
+[1767976933.524] [DECODE-CHUNK] cue=21092ca1 received 131072 frames, eof=False
+[1767976933.524] [DRAIN-PCM-PUSH] cue=21092ca1 frames=131072 total=522240 eof=False ring.eof=False
+[1767976933.535] [DECODE-CHUNK] cue=21092ca1 received 131072 frames, eof=False
+[1767976933.535] [DRAIN-PCM-PUSH] cue=21092ca1 frames=131072 total=653312 eof=False ring.eof=False
+[1767976934.000] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976934.503] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767976934.814] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767976934.814] [OUTPUT-FADE-START] cue=21092ca1 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=591872
+[1767976934.814] [OUTPUT-FADE-CREATED] cue=21092ca1 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767976935.012] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976935.302] [FINISHED] cue=21092ca1 removal_reason=eof_natural
+[1767976935.522] [OUTPUT-PROBE] status=0/0 levels=11/0 times=11/0 master=16/0 finished=1/0
+[1767976936.030] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976936.540] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976937.042] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976937.552] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976938.055] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976938.565] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976939.066] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976939.576] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976940.080] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976940.333] [OUTPUT-PROCESS-MSG] Received message type=OutputStartCue
+[1767976940.333] [START-CUE] cue=e9987dc8 is_new=True fade_in=61
+[1767976940.333] [START-CUE-BUFFER] cue=e9987dc8 BufferRequest sent for 393216 frames (target_blocks=192 low_water_blocks=96)
+[1767976940.585] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976940.862] [DRAIN-ACTIVATE] cue=e9987dc8 first PCM, gain=-120.0
+[1767976940.862] [DRAIN-FADE-IN] cue=e9987dc8 fade_in=2928fr
+[1767976940.862] [DECODE-CHUNK] cue=e9987dc8 received 131072 frames, eof=False
+[1767976940.862] [DRAIN-PCM-PUSH] cue=e9987dc8 frames=131072 total=131072 eof=False ring.eof=False
+[1767976940.873] [DECODE-CHUNK] cue=e9987dc8 received 131072 frames, eof=False
+[1767976940.873] [DRAIN-PCM-PUSH] cue=e9987dc8 frames=131072 total=262144 eof=False ring.eof=False
+[1767976940.886] [DECODE-CHUNK] cue=e9987dc8 received 131072 frames, eof=False
+[1767976940.886] [DRAIN-PCM-PUSH] cue=e9987dc8 frames=131072 total=393216 eof=False ring.eof=False
+[1767976940.904] [DECODE-CHUNK] cue=e9987dc8 received 131072 frames, eof=False
+[1767976940.904] [DRAIN-PCM-PUSH] cue=e9987dc8 frames=131072 total=522240 eof=False ring.eof=False
+[1767976940.917] [DECODE-CHUNK] cue=e9987dc8 received 131072 frames, eof=False
+[1767976940.917] [DRAIN-PCM-PUSH] cue=e9987dc8 frames=131072 total=653312 eof=False ring.eof=False
+[1767976941.087] [OUTPUT-PROBE] status=0/0 levels=6/0 times=6/0 master=16/0 finished=0/0
+[1767976941.588] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976942.094] [OUTPUT-PROBE] status=0/0 levels=16/0 times=16/0 master=16/0 finished=0/0
+[1767976942.519] [OUTPUT-PROCESS-MSG] Received message type=OutputFadeTo
+[1767976942.519] [OUTPUT-FADE-START] cue=e9987dc8 target_db=-120.0 duration_ms=500 current_gain=1.0 eof=0 ring_frames=575488
+[1767976942.519] [OUTPUT-FADE-CREATED] cue=e9987dc8 cur=1.0 target=0.0 frames=24000 curve=linear
+[1767976942.604] [OUTPUT-PROBE] status=0/0 levels=17/0 times=17/0 master=17/0 finished=0/0
+[1767976943.023] [OUTPUT-PROCESS-MSG] Received message type=OutputStopCue
+[1767976943.024] [STOP-CUE] cue=e9987dc8 BEFORE: eof=False frames=552960 finished_pending=False
+[1767976943.024] [STOP-CUE] cue=e9987dc8 fade_out_ms=10 truncated_frames=480
+[1767976943.034] [FINISHED] cue=e9987dc8 removal_reason=output_stop
+[1767976943.107] [OUTPUT-PROBE] status=0/0 levels=15/0 times=15/0 master=16/0 finished=1/0
+[1767976943.612] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976944.113] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976944.618] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976945.127] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976945.632] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976946.139] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976946.645] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976947.149] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976947.650] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976948.153] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976948.661] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976949.170] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976949.671] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976950.175] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976950.681] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976951.181] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976951.690] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976952.197] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976952.703] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976953.208] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976953.711] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976954.212] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976954.721] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976955.224] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976955.727] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976956.234] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976956.743] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976957.243] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976957.748] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976958.250] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976958.753] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976959.258] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976959.761] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976960.262] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976960.769] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976961.270] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976961.773] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976962.276] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976962.780] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976963.289] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976963.793] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976964.302] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976964.806] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=16/0 finished=0/0
+[1767976965.315] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=17/0 finished=0/0
+[1767976965.663] [OUTPUT-PROBE] status=0/0 levels=0/0 times=0/0 master=11/0 finished=0/0
