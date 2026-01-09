@@ -1,8 +1,9 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Optional
-from PySide6.QtWidgets import QWidget, QGridLayout
-from PySide6.QtCore import Signal, QTimer
+from PySide6.QtWidgets import QWidget, QGridLayout, QMenu
+from PySide6.QtCore import Signal, QTimer, Qt, QRect, QPoint
+from PySide6.QtGui import QPainter, QColor
 import time
 import warnings
 import os
@@ -12,6 +13,141 @@ from engine.commands import PlayCueCommand, StopCueCommand, FadeCueCommand
 if TYPE_CHECKING:
     from ui.widgets.sound_file_button import SoundFileButton
     from gui.engine_adapter import EngineAdapter
+
+
+class _DragSelectOverlay(QWidget):
+    """A transparent overlay that renders drag-select visuals above buttons.
+
+    Qt paints parent widgets behind child widgets. Since the bank is the parent
+    of the buttons, we need an overlay child to draw the rubber-band and
+    highlights on top of the grid.
+    """
+
+    def __init__(self, bank: "ButtonBankWidget") -> None:
+        super().__init__(bank)
+        self._bank = bank
+        self._active: bool = False
+        self._rect: QRect = QRect()
+        self._selected: list = []
+        self.setMouseTracking(True)
+
+        # Keep background fully transparent.
+        try:
+            self.setAttribute(Qt.WidgetAttribute.WA_TranslucentBackground, True)
+        except Exception:
+            pass
+        try:
+            self.setAttribute(Qt.WidgetAttribute.WA_NoSystemBackground, True)
+        except Exception:
+            pass
+
+    def clear_selection(self) -> None:
+        self._active = False
+        self._rect = QRect()
+        self._selected = []
+        try:
+            self.update()
+        except Exception:
+            pass
+
+    def mousePressEvent(self, event) -> None:
+        if event.button() == Qt.MouseButton.LeftButton:
+            try:
+                p = event.pos()
+            except Exception:
+                p = QPoint(0, 0)
+            self._active = True
+            self._rect = QRect(p, p)
+            self._selected = []
+            try:
+                event.accept()
+            except Exception:
+                pass
+            self.update()
+            return
+        return super().mousePressEvent(event)
+
+    def mouseMoveEvent(self, event) -> None:
+        if self._active and (event.buttons() & Qt.MouseButton.LeftButton):
+            try:
+                p = event.pos()
+            except Exception:
+                p = QPoint(0, 0)
+            self._rect.setBottomRight(p)
+            try:
+                event.accept()
+            except Exception:
+                pass
+            self.update()
+            return
+        return super().mouseMoveEvent(event)
+
+    def mouseReleaseEvent(self, event) -> None:
+        if self._active and event.button() == Qt.MouseButton.LeftButton:
+            self._active = False
+            rect = self._rect.normalized()
+
+            selected = []
+            for btn in getattr(self._bank, "buttons", []) or []:
+                try:
+                    if rect.intersects(btn.geometry()):
+                        selected.append(btn)
+                except Exception:
+                    continue
+
+            try:
+                selected.sort(key=lambda b: int(getattr(b, "index_in_bank", 0) or 0))
+            except Exception:
+                pass
+
+            self._selected = selected
+            self._rect = QRect()
+            self.update()
+
+            if self._selected:
+                try:
+                    self._bank._show_bulk_context_menu_at(event.globalPos(), self._selected)
+                except Exception:
+                    pass
+
+            # Clear selection after menu closes.
+            self._selected = []
+            self.update()
+            try:
+                event.accept()
+            except Exception:
+                pass
+            return
+
+        return super().mouseReleaseEvent(event)
+
+    def paintEvent(self, event) -> None:
+        # Intentionally do not call super().paintEvent(event) to avoid background fills.
+        painter = QPainter(self)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+        except Exception:
+            pass
+
+        # Rubber-band during drag.
+        if self._active and not self._rect.isNull():
+            r = self._rect.normalized()
+            painter.setPen(Qt.PenStyle.DashLine)
+            painter.setBrush(QColor(40, 120, 255, 35))
+            painter.drawRect(r)
+
+        # Selection highlights (stronger than before so it's obvious).
+        if self._selected:
+            painter.setPen(QColor(40, 120, 255, 255))
+            painter.setBrush(QColor(40, 120, 255, 70))
+            for btn in self._selected:
+                try:
+                    g = btn.geometry()
+                    painter.drawRect(g)
+                except Exception:
+                    continue
+
+        painter.end()
 
 
 class ButtonBankWidget(QWidget):
@@ -79,6 +215,12 @@ class ButtonBankWidget(QWidget):
         # set can temporarily diverge from reality. This mapping is established at
         # play-request time and used to route lifecycle and telemetry events reliably.
         self._cue_to_button: dict[str, object] = {}
+
+        # Drag-select mode (bulk edit). When enabled, all SoundFileButtons become
+        # mouse-transparent and this widget handles rubber-band selection.
+        self._drag_select_enabled: bool = False
+        self._drag_overlay = _DragSelectOverlay(self)
+        self._drag_overlay.hide()
         
         # Import here to avoid module-level import in subprocess (avoids pickling issues)
         from ui.widgets.sound_file_button import SoundFileButton
@@ -107,6 +249,361 @@ class ButtonBankWidget(QWidget):
         # Connect engine adapter signals to button bank's routing methods
         if engine_adapter:
             self.set_engine_adapter(engine_adapter)
+
+    # ---------------------------------------------------------------------
+    # Drag-select mode (bulk edit)
+    # ---------------------------------------------------------------------
+
+    def set_drag_select_enabled(self, enabled: bool) -> None:
+        """Enable/disable drag-select mode for this bank only.
+
+        When enabled, per-button interaction is disabled so the user can drag
+        from anywhere (even the middle of buttons) to select a rectangle.
+        """
+        self._drag_select_enabled = bool(enabled)
+        try:
+            self._set_buttons_mouse_transparent(self._drag_select_enabled)
+        except Exception:
+            pass
+
+        try:
+            if self._drag_select_enabled:
+                self._drag_overlay.setGeometry(self.rect())
+                self._drag_overlay.show()
+                self._drag_overlay.raise_()
+            else:
+                self._drag_overlay.hide()
+        except Exception:
+            pass
+
+        # Clear any active selection/rectangle.
+        try:
+            self._drag_overlay.clear_selection()
+        except Exception:
+            pass
+        try:
+            self.update()
+        except Exception:
+            pass
+
+    def _set_buttons_mouse_transparent(self, transparent: bool) -> None:
+        for btn in getattr(self, "buttons", []) or []:
+            try:
+                btn.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, bool(transparent))
+            except Exception:
+                pass
+            # Ensure child widgets (fade button, sliders) are also transparent.
+            try:
+                for child in btn.findChildren(QWidget):
+                    try:
+                        child.setAttribute(Qt.WidgetAttribute.WA_TransparentForMouseEvents, bool(transparent))
+                    except Exception:
+                        continue
+            except Exception:
+                pass
+
+    def resizeEvent(self, event) -> None:
+        super().resizeEvent(event)
+        try:
+            self._drag_overlay.setGeometry(self.rect())
+            if self._drag_select_enabled:
+                self._drag_overlay.raise_()
+        except Exception:
+            pass
+
+    def _show_bulk_context_menu_at(self, global_pos: QPoint, selected: list) -> None:
+        """Open bulk edit context menu for a given selection."""
+        selected = list(selected or [])
+        if not selected:
+            return
+
+        menu = QMenu(self)
+        choose_tracks = menu.addAction("Select Track(s)…")
+        menu.addSeparator()
+        bg_color = menu.addAction("Background Color…")
+        text_color = menu.addAction("Text Color…")
+        change_text = menu.addAction("Change Text…")
+        reset_text = menu.addAction("Reset Text (Use Default)")
+        menu.addSeparator()
+        set_bg_image = menu.addAction("Set Background Image…")
+        clear_bg_image = menu.addAction("Clear Background Image")
+        menu.addSeparator()
+        loop_on = menu.addAction("Loop: Set ON")
+        loop_off = menu.addAction("Loop: Set OFF")
+        logging_on = menu.addAction("Logging Required: Set ON")
+        logging_off = menu.addAction("Logging Required: Set OFF")
+        autofade_on = menu.addAction("Auto-Fade Mode: Set ON")
+        autofade_off = menu.addAction("Auto-Fade Mode: Set OFF")
+        menu.addSeparator()
+        reset_colors = menu.addAction("Reset Colors")
+        clear_btn = menu.addAction("Clear Button")
+
+        action = menu.exec(global_pos)
+        if action is None:
+            return
+
+        if action == choose_tracks:
+            self._bulk_choose_tracks(selected)
+        elif action == bg_color:
+            self._bulk_set_bg_color(selected)
+        elif action == text_color:
+            self._bulk_set_text_color(selected)
+        elif action == change_text:
+            self._bulk_change_text(selected)
+        elif action == reset_text:
+            for btn in selected:
+                try:
+                    btn.clear_custom_text()
+                except Exception:
+                    pass
+        elif action == set_bg_image:
+            self._bulk_set_bg_image(selected)
+        elif action == clear_bg_image:
+            for btn in selected:
+                try:
+                    btn.set_background_asset(None)
+                except Exception:
+                    pass
+        elif action == loop_on:
+            self._bulk_set_bool(selected, "loop_enabled", True, update_cue=True)
+        elif action == loop_off:
+            self._bulk_set_bool(selected, "loop_enabled", False, update_cue=True)
+        elif action == logging_on:
+            self._bulk_set_bool(selected, "logging_required", True, update_cue=True)
+        elif action == logging_off:
+            self._bulk_set_bool(selected, "logging_required", False, update_cue=True)
+        elif action == autofade_on:
+            self._bulk_set_bool(selected, "auto_fade_enabled", True)
+        elif action == autofade_off:
+            self._bulk_set_bool(selected, "auto_fade_enabled", False)
+        elif action == reset_colors:
+            for btn in selected:
+                try:
+                    btn._reset_colors()
+                except Exception:
+                    pass
+        elif action == clear_btn:
+            for btn in selected:
+                try:
+                    btn._clear_button()
+                except Exception:
+                    pass
+
+    def _bulk_set_bool(self, buttons: list, attr: str, value: bool, *, update_cue: bool = False) -> None:
+        for btn in buttons:
+            try:
+                setattr(btn, attr, bool(value))
+            except Exception:
+                continue
+            try:
+                btn._refresh_label()
+            except Exception:
+                pass
+            try:
+                if update_cue:
+                    btn._update_cue_settings()
+            except Exception:
+                pass
+            try:
+                btn._notify_state_changed()
+            except Exception:
+                pass
+
+    def _bulk_set_bg_color(self, buttons: list) -> None:
+        from PySide6.QtWidgets import QColorDialog
+
+        base = None
+        try:
+            base = getattr(buttons[0], "bg_color", None)
+        except Exception:
+            base = None
+        color = QColorDialog.getColor(base or QColor(255, 255, 255), self, "Choose background color")
+        if not color.isValid():
+            return
+        for btn in buttons:
+            try:
+                btn.bg_color = color
+                btn._refresh_label()
+                btn._notify_state_changed()
+            except Exception:
+                continue
+
+    def _bulk_set_text_color(self, buttons: list) -> None:
+        from PySide6.QtWidgets import QColorDialog
+
+        base = None
+        try:
+            base = getattr(buttons[0], "text_color", None)
+        except Exception:
+            base = None
+        color = QColorDialog.getColor(base or QColor(0, 0, 0), self, "Choose text color")
+        if not color.isValid():
+            return
+        for btn in buttons:
+            try:
+                btn.text_color = color
+                btn._refresh_label()
+                btn._notify_state_changed()
+            except Exception:
+                continue
+
+    def _bulk_change_text(self, buttons: list) -> None:
+        from PySide6.QtWidgets import QInputDialog, QLineEdit
+
+        try:
+            current = getattr(buttons[0], "custom_text", None) or ""
+        except Exception:
+            current = ""
+        try:
+            new_text, ok = QInputDialog.getText(
+                self,
+                "Change Text",
+                "Button text:",
+                QLineEdit.EchoMode.Normal,
+                str(current),
+            )
+        except Exception:
+            return
+        if not ok:
+            return
+        for btn in buttons:
+            try:
+                btn.set_custom_text(new_text)
+            except Exception:
+                pass
+
+    def _bulk_set_bg_image(self, buttons: list) -> None:
+        from ui.dialogs import get_open_file_name
+
+        fp, _ = get_open_file_name(
+            self,
+            "Choose background image",
+            "",
+            "Images (*.png *.jpg *.jpeg *.bmp *.gif);;PNG (*.png);;All Files (*)",
+            settings_key="last_bg_image_dir",
+        )
+        if not fp:
+            return
+        for btn in buttons:
+            try:
+                btn.set_background_asset(fp)
+            except Exception:
+                pass
+
+    def _bulk_choose_tracks(self, selected_buttons: list) -> None:
+        """Assign multiple audio files starting at the current selection.
+
+        Behavior:
+        - Fill selected buttons first (sorted by index).
+        - If more files remain, fill subsequent buttons in this bank after the
+          last selected button.
+        - If files still remain, overflow into subsequent banks (existing
+          BankSelectorWidget.distribute_overflow_files behavior).
+        """
+        from ui.dialogs import get_open_file_names
+
+        files, _ = get_open_file_names(
+            self,
+            "Choose audio file(s)",
+            "",
+            "Audio Files (*.wav *.mp3 *.flac *.aac *.m4a);;All Files (*)",
+            settings_key="last_audio_dir",
+        )
+        if not files:
+            return
+
+        # Ensure deterministic order.
+        try:
+            selected_buttons.sort(key=lambda b: int(getattr(b, "index_in_bank", 0) or 0))
+        except Exception:
+            pass
+
+        try:
+            last_selected_idx = int(getattr(selected_buttons[-1], "index_in_bank", 0) or 0)
+        except Exception:
+            last_selected_idx = 0
+
+        # Build fill targets in current bank.
+        selected_set = set(selected_buttons)
+        targets = list(selected_buttons)
+        for btn in getattr(self, "buttons", []) or []:
+            try:
+                idx = int(getattr(btn, "index_in_bank", 0) or 0)
+            except Exception:
+                idx = 0
+            if idx <= last_selected_idx:
+                continue
+            if btn in selected_set:
+                continue
+            targets.append(btn)
+
+        # Preview overwrites in current + subsequent banks.
+        overwritten: list = []
+        for i, btn in enumerate(targets[: len(files)]):
+            try:
+                old = getattr(btn, "file_path", None)
+                if old:
+                    overwritten.append((btn, old))
+            except Exception:
+                continue
+
+        overflow_files = files[len(targets) :]
+        if overflow_files:
+            try:
+                anchor = targets[min(len(targets), len(files)) - 1] if targets else selected_buttons[-1]
+            except Exception:
+                anchor = selected_buttons[-1]
+
+            ancestor = self.parent()
+            while ancestor is not None:
+                distribute = getattr(ancestor, "distribute_overflow_files", None)
+                if callable(distribute):
+                    try:
+                        overwritten.extend(distribute(anchor, overflow_files, preview=True) or [])
+                    except Exception:
+                        pass
+                    break
+                ancestor = ancestor.parent()
+
+        # Confirm overwrite if needed.
+        if overwritten:
+            try:
+                warn = getattr(selected_buttons[0], "_show_overwrite_warning", None)
+                if callable(warn) and not warn(overwritten):
+                    return
+            except Exception:
+                # If warning fails, fall through and proceed.
+                pass
+
+        # Apply to current bank targets.
+        for fp, btn in zip(files, targets):
+            try:
+                apply_new = getattr(btn, "_set_new_file", None)
+                if callable(apply_new):
+                    apply_new(fp)
+                else:
+                    btn.file_path = fp
+                    btn._probe_file_async(fp)
+                    btn._refresh_label()
+            except Exception:
+                continue
+
+        # Apply overflow to subsequent banks.
+        if overflow_files:
+            try:
+                anchor = targets[-1] if targets else selected_buttons[-1]
+            except Exception:
+                anchor = selected_buttons[-1]
+            ancestor = self.parent()
+            while ancestor is not None:
+                distribute = getattr(ancestor, "distribute_overflow_files", None)
+                if callable(distribute):
+                    try:
+                        distribute(anchor, overflow_files, preview=False)
+                    except Exception:
+                        pass
+                    break
+                ancestor = ancestor.parent()
 
     # ---------------------------------------------------------------------
     # Persistence: restore + save button state

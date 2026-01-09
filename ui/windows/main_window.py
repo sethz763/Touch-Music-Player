@@ -292,6 +292,12 @@ class MainWindow(QMainWindow):
         self.drag_enabled_chk.toggled.connect(self._on_toggle_drag)
         labels_and_toggles.addWidget(self.drag_enabled_chk)
 
+        # Drag-select mode (bulk edit). When enabled, per-button interaction is disabled.
+        self.drag_select_chk = QCheckBox("Enable drag-select (bulk edit)")
+        self.drag_select_chk.setChecked(False)
+        self.drag_select_chk.toggled.connect(self._on_toggle_drag_select)
+        labels_and_toggles.addWidget(self.drag_select_chk)
+
         under_meters_row.addLayout(labels_and_toggles, 1)
 
         # Restore persisted grid size (rows/cols).
@@ -307,6 +313,12 @@ class MainWindow(QMainWindow):
         # Create the bank selector early so PlayControls can wire Next/Loop handlers
         # (layout placement still happens below)
         self.bank = BankSelectorWidget(banks=10, rows=persisted_rows, cols=persisted_cols, engine_adapter=self.engine_adapter)
+        try:
+            self.bank.bank_changed.connect(self._on_bank_changed)
+        except Exception:
+            pass
+        self._drag_select_enabled: bool = False
+        self._last_bank_index_for_drag_select: int = 0
 
         self.play_controls = PlayControls(50, 400)
         self.play_controls.transport_play.connect(self.engine_adapter.transport_play)
@@ -1045,6 +1057,72 @@ class MainWindow(QMainWindow):
             self.status.setText("Mode: Button dragging ENABLED (gestures disabled)")
         else:
             self.status.setText("Mode: Swipe gestures ENABLED (dragging disabled)")
+
+    def _on_toggle_drag_select(self, enabled: bool) -> None:
+        """Enable/disable drag-select mode (bulk edit) for the visible bank only."""
+        self._drag_select_enabled = bool(enabled)
+        try:
+            # Disable on the previous bank (visible-bank-only behavior).
+            if hasattr(self, "bank") and self.bank is not None:
+                try:
+                    old_bank = self.bank._bank_widgets[int(getattr(self, "_last_bank_index_for_drag_select", 0))]
+                    set_mode = getattr(old_bank, "set_drag_select_enabled", None)
+                    if callable(set_mode):
+                        set_mode(False)
+                except Exception:
+                    pass
+
+                # Enable on the current visible bank.
+                try:
+                    cur = self.bank.current_bank()
+                    set_mode = getattr(cur, "set_drag_select_enabled", None)
+                    if callable(set_mode):
+                        set_mode(bool(enabled))
+                except Exception:
+                    pass
+
+                try:
+                    self._last_bank_index_for_drag_select = int(self.bank.current_bank_index())
+                except Exception:
+                    self._last_bank_index_for_drag_select = 0
+        except Exception:
+            pass
+
+        if enabled:
+            self.status.setText("Mode: Drag-select ENABLED (buttons inactive)")
+        else:
+            self.status.setText("Mode: Drag-select disabled")
+
+    def _on_bank_changed(self, index: int) -> None:
+        """Keep drag-select mode visible-bank-only when switching banks."""
+        try:
+            prev = int(getattr(self, "_last_bank_index_for_drag_select", 0))
+        except Exception:
+            prev = 0
+
+        # Always disable on the old bank.
+        try:
+            old_bank = self.bank._bank_widgets[prev]
+            set_mode = getattr(old_bank, "set_drag_select_enabled", None)
+            if callable(set_mode):
+                set_mode(False)
+        except Exception:
+            pass
+
+        # Enable on the new visible bank only if checkbox is enabled.
+        try:
+            enabled = bool(getattr(self, "_drag_select_enabled", False))
+            new_bank = self.bank._bank_widgets[int(index)]
+            set_mode = getattr(new_bank, "set_drag_select_enabled", None)
+            if callable(set_mode):
+                set_mode(enabled)
+        except Exception:
+            pass
+
+        try:
+            self._last_bank_index_for_drag_select = int(index)
+        except Exception:
+            self._last_bank_index_for_drag_select = 0
         
     def _on_master_time_update(self, cue_id: str, elapsed: float, remaining: float, total: Optional[float]) -> None:
         """Update master time display with remaining and elapsed time optional"""

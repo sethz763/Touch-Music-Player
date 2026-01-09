@@ -76,6 +76,38 @@ def get_open_file_name(
     return filename, selected_filter
 
 
+def get_open_file_names(
+    parent: Optional[QWidget],
+    caption: str,
+    default_dir: str = "",
+    file_filter: str = "",
+    *,
+    settings_key: str = "last_dir",
+) -> Tuple[list[str], str]:
+    """Like QFileDialog.getOpenFileNames, but remembers last folder.
+
+    Returns:
+        (filenames, selected_filter)
+    """
+    s = _settings()
+    start_dir = _norm_dir(s.value(settings_key, "")) or _norm_dir(default_dir)
+
+    filenames, selected_filter = QFileDialog.getOpenFileNames(
+        parent,
+        caption,
+        start_dir,
+        file_filter,
+    )
+
+    if filenames:
+        try:
+            s.setValue(settings_key, _dir_of_file(str(filenames[0])))
+        except Exception:
+            pass
+
+    return [str(f) for f in (filenames or [])], selected_filter
+
+
 def get_save_file_name(
     parent: Optional[QWidget],
     caption: str,

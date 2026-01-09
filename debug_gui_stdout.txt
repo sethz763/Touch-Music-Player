@@ -1,3 +1,7 @@
-[2026-01-09T11:01:16.439] [engine] cue= track= set_output_device_requested {'device': '15'}
-[2026-01-09T11:01:16.440] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
-[2026-01-09T11:01:16.975] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
+[2026-01-09T12:27:25.649] [engine] cue= track= set_output_device_requested {'device': '15'}
+[2026-01-09T12:27:25.649] [engine] cue= track= set_output_config_requested {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
+[2026-01-09T12:27:25.717] [engine] cue= track= auto_fade_on_new_set {'enabled': True}
+[2026-01-09T12:27:29.000] [engine] cue= track= output_device_changed {'device': 15}
+[2026-01-09T12:27:29.000] [engine] cue= track= output_status {'status': 'output underflow'}
+[2026-01-09T12:27:29.945] [engine] cue= track= output_config_changed {'sample_rate': 48000, 'channels': 2, 'block_frames': 2048}
+[2026-01-09T12:27:29.957] [engine] cue= track= output_status {'status': 'output underflow'}
