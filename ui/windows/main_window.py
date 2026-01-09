@@ -31,6 +31,13 @@ from log.log import Log
 import datetime
 from persistence.SaveSettings import SaveSettings
 
+from ui.services.keyboard_capture_service import (
+    KeyboardCaptureService,
+    KeyboardCaptureMode,
+    GlobalBackendPreference,
+    KeyboardEvent as UiKeyboardEvent,
+)
+
 class MainWindow(QMainWindow):
     log_signal = Signal(dict, str, datetime)
     
@@ -52,9 +59,23 @@ class MainWindow(QMainWindow):
         # QShortcut fallback for actions that don't require key-release handling.
         self._qshortcuts: list[QShortcut] = []
 
+        # Keyboard capture service (Qt focus-only or global via pynput/evdev).
+        self._keyboard_capture_service = KeyboardCaptureService(self)
+        try:
+            app = QApplication.instance()
+            if app is not None:
+                self._keyboard_capture_service.attach_qt_target(app)
+        except Exception:
+            pass
+        try:
+            self._keyboard_capture_service.key_event.connect(self._on_keyboard_capture_event)
+        except Exception:
+            pass
+
         # Hold-to-modify behavior for fading StreamDeck cue presses.
         self._fade_modifier_active: bool = False
         self._fade_modifier_key_down: int | None = None
+        self._fade_modifier_combo_down: int | None = None
 
         # Load persisted keyboard shortcuts (QSettings) so they work before Settings is opened.
         try:
@@ -62,9 +83,14 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # Install QShortcuts immediately from persisted mappings.
+        # Apply persisted global keyboard capture setting before the UI is shown.
         try:
-            self._rebuild_qshortcuts()
+            global_enabled = bool(self._load_global_keyboard_capture_enabled())
+            self._keyboard_capture_service.set_backend_preference(GlobalBackendPreference.AUTO)
+            self._keyboard_capture_service.set_mode(
+                KeyboardCaptureMode.GLOBAL if global_enabled else KeyboardCaptureMode.FOCUS_ONLY
+            )
+            self._keyboard_capture_service.start()
         except Exception:
             pass
 
@@ -86,29 +112,7 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
 
-        # Capture shortcuts even when focus is inside child widgets.
-        try:
-            app = QApplication.instance()
-            if app is not None:
-                app.installEventFilter(self)
-                try:
-                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
-                        self._shortcut_debug('event_filter_installed=1')
-                except Exception:
-                    pass
-            else:
-                try:
-                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
-                        self._shortcut_debug('event_filter_installed=0 app=None')
-                except Exception:
-                    pass
-        except Exception:
-            try:
-                if os.environ.get('STEPD_SHORTCUT_DEBUG'):
-                    self._shortcut_debug('event_filter_installed=0 exception')
-            except Exception:
-                pass
-            pass
+        # NOTE: QApplication-level key capture is now handled by KeyboardCaptureService.
         self._audio_evt_q = ctx.Queue()
         
         # Load persisted application settings.
@@ -564,45 +568,6 @@ class MainWindow(QMainWindow):
 
     def eventFilter(self, watched, event):
         try:
-            # Global shortcut handler.
-            if event.type() in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
-                try:
-                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
-                        et = 'press' if event.type() == QEvent.Type.KeyPress else 'release'
-                        try:
-                            key_int = self._resolve_key_int(event)
-                            mods_int = int(event.modifiers())
-                            raw_key_val = mods_int | int(key_int)
-                        except Exception:
-                            raw_key_val = 0
-                        key_val = self._normalize_key_combo_int(raw_key_val)
-                        try:
-                            seq = QKeySequence(int(key_val)).toString()
-                        except Exception:
-                            seq = ''
-                        try:
-                            vk = int(getattr(event, 'nativeVirtualKey', lambda: 0)())
-                        except Exception:
-                            vk = 0
-                        try:
-                            sc = int(getattr(event, 'nativeScanCode', lambda: 0)())
-                        except Exception:
-                            sc = 0
-                        try:
-                            txt = str(getattr(event, 'text', lambda: '')() or '')
-                        except Exception:
-                            txt = ''
-                        self._shortcut_debug(
-                            f"eventFilter_{et} key={int(key_int)} mods={int(mods_int)} vk={vk} sc={sc} text={txt!r} raw={int(raw_key_val)} val={int(key_val)} seq={seq}"
-                        )
-                except Exception:
-                    pass
-                try:
-                    if self._handle_global_shortcut_keypress(event):
-                        return True
-                except Exception:
-                    pass
-
             if watched is self.master_time_display and event.type() == QEvent.Type.MouseButtonRelease:
                 if getattr(event, "button", None) is not None and event.button() == Qt.LeftButton:
                     self.view_elapsed_time = not self.view_elapsed_time
@@ -614,6 +579,181 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         return super().eventFilter(watched, event)
+
+    def _qsettings(self) -> QSettings:
+        return QSettings('StepD', 'TouchMusicPlayer')
+
+    def _load_global_keyboard_capture_enabled(self) -> bool:
+        try:
+            s = self._qsettings()
+            s.beginGroup('KeyboardCapture')
+            enabled = s.value('global_enabled', False)
+            s.endGroup()
+            return bool(enabled)
+        except Exception:
+            return False
+
+    def _save_global_keyboard_capture_enabled(self, enabled: bool) -> None:
+        try:
+            s = self._qsettings()
+            s.beginGroup('KeyboardCapture')
+            s.setValue('global_enabled', bool(enabled))
+            s.endGroup()
+        except Exception:
+            pass
+
+    def _on_global_keyboard_capture_toggled(self, enabled: bool) -> None:
+        try:
+            self._save_global_keyboard_capture_enabled(bool(enabled))
+        except Exception:
+            pass
+        try:
+            self._keyboard_capture_service.set_mode(
+                KeyboardCaptureMode.GLOBAL if bool(enabled) else KeyboardCaptureMode.FOCUS_ONLY
+            )
+            self._keyboard_capture_service.start()
+        except Exception:
+            pass
+
+    def _on_keyboard_capture_event(self, ev: object) -> None:
+        """Handle key events from KeyboardCaptureService."""
+
+        if not isinstance(ev, UiKeyboardEvent):
+            return
+
+        # When global capture is enabled, pynput/evdev will also see keys while the
+        # app is focused. To prevent duplicate shortcut triggers, ignore non-Qt
+        # events while the Qt app is active.
+        try:
+            src = str(getattr(ev, 'source', '') or '')
+        except Exception:
+            src = ''
+        try:
+            if src and src != 'qt':
+                if QApplication.applicationState() == Qt.ApplicationState.ApplicationActive:
+                    return
+        except Exception:
+            pass
+
+        # Avoid firing shortcuts while a modal dialog (e.g., shortcut capture) is active.
+        try:
+            if QApplication.activeModalWidget() is not None:
+                return
+        except Exception:
+            pass
+
+        # Don't hijack typing in text inputs/spin boxes.
+        try:
+            fw = QApplication.focusWidget()
+            if isinstance(
+                fw,
+                (
+                    QLineEdit,
+                    QTextEdit,
+                    QPlainTextEdit,
+                    QSpinBox,
+                    QDoubleSpinBox,
+                ),
+            ):
+                return
+        except Exception:
+            pass
+
+        try:
+            if bool(getattr(ev, 'is_auto_repeat', False)):
+                return
+        except Exception:
+            pass
+
+        qt_key = getattr(ev, 'qt_key', None)
+        qt_mods = getattr(ev, 'qt_modifiers', None)
+        if qt_key is None or qt_mods is None:
+            return
+
+        try:
+            raw_key_val = int(qt_mods) | int(qt_key)
+        except Exception:
+            return
+
+        key_val = int(self._normalize_key_combo_int(raw_key_val))
+        try:
+            try:
+                keypad_mask = int(Qt.KeyboardModifier.KeypadModifier)
+            except TypeError:
+                keypad_mask = int(getattr(Qt.KeyboardModifier.KeypadModifier, 'value', 0) or 0)
+        except Exception:
+            keypad_mask = 0
+        key_val_stripped = int(key_val) & ~int(keypad_mask)
+
+        # Optional tracing for debugging key mismatch issues.
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                try:
+                    seq = QKeySequence(int(key_val)).toString()
+                except Exception:
+                    seq = ''
+                self._shortcut_debug(
+                    f"svc_{str(getattr(ev, 'source', ''))}_{str(getattr(ev, 'action', ''))} raw={int(raw_key_val)} val={int(key_val)} seq={seq}"
+                )
+        except Exception:
+            pass
+
+        is_press = str(getattr(ev, 'action', '')) == 'press'
+        is_release = str(getattr(ev, 'action', '')) == 'release'
+
+        # Robust: allow clearing fade even if the release combo doesn't match the binding.
+        try:
+            if is_release and self._fade_modifier_active and self._fade_modifier_combo_down is not None:
+                if int(key_val) == int(self._fade_modifier_combo_down) or int(key_val_stripped) == int(self._fade_modifier_combo_down):
+                    self._set_fade_modifier_active(False)
+                    return
+        except Exception:
+            pass
+
+        # Lookup: prefer exact match; fall back to stripping KeypadModifier for
+        # backward compatibility with older saved bindings.
+        action = self._keyboard_shortcuts.get(int(key_val))
+        if not action and int(key_val_stripped) != int(key_val):
+            action = self._keyboard_shortcuts.get(int(key_val_stripped))
+        if not action:
+            return
+
+        # Special: Fade is a hold modifier (press=enable, release=disable).
+        if str(action).strip().lower() == 'trigger fade':
+            if is_press:
+                try:
+                    self._fade_modifier_key_down = int(qt_key)
+                except Exception:
+                    self._fade_modifier_key_down = None
+                try:
+                    self._fade_modifier_combo_down = int(key_val)
+                except Exception:
+                    self._fade_modifier_combo_down = None
+                self._set_fade_modifier_active(True)
+                return
+            if is_release:
+                self._set_fade_modifier_active(False)
+                return
+
+        # Allow clearing the fade modifier even if modifier state changed at key release.
+        try:
+            if is_release and self._fade_modifier_active:
+                if self._fade_modifier_key_down is not None and int(qt_key) == int(self._fade_modifier_key_down):
+                    self._set_fade_modifier_active(False)
+                    return
+        except Exception:
+            pass
+
+        # All other actions: only fire on key press.
+        if not is_press:
+            return
+
+        handled = self._run_keyboard_shortcut_action(action)
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                self._shortcut_debug(f"svc_action={action} handled={bool(handled)}")
+        except Exception:
+            pass
 
     def _resolve_key_int(self, event) -> int:
         """Best-effort conversion of a Qt key event to an integer key code.
@@ -689,7 +829,11 @@ class MainWindow(QMainWindow):
 
         try:
             key_int = self._resolve_key_int(event)
-            mods_int = int(event.modifiers())
+            try:
+                mods_int = int(event.modifiers())
+            except TypeError:
+                mods_obj = event.modifiers()
+                mods_int = int(getattr(mods_obj, 'value', 0) or 0)
             raw_key_val = mods_int | int(key_int)
         except Exception:
             return False
@@ -763,6 +907,7 @@ class MainWindow(QMainWindow):
         self._fade_modifier_active = active
         if not active:
             self._fade_modifier_key_down = None
+            self._fade_modifier_combo_down = None
         try:
             sd = getattr(self, "_streamdeck", None)
             fn = getattr(sd, "set_fade_modifier_active", None) if sd is not None else None
@@ -820,7 +965,7 @@ class MainWindow(QMainWindow):
                 except Exception:
                     key_val = -1
                 if action and key_val >= 0:
-                    mapping[int(self._normalize_key_combo_int(int(key_val)))] = action
+                    mapping[int(key_val)] = action
             s.endArray()
             s.endGroup()
         except Exception:
@@ -828,11 +973,12 @@ class MainWindow(QMainWindow):
         return mapping
 
     def _normalize_key_combo_int(self, key_val: int) -> int:
-        """Normalize key combos so numpad digits match top-row digits."""
-        try:
-            return int(key_val) & ~int(Qt.KeyboardModifier.KeypadModifier)
-        except Exception:
-            return int(key_val)
+        """Return a stable integer for a Qt key combo.
+
+        Note: We no longer strip `KeypadModifier` because we want to distinguish
+        numpad digits from top-row digits for bank switching.
+        """
+        return int(key_val)
 
     def closeEvent(self, event):
         """Clean shutdown of audio service when window closes."""
@@ -1001,6 +1147,16 @@ class MainWindow(QMainWindow):
             try:
                 tab = getattr(self._settings_dialog, "keyboard_shortcuts_tab", None)
                 if tab is not None:
+                    # Global keyboard capture toggle.
+                    try:
+                        tab.global_capture_toggled.disconnect(self._on_global_keyboard_capture_toggled)
+                    except Exception:
+                        pass
+                    try:
+                        tab.global_capture_toggled.connect(self._on_global_keyboard_capture_toggled)
+                    except Exception:
+                        pass
+
                     try:
                         tab.shortcuts_changed.disconnect(self._on_keyboard_shortcuts_changed)
                     except Exception:
@@ -1077,10 +1233,7 @@ class MainWindow(QMainWindow):
         except Exception:
             mapping = {}
         self._keyboard_shortcuts = mapping
-        try:
-            self._rebuild_qshortcuts()
-        except Exception:
-            pass
+        # Shortcut activation is handled by KeyboardCaptureService.
 
     def _rebuild_qshortcuts(self) -> None:
         """Create QShortcut objects for configured bindings.

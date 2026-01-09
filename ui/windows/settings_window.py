@@ -57,6 +57,7 @@ class KeyboardShortcutsTab(QWidget):
     """Tab for displaying/editing keyboard shortcut mappings."""
 
     shortcuts_changed = Signal(list)
+    global_capture_toggled = Signal(bool)
 
     def __init__(self, parent: QWidget | None = None):
         super().__init__(parent)
@@ -66,6 +67,19 @@ class KeyboardShortcutsTab(QWidget):
 
         title = QLabel('Keyboard Shortcuts')
         layout.addWidget(title)
+
+        # Global keyboard capture toggle (wired by MainWindow).
+        self.global_capture_checkbox = QCheckBox('Global keyboard capture')
+        self.global_capture_help = QLabel('Captures keyboard when app is not in focus')
+        self.global_capture_help.setStyleSheet('color: gray;')
+        layout.addWidget(self.global_capture_checkbox)
+        layout.addWidget(self.global_capture_help)
+
+        try:
+            self._load_persisted_global_capture()
+        except Exception:
+            pass
+        self.global_capture_checkbox.toggled.connect(self._on_global_capture_toggled)
 
         # Action categories are UI-only for now; more actions can be added later.
         self.action_categories: dict[str, list[str]] = {
@@ -118,19 +132,86 @@ class KeyboardShortcutsTab(QWidget):
         # Keep these stable so shortcuts persist across launches.
         return QSettings('StepD', 'TouchMusicPlayer')
 
+    def _load_persisted_global_capture(self) -> None:
+        try:
+            s = self._qsettings()
+            s.beginGroup('KeyboardCapture')
+            enabled = s.value('global_enabled', False)
+            s.endGroup()
+            self.global_capture_checkbox.setChecked(bool(enabled))
+        except Exception:
+            self.global_capture_checkbox.setChecked(False)
+
+    def _save_persisted_global_capture(self, enabled: bool) -> None:
+        try:
+            s = self._qsettings()
+            s.beginGroup('KeyboardCapture')
+            s.setValue('global_enabled', bool(enabled))
+            s.endGroup()
+        except Exception:
+            pass
+
+    def _on_global_capture_toggled(self, enabled: bool) -> None:
+        try:
+            self._save_persisted_global_capture(bool(enabled))
+        except Exception:
+            pass
+        try:
+            self.global_capture_toggled.emit(bool(enabled))
+        except Exception:
+            pass
+
     def _normalize_key_value(self, key_val: int | None) -> int | None:
-        """Normalize key combos so numpad digits match top-row digits."""
+        """Return a stable integer for a Qt key combo.
+
+        Note: Do NOT strip `KeypadModifier`. We want to allow distinct bindings
+        for numpad digits vs top-row digits.
+        """
         if key_val is None:
             return None
         try:
-            v = int(key_val)
+            return int(key_val)
         except Exception:
             return None
+
+    def _format_key_value(self, key_val: int) -> str:
+        """Human-readable key combo string with keypad hint."""
         try:
-            v &= ~int(Qt.KeyboardModifier.KeypadModifier)
+            v = int(key_val)
+        except Exception:
+            return ''
+
+        try:
+            mods = int(v) & _qt_int(Qt.KeyboardModifier.KeyboardModifierMask)
+        except Exception:
+            mods = 0
+
+        try:
+            key = int(v) & ~_qt_int(Qt.KeyboardModifier.KeyboardModifierMask)
+        except Exception:
+            key = int(v)
+
+        is_keypad = False
+        try:
+            is_keypad = bool(int(v) & _qt_int(Qt.KeyboardModifier.KeypadModifier))
+        except Exception:
+            is_keypad = False
+
+        # If it's a digit and KeypadModifier is present, show "Numpad N".
+        try:
+            if is_keypad and int(Qt.Key.Key_0) <= int(key) <= int(Qt.Key.Key_9):
+                digit = int(key) - int(Qt.Key.Key_0)
+                prefix = QKeySequence(int(mods)).toString().strip()
+                if prefix:
+                    return f"{prefix}+Numpad {digit}"
+                return f"Numpad {digit}"
         except Exception:
             pass
-        return v
+
+        try:
+            return QKeySequence(int(v)).toString()
+        except Exception:
+            return ''
 
     def _load_example_rows(self) -> None:
         """Seed rows with available actions.
@@ -168,7 +249,7 @@ class KeyboardShortcutsTab(QWidget):
                 key_val = int(key_val)
             except Exception:
                 key_val = -1
-            rows.append({'action': action_text, 'key': self._normalize_key_value(key_val) if key_val >= 0 else -1})
+            rows.append({'action': action_text, 'key': int(key_val) if key_val >= 0 else -1})
         return rows
 
     def _save_persisted_bindings(self) -> None:
@@ -206,8 +287,6 @@ class KeyboardShortcutsTab(QWidget):
                 except Exception:
                     key_val = -1
                 if action:
-                    if key_val >= 0:
-                        key_val = self._normalize_key_value(key_val) or -1
                     action_to_key[action] = key_val
             s.endArray()
             s.endGroup()
@@ -228,7 +307,7 @@ class KeyboardShortcutsTab(QWidget):
 
             if isinstance(key_val, int) and key_val >= 0:
                 combo_item.setData(Qt.ItemDataRole.UserRole, int(key_val))
-                combo_item.setText(QKeySequence(int(key_val)).toString())
+                combo_item.setText(self._format_key_value(int(key_val)))
             else:
                 combo_item.setData(Qt.ItemDataRole.UserRole, None)
                 combo_item.setText('')
@@ -290,9 +369,7 @@ class KeyboardShortcutsTab(QWidget):
                     return
 
                 item.setData(Qt.ItemDataRole.UserRole, int(key_val))
-                key_val = self._normalize_key_value(int(key_val))
-                item.setData(Qt.ItemDataRole.UserRole, int(key_val))
-                item.setText(QKeySequence(int(key_val)).toString())
+                item.setText(self._format_key_value(int(key_val)))
                 self._emit_bindings_changed()
             return
 
@@ -311,6 +388,23 @@ class KeyboardShortcutsTab(QWidget):
                     self.shortcuts_table.setItem(row, action_col, current_item)
                 current_item.setText(chosen)
                 self._emit_bindings_changed()
+
+
+def _qt_int(value, default: int = 0) -> int:
+    """Best-effort int conversion for PySide6 Qt enums/flags.
+
+    PySide6 Qt flag/enums sometimes don't support `int(x)` directly but expose a
+    `.value` attribute.
+    """
+    try:
+        return int(value)
+    except TypeError:
+        try:
+            return int(getattr(value, "value"))
+        except Exception:
+            return int(default)
+    except Exception:
+        return int(default)
 
 
 class _KeyCaptureDialog(QDialog):
@@ -341,10 +435,26 @@ class _KeyCaptureDialog(QDialog):
         except Exception:
             pass
 
+        key = _qt_int(getattr(event, "key", lambda: 0)())
+
+        mods = _qt_int(getattr(event, "modifiers", lambda: 0)())
+
+        # Canonicalize Qt's numpad digit variants into "digit + KeypadModifier".
         try:
-            key = int(event.key())
+            numpad_digit = None
+            for d in range(10):
+                for attr in (f"Key_Numpad{d}", f"Keypad{d}"):
+                    v = getattr(Qt.Key, attr, None)
+                    if v is not None and _qt_int(v) == int(key):
+                        numpad_digit = int(d)
+                        break
+                if numpad_digit is not None:
+                    break
+            if numpad_digit is not None:
+                key = _qt_int(Qt.Key.Key_0) + int(numpad_digit)
+                mods = int(mods) | _qt_int(Qt.KeyboardModifier.KeypadModifier)
         except Exception:
-            key = 0
+            pass
 
         # Cancel
         if key == int(Qt.Key.Key_Escape):
@@ -364,13 +474,13 @@ class _KeyCaptureDialog(QDialog):
 
         # Ignore modifier-only presses (wait for a real key).
         if key in (
-            int(Qt.Key.Key_Control),
-            int(Qt.Key.Key_Shift),
-            int(Qt.Key.Key_Alt),
-            int(Qt.Key.Key_Meta),
+            _qt_int(Qt.Key.Key_Control),
+            _qt_int(Qt.Key.Key_Shift),
+            _qt_int(Qt.Key.Key_Alt),
+            _qt_int(Qt.Key.Key_Meta),
         ):
             try:
-                mods_preview = int(event.modifiers())
+                mods_preview = int(mods)
                 if mods_preview:
                     self._label.setText(
                         f"Holding: {QKeySequence(int(mods_preview)).toString()}\n"
@@ -380,15 +490,62 @@ class _KeyCaptureDialog(QDialog):
                 pass
             return
 
+        # Best-effort: add KeypadModifier for numpad keys.
         try:
-            mods = int(event.modifiers())
+            _vk_attr = getattr(event, 'nativeVirtualKey', None)
+            vk = int(_vk_attr() if callable(_vk_attr) else (_vk_attr or 0))
         except Exception:
-            mods = 0
+            vk = 0
+        try:
+            _sc_attr = getattr(event, 'nativeScanCode', None)
+            sc = int(_sc_attr() if callable(_sc_attr) else (_sc_attr or 0))
+        except Exception:
+            sc = 0
+        try:
+            if 0x60 <= int(vk) <= 0x6F:  # Windows keypad VK range
+                mods |= _qt_int(Qt.KeyboardModifier.KeypadModifier)
+            if int(vk) in {82, 83, 84, 85, 86, 87, 88, 89, 91, 92}:  # mac keypad digits
+                mods |= _qt_int(Qt.KeyboardModifier.KeypadModifier)
+            # Linux (X11/Wayland): keypad keysyms tend to be 0xFFB0..0xFFBF.
+            if 0xFFB0 <= int(vk) <= 0xFFBF:
+                mods |= _qt_int(Qt.KeyboardModifier.KeypadModifier)
+            # Windows: scan codes for numpad digits (Set 1 scancodes).
+            # Top-row digits are 0x02..0x0B, whereas numpad digits are 0x47..0x52.
+            if int(sc) in {0x47, 0x48, 0x49, 0x4B, 0x4C, 0x4D, 0x4F, 0x50, 0x51, 0x52}:
+                mods |= _qt_int(Qt.KeyboardModifier.KeypadModifier)
+        except Exception:
+            pass
 
         self._captured_key = key
         self._key_value = mods | key
         try:
-            self._label.setText(f"Captured: {QKeySequence(int(self._key_value)).toString()}\n(Press another combo to replace, or Esc to cancel)")
+            # Try to show keypad distinction when possible.
+            try:
+                v = int(self._key_value)
+                keypad_mask = _qt_int(Qt.KeyboardModifier.KeypadModifier)
+                mod_mask = _qt_int(Qt.KeyboardModifier.KeyboardModifierMask)
+                is_keypad = bool(v & int(keypad_mask))
+                key_only = v & ~int(mod_mask)
+                mods_only = v & int(mod_mask)
+                if is_keypad and _qt_int(Qt.Key.Key_0) <= int(key_only) <= _qt_int(Qt.Key.Key_9):
+                    digit = int(key_only) - _qt_int(Qt.Key.Key_0)
+                    prefix = QKeySequence(int(mods_only)).toString().strip()
+                    if prefix:
+                        pretty = f"{prefix}+Numpad {digit}"
+                    else:
+                        pretty = f"Numpad {digit}"
+                else:
+                    pretty = QKeySequence(int(v)).toString()
+            except Exception:
+                pretty = QKeySequence(int(self._key_value)).toString()
+
+            # Include raw native identifiers so we can debug keypad detection on
+            # platforms where Qt doesn't set KeypadModifier.
+            self._label.setText(
+                f"Captured: {pretty}\n"
+                f"raw: key={int(key)} mods=0x{int(mods):X} vk={int(vk)} sc={int(sc)}\n"
+                "(Press another combo to replace, or Esc to cancel)"
+            )
         except Exception:
             pass
 
@@ -397,10 +554,7 @@ class _KeyCaptureDialog(QDialog):
 
         This improves reliability for modifier combos on some platforms.
         """
-        try:
-            key = int(event.key())
-        except Exception:
-            key = 0
+        key = _qt_int(getattr(event, "key", lambda: 0)())
         if self._key_value is None or self._captured_key is None:
             return
         if key != int(self._captured_key):
