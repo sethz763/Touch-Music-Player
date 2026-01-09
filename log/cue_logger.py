@@ -75,7 +75,9 @@ class CueLogger:
 
         total_ms = (time.perf_counter() - start) * 1000
         if total_ms > 2.0 or log_mgr_ms > 2.0 or excel_ms > 2.0:
-            print(
+            from log.perf import perf_print
+
+            perf_print(
                 f"[PERF] CueLogger.on_cue_finished: {total_ms:.2f}ms cue={cue_info.cue_id[:8]}"
                 f" log_mgr={log_mgr_ms:.2f}ms excel={excel_ms:.2f}ms"
             )

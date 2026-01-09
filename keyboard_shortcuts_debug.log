@@ -1,0 +1,647 @@
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+---
+run_start ts=2026-01-08T19:42:31 pid=15444
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+---
+run_start ts=2026-01-08T19:43:13 pid=20928
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat112234
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_release raw=0 val=0 seq=
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat5
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+eventFilter_press raw=0 val=0 seq=
+ignore_autorepeat
+ignore_autorepeat
+---
+run_start ts=2026-01-08T20:03:32 pid=55416
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+2112---
+run_start ts=2026-01-08T20:05:20 pid=71320
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+---
+log_file=C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\keyboard_shortcuts_debug.log
+run_start ts=2026-01-08T20:11:32 pid=53920
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+qshortcut_rebuild count=6
+---
+log_file=C:\Users\Seth Zwiebel\OneDrive\Documents\step_d_audio_fix\keyboard_shortcuts_debug.log
+run_start ts=2026-01-08T20:17:36 pid=36996
+loaded_shortcuts count=7
+binding key=45 action=Trigger fade
+binding key=48 action=Select bank 0 on streamdeck
+binding key=49 action=Select bank 1 on streamdeck
+binding key=50 action=Select bank 2 on streamdeck
+binding key=51 action=Select bank 3 on streamdeck
+binding key=52 action=Select bank 4 on streamdeck
+binding key=53 action=Select bank 5 on streamdeck
+event_filter_installed=1
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 4 on streamdeck
+bank_switch_request idx=4
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 4 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 4 on streamdeck
+bank_switch_request idx=4
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 4 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=gui_bank
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 4 on streamdeck
+bank_switch_request idx=4
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 4 on streamdeck handled=True
+qshortcut_activated action=Select bank 0 on streamdeck
+bank_switch_request idx=0
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 0 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 0 on streamdeck
+bank_switch_request idx=0
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 0 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 4 on streamdeck
+bank_switch_request idx=4
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 4 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 4 on streamdeck
+bank_switch_request idx=4
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 4 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 5 on streamdeck
+bank_switch_request idx=5
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 5 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 3 on streamdeck
+bank_switch_request idx=3
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 3 on streamdeck handled=True
+qshortcut_activated action=Select bank 0 on streamdeck
+bank_switch_request idx=0
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 0 on streamdeck handled=True
+qshortcut_activated action=Select bank 1 on streamdeck
+bank_switch_request idx=1
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 1 on streamdeck handled=True
+qshortcut_activated action=Select bank 2 on streamdeck
+bank_switch_request idx=2
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 2 on streamdeck handled=True
+qshortcut_activated action=Select bank 0 on streamdeck
+bank_switch_request idx=0
+bank_switch_path=streamdeck_independent
+qshortcut_handled action=Select bank 0 on streamdeck handled=True
+321

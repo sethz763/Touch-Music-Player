@@ -57,6 +57,8 @@ import time
 import os
 from collections import deque
 
+from log.perf import env_truthy, perf_print
+
 from PySide6.QtCore import QObject, Signal, QTimer
 from PySide6.QtWidgets import QWidget
 
@@ -268,6 +270,9 @@ class EngineAdapter(QObject):
         except Exception:
             self._poll_debug_logging = False
 
+        # Very chatty; opt-in only.
+        self._adapter_debug_logging = env_truthy("STEPD_ADAPTER_DEBUG", default=False)
+
         # Poll jitter / backlog diagnostics
         self._poll_interval_ms = int(poll_interval_ms)
         self._poll_seq = 0
@@ -434,7 +439,7 @@ class EngineAdapter(QObject):
             
             elapsed = (time.perf_counter() - start) * 1000
             if elapsed > self._slow_threshold_ms:
-                print(f"[PERF] play_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cmd.cue_id}")
+                perf_print(f"[PERF] play_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cmd.cue_id}")
         except Exception as e:
             print(f"[EngineAdapter.play_cue] Error: {e}")
             traceback.print_exc()
@@ -456,7 +461,7 @@ class EngineAdapter(QObject):
             
             elapsed = (time.perf_counter() - start) * 1000
             if elapsed > self._slow_threshold_ms:
-                print(f"[PERF] stop_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cue_id}")
+                perf_print(f"[PERF] stop_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cue_id}")
         except Exception as e:
             print(f"[EngineAdapter.stop_cue] Error: {e}")
 
@@ -490,7 +495,7 @@ class EngineAdapter(QObject):
             
             elapsed = (time.perf_counter() - start) * 1000
             if elapsed > self._slow_threshold_ms:
-                print(f"[PERF] fade_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cue_id} target={target_db}dB")
+                perf_print(f"[PERF] fade_cue took {elapsed:.2f}ms (queue.put: {q_time:.2f}ms) cue_id={cue_id} target={target_db}dB")
         except Exception as e:
             print(f"[EngineAdapter.fade_cue] Error: {e}")
 
@@ -509,11 +514,13 @@ class EngineAdapter(QObject):
             cue (Cue, optional): Cue object with updated properties.
             **kwargs: Individual property updates (in_frame, out_frame, gain_db, loop_enabled).
         """
-        print(f"[EngineAdapter.update_cue] CALLED with cue_id={cue_id}, cue={cue}, kwargs={kwargs}")
+        if self._adapter_debug_logging:
+            print(f"[EngineAdapter.update_cue] CALLED with cue_id={cue_id}, cue={cue}, kwargs={kwargs}")
         try:
             if cue is not None:
                 # Extract properties from Cue object
-                print(f"[EngineAdapter.update_cue] Using CueInfo object. Extracting: in_frame={cue.in_frame}, out_frame={cue.out_frame}, gain_db={cue.gain_db}, loop_enabled={cue.loop_enabled}")
+                if self._adapter_debug_logging:
+                    print(f"[EngineAdapter.update_cue] Using CueInfo object. Extracting: in_frame={cue.in_frame}, out_frame={cue.out_frame}, gain_db={cue.gain_db}, loop_enabled={cue.loop_enabled}")
                 cmd = UpdateCueCommand(
                     cue_id=cue_id,
                     in_frame=cue.in_frame if hasattr(cue, 'in_frame') else None,
@@ -530,7 +537,8 @@ class EngineAdapter(QObject):
                     gain_db=kwargs.get('gain_db'),
                     loop_enabled=kwargs.get('loop_enabled'),
                 )
-            print(f"[EngineAdapter.update_cue] Created UpdateCueCommand: cue_id={cmd.cue_id}, gain_db={cmd.gain_db}")
+            if self._adapter_debug_logging:
+                print(f"[EngineAdapter.update_cue] Created UpdateCueCommand: cue_id={cmd.cue_id}, gain_db={cmd.gain_db}")
             
             # Update frame boundary tracking if changed
             if cue is not None:
@@ -555,7 +563,8 @@ class EngineAdapter(QObject):
                         pass
             
             self._cmd_q.put(cmd)
-            print(f"[EngineAdapter.update_cue] Command queued successfully")
+            if self._adapter_debug_logging:
+                print(f"[EngineAdapter.update_cue] Command queued successfully")
         except Exception as e:
             print(f"[EngineAdapter.update_cue] Error: {e}")
             import traceback
@@ -1070,14 +1079,14 @@ class EngineAdapter(QObject):
 
             jitter_msg = f"dt={dt_ms:.1f}ms slip={slip_ms:+.1f}ms"
             if lifecycle_dropped > 0:
-                print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count}/{lifecycle_count+lifecycle_dropped} lifecycle, {telemetry_count}/{telemetry_count+telemetry_dropped} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
+                perf_print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count}/{lifecycle_count+lifecycle_dropped} lifecycle, {telemetry_count}/{telemetry_count+telemetry_dropped} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
             elif telemetry_dropped > 0:
-                print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count} lifecycle, {telemetry_count}/{telemetry_count+telemetry_dropped} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
+                perf_print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count} lifecycle, {telemetry_count}/{telemetry_count+telemetry_dropped} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
             elif total_time > 10.0:  # Only show really slow polls
-                print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count} lifecycle, {telemetry_count} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
+                perf_print(f"[PERF] _poll_events: {total_time:.2f}ms ({lifecycle_count} lifecycle, {telemetry_count} telemetry, max event {max_event_time:.2f}ms) {stage_msg} {jitter_msg} avg10={avg_time:.2f}ms")
 
             if top_msg:
-                print(f"[PERF] _poll_events breakdown: {top_msg}")
+                perf_print(f"[PERF] _poll_events breakdown: {top_msg}")
 
     def _dispatch_event(self, event: object, current_time: float) -> None:
         """

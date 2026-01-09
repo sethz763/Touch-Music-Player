@@ -451,7 +451,9 @@ class ButtonBankWidget(QWidget):
                     break
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
-            print(f"[PERF] ButtonBankWidget._on_adapter_cue_started: {elapsed:.2f}ms cue_id={cue_id}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] ButtonBankWidget._on_adapter_cue_started: {elapsed:.2f}ms cue_id={cue_id}")
     
     def _on_adapter_cue_finished(self, cue_id: str, cue_info: object, reason: str) -> None:
         """
@@ -494,7 +496,9 @@ class ButtonBankWidget(QWidget):
                 pass
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
-            print(f"[PERF] ButtonBankWidget._on_adapter_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] ButtonBankWidget._on_adapter_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
 
     def transport_next(self) -> None:
         """Play the next cue to the right, or the first cue on the next row.
@@ -562,7 +566,9 @@ class ButtonBankWidget(QWidget):
                     break
         elapsed_ms = (time.perf_counter() - start) * 1000
         if elapsed_ms > self._slow_threshold_ms:
-            print(f"[PERF] ButtonBankWidget._on_adapter_cue_time: {elapsed_ms:.2f}ms cue_id={cue_id}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] ButtonBankWidget._on_adapter_cue_time: {elapsed_ms:.2f}ms cue_id={cue_id}")
     
     def _on_adapter_cue_levels(self, cue_id: str, rms, peak) -> None:
         """
@@ -588,7 +594,9 @@ class ButtonBankWidget(QWidget):
                     break
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms:
-            print(f"[PERF] ButtonBankWidget._on_adapter_cue_levels: {elapsed:.2f}ms cue_id={cue_id}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] ButtonBankWidget._on_adapter_cue_levels: {elapsed:.2f}ms cue_id={cue_id}")
 
     # ------------------------------------------------------------------
     # Batched cleanup helpers
@@ -598,7 +606,9 @@ class ButtonBankWidget(QWidget):
         """Track buttons needing cleanup and schedule a single-pass flush."""
         self._dirty_buttons.add(btn)
         if len(self._dirty_buttons) >= 3:
-            print(f"[PERF] ButtonBankWidget._mark_button_dirty pending={len(self._dirty_buttons)}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] ButtonBankWidget._mark_button_dirty pending={len(self._dirty_buttons)}")
         if not self._cleanup_timer.isActive():
             # Run after current event loop turn so multiple cues batch together.
             self._cleanup_timer.start(0)
@@ -614,7 +624,9 @@ class ButtonBankWidget(QWidget):
             btn._finish_cleanup()
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > self._slow_threshold_ms or len(dirty) >= 5:
-            print(
+            from log.perf import perf_print
+
+            perf_print(
                 f"[PERF] ButtonBankWidget._run_batched_button_cleanup: {elapsed:.2f}ms"
                 f" count={len(dirty)} avg={elapsed/len(dirty):.2f}ms"
             )

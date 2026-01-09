@@ -1814,7 +1814,9 @@ class SoundFileButton(QPushButton):
         
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > 1.0:
-            print(f"[PERF] SoundFileButton._on_cue_started: {elapsed:.2f}ms cue_id={cue_id}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] SoundFileButton._on_cue_started: {elapsed:.2f}ms cue_id={cue_id}")
     
     def _on_cue_finished(self, cue_id: str, cue_info: object, reason: str) -> None:
         """
@@ -1850,7 +1852,9 @@ class SoundFileButton(QPushButton):
         
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > 1.0:
-            print(f"[PERF] SoundFileButton._on_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] SoundFileButton._on_cue_finished: {elapsed:.2f}ms cue_id={cue_id} reason={reason}")
     
     def _finish_cleanup(self) -> None:
         """
@@ -1883,7 +1887,9 @@ class SoundFileButton(QPushButton):
             
             elapsed = (time.perf_counter() - start) * 1000
             if elapsed > 1.5:
-                print(f"[PERF] SoundFileButton._finish_cleanup: {elapsed:.2f}ms cue={self.current_cue_id}")
+                from log.perf import perf_print
+
+                perf_print(f"[PERF] SoundFileButton._finish_cleanup: {elapsed:.2f}ms cue={self.current_cue_id}")
     
     def _hide_fade_button(self) -> None:
         """Deferred fade button hide to batch layout updates."""
@@ -1914,7 +1920,9 @@ class SoundFileButton(QPushButton):
         
         elapsed_ms = (time.perf_counter() - start) * 1000
         if elapsed_ms > 2.0:
-            print(f"[PERF] SoundFileButton._on_cue_time: {elapsed_ms:.2f}ms cue_id={cue_id}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] SoundFileButton._on_cue_time: {elapsed_ms:.2f}ms cue_id={cue_id}")
     
     def _on_cue_levels(self, cue_id: str, rms, peak) -> None:
         """
@@ -2011,7 +2019,9 @@ class SoundFileButton(QPushButton):
         
         elapsed = (time.perf_counter() - start) * 1000
         if elapsed > 2.0:
-            print(f"[PERF] SoundFileButton._on_cue_levels: {elapsed:.2f}ms cue_id={cue_id}")
+            from log.perf import perf_print
+
+            perf_print(f"[PERF] SoundFileButton._on_cue_levels: {elapsed:.2f}ms cue_id={cue_id}")
 
     # ==========================================================================
     # DRAG AND DROP HANDLING

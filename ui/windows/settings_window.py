@@ -3,15 +3,15 @@ from __future__ import annotations
 
 from typing import Optional
 
-from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox, QMessageBox, QCheckBox
-from PySide6.QtGui import QFont
+from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox, QMessageBox, QCheckBox, QTabWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QDialog, QListWidget, QListWidgetItem
+from PySide6.QtGui import QFont, QKeySequence
 from PySide6 import QtCore
 from PySide6 import QtWidgets
 from PySide6.QtCore import QThread
 
 from PySide6.QtMultimedia import QMediaDevices
 
-from PySide6.QtCore import QObject, Signal, Qt
+from PySide6.QtCore import QObject, Signal, Qt, QSettings
 
 from persistence.SaveSettings import SaveSettings
 from legacy.CheckSoundDevices import CheckSoundDevices
@@ -27,6 +27,454 @@ class SettingSignals(QObject):
     change_rows_and_columns_signal = Signal(int, int)
     main_output_signal = Signal(int, float)
     editor_output_signal = Signal(int, float)
+
+
+class KeyboardShortcutsTab(QWidget):
+    """Tab for displaying/editing keyboard shortcut mappings."""
+
+    shortcuts_changed = Signal(list)
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        title = QLabel('Keyboard Shortcuts')
+        layout.addWidget(title)
+
+        # Action categories are UI-only for now; more actions can be added later.
+        self.action_categories: dict[str, list[str]] = {
+            'Playback': [
+                'Trigger fade',
+                'Transport Play',
+                'Transport Pause',
+                'Transport Stop',
+                'Next cue',
+            ],
+            'Streamdeck': [
+                'Select bank 0 on streamdeck',
+                'Select bank 1 on streamdeck',
+                'Select bank 2 on streamdeck',
+                'Select bank 3 on streamdeck',
+                'Select bank 4 on streamdeck',
+                'Select bank 5 on streamdeck',
+                'Select bank 6 on streamdeck',
+                'Select bank 7 on streamdeck',
+                'Select bank 8 on streamdeck',
+                'Select bank 9 on streamdeck',
+            ],
+        }
+
+        self.shortcuts_table = QTableWidget()
+        self.shortcuts_table.setColumnCount(2)
+        self.shortcuts_table.setHorizontalHeaderLabels([
+            'Modifier / Combo',
+            'Action / Description',
+        ])
+        self.shortcuts_table.setEditTriggers(QAbstractItemView.EditTrigger.NoEditTriggers)
+        self.shortcuts_table.setSelectionBehavior(QAbstractItemView.SelectionBehavior.SelectRows)
+        self.shortcuts_table.setSelectionMode(QAbstractItemView.SelectionMode.SingleSelection)
+        self.shortcuts_table.setAlternatingRowColors(True)
+        self.shortcuts_table.verticalHeader().setVisible(False)
+
+        header = self.shortcuts_table.horizontalHeader()
+        header.setSectionResizeMode(QHeaderView.ResizeMode.Stretch)
+
+        layout.addWidget(self.shortcuts_table)
+
+        # Clicking the Action column opens a picker dialog.
+        self.shortcuts_table.cellClicked.connect(self._on_table_cell_clicked)
+
+        self._load_example_rows()
+        self._load_persisted_bindings()
+        self._emit_bindings_changed()
+
+    def _qsettings(self) -> QSettings:
+        # Keep these stable so shortcuts persist across launches.
+        return QSettings('StepD', 'TouchMusicPlayer')
+
+    def _normalize_key_value(self, key_val: int | None) -> int | None:
+        """Normalize key combos so numpad digits match top-row digits."""
+        if key_val is None:
+            return None
+        try:
+            v = int(key_val)
+        except Exception:
+            return None
+        try:
+            v &= ~int(Qt.KeyboardModifier.KeypadModifier)
+        except Exception:
+            pass
+        return v
+
+    def _load_example_rows(self) -> None:
+        """Seed rows with available actions.
+
+        Keys are intentionally left blank/unassigned by default.
+        """
+        actions: list[str] = []
+        for cat in self.action_categories.values():
+            actions.extend(list(cat or []))
+
+        self.shortcuts_table.setRowCount(len(actions))
+        for r, action in enumerate(actions):
+            combo_item = QTableWidgetItem('')
+            combo_item.setData(Qt.ItemDataRole.UserRole, None)
+            combo_item.setToolTip('Click to set key / key combo')
+            action_item = QTableWidgetItem(action)
+            action_item.setToolTip('Click to choose an action')
+            self.shortcuts_table.setItem(r, 0, combo_item)
+            self.shortcuts_table.setItem(r, 1, action_item)
+
+        # Persistence/load happens after table is seeded.
+
+    def _get_table_rows_for_persistence(self) -> list[dict]:
+        rows: list[dict] = []
+        for row in range(self.shortcuts_table.rowCount()):
+            combo_item = self.shortcuts_table.item(row, 0)
+            action_item = self.shortcuts_table.item(row, 1)
+            if action_item is None:
+                continue
+            action_text = (action_item.text() or '').strip()
+            if not action_text:
+                continue
+            key_val = combo_item.data(Qt.ItemDataRole.UserRole) if combo_item is not None else None
+            try:
+                key_val = int(key_val)
+            except Exception:
+                key_val = -1
+            rows.append({'action': action_text, 'key': self._normalize_key_value(key_val) if key_val >= 0 else -1})
+        return rows
+
+    def _save_persisted_bindings(self) -> None:
+        try:
+            s = self._qsettings()
+            s.beginGroup('KeyboardShortcuts')
+            # Clear group so removed/renamed rows don't linger.
+            s.remove('')
+
+            rows = self._get_table_rows_for_persistence()
+            s.beginWriteArray('bindings', len(rows))
+            for i, r in enumerate(rows):
+                s.setArrayIndex(i)
+                s.setValue('action', r.get('action', ''))
+                s.setValue('key', int(r.get('key', -1)))
+            s.endArray()
+            s.endGroup()
+        except Exception:
+            pass
+
+    def _load_persisted_bindings(self) -> None:
+        action_to_key: dict[str, int] = {}
+        try:
+            s = self._qsettings()
+            s.beginGroup('KeyboardShortcuts')
+            size = s.beginReadArray('bindings')
+            for i in range(size):
+                s.setArrayIndex(i)
+                try:
+                    action = str(s.value('action', '') or '').strip()
+                except Exception:
+                    action = ''
+                try:
+                    key_val = int(s.value('key', -1))
+                except Exception:
+                    key_val = -1
+                if action:
+                    if key_val >= 0:
+                        key_val = self._normalize_key_value(key_val) or -1
+                    action_to_key[action] = key_val
+            s.endArray()
+            s.endGroup()
+        except Exception:
+            action_to_key = {}
+
+        for row in range(self.shortcuts_table.rowCount()):
+            combo_item = self.shortcuts_table.item(row, 0)
+            action_item = self.shortcuts_table.item(row, 1)
+            if action_item is None:
+                continue
+            action_text = (action_item.text() or '').strip()
+            key_val = action_to_key.get(action_text, -1)
+
+            if combo_item is None:
+                combo_item = QTableWidgetItem('')
+                self.shortcuts_table.setItem(row, 0, combo_item)
+
+            if isinstance(key_val, int) and key_val >= 0:
+                combo_item.setData(Qt.ItemDataRole.UserRole, int(key_val))
+                combo_item.setText(QKeySequence(int(key_val)).toString())
+            else:
+                combo_item.setData(Qt.ItemDataRole.UserRole, None)
+                combo_item.setText('')
+
+    def get_bindings(self) -> list[dict]:
+        """Return current bindings as a list of dicts (UI-only; no persistence)."""
+        bindings: list[dict] = []
+        for row in range(self.shortcuts_table.rowCount()):
+            combo_item = self.shortcuts_table.item(row, 0)
+            action_item = self.shortcuts_table.item(row, 1)
+            if combo_item is None or action_item is None:
+                continue
+
+            key_val = combo_item.data(Qt.ItemDataRole.UserRole)
+            try:
+                key_val = int(key_val)
+            except Exception:
+                key_val = None
+
+            action_text = action_item.text() if action_item is not None else ''
+            if key_val is None or not action_text:
+                continue
+            bindings.append({
+                'key': key_val,
+                'action': action_text,
+            })
+        return bindings
+
+    def _emit_bindings_changed(self) -> None:
+        try:
+            self._save_persisted_bindings()
+        except Exception:
+            pass
+        try:
+            self.shortcuts_changed.emit(self.get_bindings())
+        except Exception:
+            pass
+
+    def _on_table_cell_clicked(self, row: int, column: int) -> None:
+        """Handle clicks for combo capture and action selection."""
+
+        combo_col = 0
+        action_col = 1
+
+        if column == combo_col:
+            dlg = _KeyCaptureDialog(parent=self)
+            if dlg.exec() == QDialog.DialogCode.Accepted:
+                key_val = dlg.get_key_value()
+                item = self.shortcuts_table.item(row, combo_col)
+                if item is None:
+                    item = QTableWidgetItem('')
+                    self.shortcuts_table.setItem(row, combo_col, item)
+
+                # key_val == None means "clear".
+                if key_val is None:
+                    item.setData(Qt.ItemDataRole.UserRole, None)
+                    item.setText('')
+                    self._emit_bindings_changed()
+                    return
+
+                item.setData(Qt.ItemDataRole.UserRole, int(key_val))
+                key_val = self._normalize_key_value(int(key_val))
+                item.setData(Qt.ItemDataRole.UserRole, int(key_val))
+                item.setText(QKeySequence(int(key_val)).toString())
+                self._emit_bindings_changed()
+            return
+
+        if column != action_col:
+            return
+
+        current_item = self.shortcuts_table.item(row, action_col)
+        current_action = current_item.text() if current_item is not None else ''
+
+        dlg = _ActionPickerDialog(self.action_categories, current_action=current_action, parent=self)
+        if dlg.exec() == QDialog.DialogCode.Accepted:
+            chosen = dlg.get_selected_action()
+            if chosen:
+                if current_item is None:
+                    current_item = QTableWidgetItem('')
+                    self.shortcuts_table.setItem(row, action_col, current_item)
+                current_item.setText(chosen)
+                self._emit_bindings_changed()
+
+
+class _KeyCaptureDialog(QDialog):
+    """Modal dialog that captures a key or key-combo from user input."""
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+        self.setWindowTitle('Press Key Combo')
+        self.setModal(True)
+
+        self._key_value: int | None = None
+        self._captured_key: int | None = None
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        self._label = QLabel('Press the desired key or key combo now...\n(Esc = cancel, Backspace/Delete = clear)')
+        layout.addWidget(self._label)
+
+        # Make sure we get key events.
+        self.setFocusPolicy(Qt.FocusPolicy.StrongFocus)
+        self._label.setFocusPolicy(Qt.FocusPolicy.NoFocus)
+
+    def keyPressEvent(self, event):
+        try:
+            if getattr(event, 'isAutoRepeat', None) and event.isAutoRepeat():
+                return
+        except Exception:
+            pass
+
+        try:
+            key = int(event.key())
+        except Exception:
+            key = 0
+
+        # Cancel
+        if key == int(Qt.Key.Key_Escape):
+            self.reject()
+            return
+
+        # Clear
+        if key in (int(Qt.Key.Key_Backspace), int(Qt.Key.Key_Delete)):
+            self._key_value = None
+            self._captured_key = None
+            try:
+                self._label.setText('Cleared (no key assigned).')
+            except Exception:
+                pass
+            self.accept()
+            return
+
+        # Ignore modifier-only presses (wait for a real key).
+        if key in (
+            int(Qt.Key.Key_Control),
+            int(Qt.Key.Key_Shift),
+            int(Qt.Key.Key_Alt),
+            int(Qt.Key.Key_Meta),
+        ):
+            try:
+                mods_preview = int(event.modifiers())
+                if mods_preview:
+                    self._label.setText(
+                        f"Holding: {QKeySequence(int(mods_preview)).toString()}\n"
+                        "Now press a key to complete the combo...\n(Esc = cancel)"
+                    )
+            except Exception:
+                pass
+            return
+
+        try:
+            mods = int(event.modifiers())
+        except Exception:
+            mods = 0
+
+        self._captured_key = key
+        self._key_value = mods | key
+        try:
+            self._label.setText(f"Captured: {QKeySequence(int(self._key_value)).toString()}\n(Press another combo to replace, or Esc to cancel)")
+        except Exception:
+            pass
+
+    def keyReleaseEvent(self, event):
+        """Accept once the captured non-modifier key is released.
+
+        This improves reliability for modifier combos on some platforms.
+        """
+        try:
+            key = int(event.key())
+        except Exception:
+            key = 0
+        if self._key_value is None or self._captured_key is None:
+            return
+        if key != int(self._captured_key):
+            return
+        self.accept()
+
+    def get_key_value(self) -> int | None:
+        return self._key_value
+
+
+class _ActionPickerDialog(QDialog):
+    """Simple modal picker for choosing an action.
+
+    UI-only: does not persist and does not wire actions to behavior.
+    """
+
+    def __init__(
+        self,
+        categories: dict[str, list[str]],
+        current_action: str = '',
+        parent: QWidget | None = None,
+    ):
+        super().__init__(parent)
+        self.setWindowTitle('Choose Action')
+        self.setModal(True)
+
+        self._categories = categories
+        self._selected_action: str = ''
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        self.category_combo = QComboBox()
+        self.category_combo.addItems(list(self._categories.keys()))
+        layout.addWidget(QLabel('Category'))
+        layout.addWidget(self.category_combo)
+
+        self.action_list = QListWidget()
+        layout.addWidget(QLabel('Actions'))
+        layout.addWidget(self.action_list)
+
+        button_row = QHBoxLayout()
+        self.ok_button = QPushButton('OK')
+        self.cancel_button = QPushButton('Cancel')
+        button_row.addItem(QSpacerItem(10, 10, QtWidgets.QSizePolicy.Policy.Expanding))
+        button_row.addWidget(self.ok_button)
+        button_row.addWidget(self.cancel_button)
+        layout.addLayout(button_row)
+
+        self.category_combo.currentIndexChanged.connect(self._reload_actions)
+        self.action_list.itemDoubleClicked.connect(self._accept_from_item)
+        self.ok_button.clicked.connect(self._accept_from_selection)
+        self.cancel_button.clicked.connect(self.reject)
+
+        # Initialize list + try to preselect the current action.
+        self._preselect_current_action(current_action)
+
+    def _reload_actions(self) -> None:
+        self.action_list.clear()
+        category = self.category_combo.currentText()
+        for action in self._categories.get(category, []):
+            self.action_list.addItem(QListWidgetItem(action))
+
+    def _preselect_current_action(self, current_action: str) -> None:
+        # Try to find which category contains the current action.
+        chosen_category = None
+        if current_action:
+            for cat, actions in self._categories.items():
+                if current_action in actions:
+                    chosen_category = cat
+                    break
+
+        if chosen_category is not None:
+            idx = self.category_combo.findText(chosen_category)
+            if idx >= 0:
+                self.category_combo.setCurrentIndex(idx)
+
+        self._reload_actions()
+
+        if current_action:
+            matches = self.action_list.findItems(current_action, Qt.MatchFlag.MatchExactly)
+            if matches:
+                self.action_list.setCurrentItem(matches[0])
+
+    def _accept_from_item(self, item: QListWidgetItem) -> None:
+        self._selected_action = item.text()
+        self.accept()
+
+    def _accept_from_selection(self) -> None:
+        item = self.action_list.currentItem()
+        if item is None:
+            return
+        self._selected_action = item.text()
+        self.accept()
+
+    def get_selected_action(self) -> str:
+        return self._selected_action
+
 
 class SettingsWindow(QWidget):
     restart_output_signal = Signal()
@@ -86,8 +534,26 @@ class SettingsWindow(QWidget):
             # Guard to prevent signal handlers from firing during initial population/restore.
             self._initializing = True
 
+            # Root layout contains a tab bar so we can expand settings cleanly.
+            self.root_layout = QVBoxLayout()
+            self.setLayout(self.root_layout)
+
+            # Avoid double margins now that the old layout lives inside a tab.
+            self.root_layout.setContentsMargins(0, 0, 0, 0)
+            self.root_layout.setSpacing(0)
+
+            self.tabs = QTabWidget()
+            self.root_layout.addWidget(self.tabs)
+
+            # Audio tab: contains all existing settings, unchanged (just moved under this tab).
+            self.audio_tab = QWidget()
             self.main_layout = QVBoxLayout()
-            self.setLayout(self.main_layout)
+            self.audio_tab.setLayout(self.main_layout)
+            self.tabs.addTab(self.audio_tab, 'Audio')
+
+            # Keyboard Shortcuts tab: UI-only display of mappings.
+            self.keyboard_shortcuts_tab = KeyboardShortcutsTab(self)
+            self.tabs.addTab(self.keyboard_shortcuts_tab, 'Keyboard Shortcuts')
             self.slider_layout = QHBoxLayout()
             self.v_layoutL = QVBoxLayout()
             self.v_layoutM = QVBoxLayout()

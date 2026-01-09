@@ -675,8 +675,8 @@ class AudioEngine:
         )
         self.cue_info_map[cue_id] = cue_info
 
-        self.log.info(cue_id=cue.cue_id, track_id=cue.track.track_id, tod_start=cue.tod_start, source="engine", message="cue_start_requested",
-                      metadata={"file_path": cmd.file_path, "gain_db": cmd.gain_db, "loop": cmd.loop_enabled, "fade_in_ms": self.fade_in_ms})
+        self.log.debug(cue_id=cue.cue_id, track_id=cue.track.track_id, tod_start=cue.tod_start, source="engine", message="cue_start_requested",
+                   metadata={"file_path": cmd.file_path, "gain_db": cmd.gain_db, "loop": cmd.loop_enabled, "fade_in_ms": self.fade_in_ms})
 
         # Determine whether to fade existing cues when this new cue starts.
         # Per-call `layered=True` overrides the engine-level `auto_fade_on_new`.
@@ -706,7 +706,7 @@ class AudioEngine:
                     self._fade_requested.add(old_cid)
                     self._pending_stops[old_cid] = stop_time
                     fade_sent_count += 1
-                    self.log.info(cue_id=old_cid, source="engine", message="fade_requested_on_new_cue", metadata={"new_cue": cue_id, "removal_reason": "auto_fade"})
+                    self.log.debug(cue_id=old_cid, source="engine", message="fade_requested_on_new_cue", metadata={"new_cue": cue_id, "removal_reason": "auto_fade"})
                     self._dbg_print(f"[FADE-QUEUED] cue={old_cid[:8]} -> output queue (sent={fade_sent_count})")
                 except queue.Full:
                     # Queue full - still mark as pending so refade will retry
@@ -937,7 +937,7 @@ class AudioEngine:
                 try:
                     track_id = cue.track.track_id if cue is not None else cue_info.track_id
                     tod_start = cue.tod_start if cue is not None else (cue_info.started_at or datetime.now())
-                    self.log.info(
+                    self.log.debug(
                         cue_id=cue_id,
                         track_id=track_id,
                         tod_start=tod_start,

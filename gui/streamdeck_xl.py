@@ -174,9 +174,39 @@ class StreamDeckXLBridge(QObject):
         self._signals_wired = False
         self._cache_loaded = False
 
+        # When True, pressing a cue key (0..23) will fade that cue if it is playing.
+        self._fade_modifier_active: bool = False
+
     # ---------------------------------------------------------------------
     # Public API
     # ---------------------------------------------------------------------
+
+    def set_display_bank_index(self, index: int) -> None:
+        """Set the bank index currently displayed on the Stream Deck.
+
+        In SYNC mode the StreamDeck display follows the GUI, but in INDEPENDENT
+        mode this can be used to jump directly to a specific bank.
+        """
+        try:
+            idx = int(index)
+        except Exception:
+            idx = 0
+        self._display_bank_index = max(0, idx)
+
+        # Best-effort: update which button state signals we listen to (SYNC) and
+        # force the next render tick to redraw.
+        try:
+            self._rewire_button_state_signals()
+        except Exception:
+            pass
+        self._force_full_redraw = True
+
+    def set_fade_modifier_active(self, active: bool) -> None:
+        """Enable/disable fade-modifier mode for cue key presses."""
+        try:
+            self._fade_modifier_active = bool(active)
+        except Exception:
+            self._fade_modifier_active = False
 
     def _ensure_runtime_running(self) -> None:
         """Ensure signals/timers/threads are active even without a connected deck."""
@@ -867,14 +897,28 @@ class StreamDeckXLBridge(QObject):
                     return
 
                 is_playing = bool(getattr(btn, "is_playing", False))
-                auto_fade = bool(getattr(btn, "auto_fade_enabled", False))
-                if is_playing and auto_fade:
-                    cue_id = getattr(btn, "current_cue_id", "") or ""
-                    fade_out_ms = int(getattr(btn, "fade_out_ms", 0) or 0)
-                    btn.request_stop.emit(cue_id, fade_out_ms)
+
+                # Fade-modifier: fade this cue if it is playing.
+                if bool(getattr(self, "_fade_modifier_active", False)) and is_playing:
+                    try:
+                        cue_ids = list(getattr(btn, "_active_cue_ids", []) or [])
+                    except Exception:
+                        cue_ids = []
+                    # Match GUI "Fade Out…" behavior.
+                    for cue_id in cue_ids:
+                        try:
+                            btn.request_fade.emit(str(cue_id), -120.0, 500)
+                        except Exception:
+                            continue
                 else:
-                    # Uses the same play signal path as a GUI click.
-                    btn._request_play()
+                    auto_fade = bool(getattr(btn, "auto_fade_enabled", False))
+                    if is_playing and auto_fade:
+                        cue_id = getattr(btn, "current_cue_id", "") or ""
+                        fade_out_ms = int(getattr(btn, "fade_out_ms", 0) or 0)
+                        btn.request_stop.emit(cue_id, fade_out_ms)
+                    else:
+                        # Uses the same play signal path as a GUI click.
+                        btn._request_play()
 
                 # Ensure the key gets refreshed promptly.
                 self._dirty_keys.add(key)

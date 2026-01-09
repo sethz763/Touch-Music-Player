@@ -130,7 +130,9 @@ class Save_To_Excel(QObject):
                     rows = self.music_log_sheet.max_row if self.music_log_sheet is not None else -1
                 except Exception:
                     rows = -1
-                print(f"[PERF] Save_To_Excel.update_log: {elapsed_ms:.2f}ms rows={rows} save_requests_pending={self._save_request_count}")
+                from log.perf import perf_print
+
+                perf_print(f"[PERF] Save_To_Excel.update_log: {elapsed_ms:.2f}ms rows={rows} save_requests_pending={self._save_request_count}")
 
         except Exception as e:
             info = getframeinfo(currentframe())

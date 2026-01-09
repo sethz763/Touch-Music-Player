@@ -45,9 +45,10 @@ class LogManager(QObject):
     def log_cue_finished(self, cue_log_record: CueLogRecord) -> None:
         """Log a finished cue and emit signal for listeners (UI, export, etc.)."""
         try:
-            # Log to console
-            ts = cue_log_record.started_at.isoformat(timespec="milliseconds")
-            print(f"[{ts}] [cue_finished] cue={cue_log_record.cue_id} track={cue_log_record.track_id} file={cue_log_record.file_path} reason={cue_log_record.reason}")
+            # Console printing of cue-finished is very noisy; only emit when explicitly debugging.
+            if self._debug_enabled:
+                ts = cue_log_record.started_at.isoformat(timespec="milliseconds")
+                print(f"[{ts}] [cue_finished] cue={cue_log_record.cue_id} track={cue_log_record.track_id} file={cue_log_record.file_path} reason={cue_log_record.reason}")
             
             # Emit signal so all listeners (Save_To_Excel, UI, export, etc.) can handle it
             self.cue_finished_logged.emit(cue_log_record)

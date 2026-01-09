@@ -3,11 +3,13 @@ from __future__ import annotations
 import multiprocessing as mp
 import os
 import time
+import pathlib
+import datetime
 from typing import Optional, TYPE_CHECKING
 from PySide6.QtWidgets import QMainWindow, QWidget, QVBoxLayout, QLabel, QCheckBox, QHBoxLayout, QFileDialog, QMessageBox
-from PySide6.QtWidgets import QApplication
-from PySide6.QtCore import QTimer, QThread, Signal, QEvent, Qt
-from PySide6.QtGui import QAction, QFont
+from PySide6.QtWidgets import QApplication, QLineEdit, QTextEdit, QPlainTextEdit, QSpinBox, QDoubleSpinBox
+from PySide6.QtCore import QTimer, QThread, Signal, QEvent, Qt, QSettings
+from PySide6.QtGui import QAction, QFont, QKeySequence, QShortcut
 
 if TYPE_CHECKING:
     from engine.commands import PlayCueCommand
@@ -38,6 +40,71 @@ class MainWindow(QMainWindow):
         # Create queues for communication with audio service process
         ctx = mp.get_context("spawn")
         self._audio_cmd_q = ctx.Queue()
+
+        # Runtime-only keyboard shortcuts (configured via Settings -> Keyboard Shortcuts tab).
+        # Schema: { key_combo_int: action_string }
+        self._keyboard_shortcuts: dict[int, str] = {}
+
+        # QShortcut fallback for actions that don't require key-release handling.
+        self._qshortcuts: list[QShortcut] = []
+
+        # Hold-to-modify behavior for fading StreamDeck cue presses.
+        self._fade_modifier_active: bool = False
+        self._fade_modifier_key_down: int | None = None
+
+        # Load persisted keyboard shortcuts (QSettings) so they work before Settings is opened.
+        try:
+            self._keyboard_shortcuts = self._load_keyboard_shortcuts_from_qsettings()
+        except Exception:
+            pass
+
+        # Install QShortcuts immediately from persisted mappings.
+        try:
+            self._rebuild_qshortcuts()
+        except Exception:
+            pass
+
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                self._shortcut_debug('---')
+                try:
+                    lp = self._shortcut_debug_path()
+                    self._shortcut_debug(f"log_file={str(lp)}")
+                except Exception:
+                    pass
+                self._shortcut_debug(
+                    f"run_start ts={datetime.datetime.now().isoformat(timespec='seconds')} pid={os.getpid()}"
+                )
+                self._shortcut_debug(f"loaded_shortcuts count={len(self._keyboard_shortcuts)}")
+                # Dump first few bindings for sanity.
+                for k, a in list(self._keyboard_shortcuts.items())[:20]:
+                    self._shortcut_debug(f"binding key={k} action={a}")
+        except Exception:
+            pass
+
+        # Capture shortcuts even when focus is inside child widgets.
+        try:
+            app = QApplication.instance()
+            if app is not None:
+                app.installEventFilter(self)
+                try:
+                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                        self._shortcut_debug('event_filter_installed=1')
+                except Exception:
+                    pass
+            else:
+                try:
+                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                        self._shortcut_debug('event_filter_installed=0 app=None')
+                except Exception:
+                    pass
+        except Exception:
+            try:
+                if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                    self._shortcut_debug('event_filter_installed=0 exception')
+            except Exception:
+                pass
+            pass
         self._audio_evt_q = ctx.Queue()
         
         # Load persisted application settings.
@@ -468,7 +535,46 @@ class MainWindow(QMainWindow):
 
     def eventFilter(self, watched, event):
         try:
-            if watched is self.master_time_display and event.type() == QEvent.MouseButtonRelease:
+            # Global shortcut handler.
+            if event.type() in (QEvent.Type.KeyPress, QEvent.Type.KeyRelease):
+                try:
+                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                        et = 'press' if event.type() == QEvent.Type.KeyPress else 'release'
+                        try:
+                            key_int = self._resolve_key_int(event)
+                            mods_int = int(event.modifiers())
+                            raw_key_val = mods_int | int(key_int)
+                        except Exception:
+                            raw_key_val = 0
+                        key_val = self._normalize_key_combo_int(raw_key_val)
+                        try:
+                            seq = QKeySequence(int(key_val)).toString()
+                        except Exception:
+                            seq = ''
+                        try:
+                            vk = int(getattr(event, 'nativeVirtualKey', lambda: 0)())
+                        except Exception:
+                            vk = 0
+                        try:
+                            sc = int(getattr(event, 'nativeScanCode', lambda: 0)())
+                        except Exception:
+                            sc = 0
+                        try:
+                            txt = str(getattr(event, 'text', lambda: '')() or '')
+                        except Exception:
+                            txt = ''
+                        self._shortcut_debug(
+                            f"eventFilter_{et} key={int(key_int)} mods={int(mods_int)} vk={vk} sc={sc} text={txt!r} raw={int(raw_key_val)} val={int(key_val)} seq={seq}"
+                        )
+                except Exception:
+                    pass
+                try:
+                    if self._handle_global_shortcut_keypress(event):
+                        return True
+                except Exception:
+                    pass
+
+            if watched is self.master_time_display and event.type() == QEvent.Type.MouseButtonRelease:
                 if getattr(event, "button", None) is not None and event.button() == Qt.LeftButton:
                     self.view_elapsed_time = not self.view_elapsed_time
                     # Refresh immediately using the most recent update.
@@ -479,6 +585,225 @@ class MainWindow(QMainWindow):
         except Exception:
             pass
         return super().eventFilter(watched, event)
+
+    def _resolve_key_int(self, event) -> int:
+        """Best-effort conversion of a Qt key event to an integer key code.
+
+        On Windows/Qt6 we occasionally see `event.key()==Key_unknown (0)` for some keys.
+        In that case, fall back to native virtual key codes (VK_*) and/or event.text().
+        """
+        try:
+            key_int = int(event.key())
+        except Exception:
+            key_int = 0
+
+        if key_int != 0:
+            return key_int
+
+        # Fallback 1: native VK mapping (Windows)
+        try:
+            vk = int(getattr(event, 'nativeVirtualKey', lambda: 0)())
+        except Exception:
+            vk = 0
+        if 0x60 <= vk <= 0x69:  # VK_NUMPAD0..9
+            return int(Qt.Key.Key_0) + (vk - 0x60)
+        if 0x30 <= vk <= 0x39:  # VK_0..9
+            return int(Qt.Key.Key_0) + (vk - 0x30)
+
+        # Fallback 2: text digit mapping
+        try:
+            txt = str(getattr(event, 'text', lambda: '')() or '')
+        except Exception:
+            txt = ''
+        if len(txt) == 1 and txt.isdigit():
+            return int(Qt.Key.Key_0) + int(txt)
+
+        return 0
+
+    def _handle_global_shortcut_keypress(self, event) -> bool:
+        """Global key handler that works regardless of focus.
+
+        Avoids stealing input when the user is typing into text fields.
+        """
+        # Don't hijack typing in text inputs/spin boxes.
+        try:
+            fw = QApplication.focusWidget()
+            if isinstance(
+                fw,
+                (
+                    QLineEdit,
+                    QTextEdit,
+                    QPlainTextEdit,
+                    QSpinBox,
+                    QDoubleSpinBox,
+                ),
+            ):
+                try:
+                    if os.environ.get('STEPD_SHORTCUT_DEBUG') and event.type() == QEvent.KeyPress:
+                        self._shortcut_debug(f"ignore_focus_widget type={type(fw).__name__}")
+                except Exception:
+                    pass
+                return False
+        except Exception:
+            pass
+
+        try:
+            if getattr(event, "isAutoRepeat", None) and event.isAutoRepeat():
+                try:
+                    if os.environ.get('STEPD_SHORTCUT_DEBUG') and event.type() == QEvent.Type.KeyPress:
+                        self._shortcut_debug('ignore_autorepeat')
+                except Exception:
+                    pass
+                return False
+        except Exception:
+            pass
+
+        try:
+            key_int = self._resolve_key_int(event)
+            mods_int = int(event.modifiers())
+            raw_key_val = mods_int | int(key_int)
+        except Exception:
+            return False
+
+        key_val = self._normalize_key_combo_int(raw_key_val)
+
+        # Optional tracing for debugging key mismatch issues.
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                et = 'press' if event.type() == QEvent.Type.KeyPress else 'release'
+                try:
+                    seq = QKeySequence(int(key_val)).toString()
+                except Exception:
+                    seq = ''
+                self._shortcut_debug(
+                    f"key_{et} key={int(key_int)} mods={int(mods_int)} raw={int(raw_key_val)} val={int(key_val)} seq={seq}"
+                )
+        except Exception:
+            pass
+
+        # Allow clearing the fade modifier even if modifier state changed at key release.
+        try:
+            if event.type() == QEvent.KeyRelease and self._fade_modifier_active:
+                if self._fade_modifier_key_down is not None and int(self._resolve_key_int(event)) == int(self._fade_modifier_key_down):
+                    self._set_fade_modifier_active(False)
+                    return True
+        except Exception:
+            pass
+
+        action = self._keyboard_shortcuts.get(int(key_val))
+        if not action:
+            try:
+                if os.environ.get('STEPD_SHORTCUT_DEBUG') and event.type() == QEvent.KeyPress:
+                    self._shortcut_debug(f"no_match val={int(key_val)}")
+            except Exception:
+                pass
+            return False
+
+        # Special: Fade is a hold modifier (press=enable, release=disable).
+        if str(action).strip().lower() == "trigger fade":
+            if event.type() == QEvent.Type.KeyPress:
+                try:
+                    self._fade_modifier_key_down = int(self._resolve_key_int(event))
+                except Exception:
+                    self._fade_modifier_key_down = None
+                self._set_fade_modifier_active(True)
+                return True
+            if event.type() == QEvent.Type.KeyRelease:
+                self._set_fade_modifier_active(False)
+                return True
+
+        # All other actions: only fire on key press.
+        if event.type() != QEvent.Type.KeyPress:
+            return False
+
+        handled = self._run_keyboard_shortcut_action(action)
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                self._shortcut_debug(f"action={action} handled={bool(handled)}")
+        except Exception:
+            pass
+        if handled:
+            try:
+                event.accept()
+            except Exception:
+                pass
+        return bool(handled)
+
+    def _set_fade_modifier_active(self, active: bool) -> None:
+        active = bool(active)
+        self._fade_modifier_active = active
+        if not active:
+            self._fade_modifier_key_down = None
+        try:
+            sd = getattr(self, "_streamdeck", None)
+            fn = getattr(sd, "set_fade_modifier_active", None) if sd is not None else None
+            if callable(fn):
+                fn(active)
+        except Exception:
+            pass
+
+    def _shortcut_debug(self, msg: str) -> None:
+        """Append a line to a local debug log when STEPD_SHORTCUT_DEBUG is set."""
+        try:
+            if not os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                return
+            p = self._shortcut_debug_path()
+            p.parent.mkdir(parents=True, exist_ok=True)
+            with p.open('a', encoding='utf-8') as f:
+                f.write(str(msg) + "\n")
+        except Exception:
+            pass
+
+    def _shortcut_debug_path(self) -> pathlib.Path:
+        """Return the debug log file path.
+
+        Defaults to `cwd/keyboard_shortcuts_debug.log`, but can be overridden with
+        `STEPD_SHORTCUT_DEBUG_LOG_PATH`.
+        """
+        try:
+            override = os.environ.get('STEPD_SHORTCUT_DEBUG_LOG_PATH')
+        except Exception:
+            override = None
+        if override:
+            try:
+                p = pathlib.Path(str(override))
+                if not p.is_absolute():
+                    p = (pathlib.Path.cwd() / p)
+                return p
+            except Exception:
+                pass
+        return pathlib.Path.cwd() / 'keyboard_shortcuts_debug.log'
+
+    def _load_keyboard_shortcuts_from_qsettings(self) -> dict[int, str]:
+        mapping: dict[int, str] = {}
+        try:
+            s = QSettings('StepD', 'TouchMusicPlayer')
+            s.beginGroup('KeyboardShortcuts')
+            size = s.beginReadArray('bindings')
+            for i in range(size):
+                s.setArrayIndex(i)
+                try:
+                    action = str(s.value('action', '') or '').strip()
+                except Exception:
+                    action = ''
+                try:
+                    key_val = int(s.value('key', -1))
+                except Exception:
+                    key_val = -1
+                if action and key_val >= 0:
+                    mapping[int(self._normalize_key_combo_int(int(key_val)))] = action
+            s.endArray()
+            s.endGroup()
+        except Exception:
+            mapping = {}
+        return mapping
+
+    def _normalize_key_combo_int(self, key_val: int) -> int:
+        """Normalize key combos so numpad digits match top-row digits."""
+        try:
+            return int(key_val) & ~int(Qt.KeyboardModifier.KeypadModifier)
+        except Exception:
+            return int(key_val)
 
     def closeEvent(self, event):
         """Clean shutdown of audio service when window closes."""
@@ -596,7 +921,9 @@ class MainWindow(QMainWindow):
 
             total_ms = (time.perf_counter() - start) * 1000
             if total_ms > 2.0 or cue_logger_ms > 2.0 or status_ms > 2.0:
-                print(
+                from log.perf import perf_print
+
+                perf_print(
                     f"[PERF] MainWindow._on_cue_finished: {total_ms:.2f}ms cue={cue_id[:8]}"
                     f" status={status_ms:.2f}ms cue_logger={cue_logger_ms:.2f}ms reason={reason}"
                 )
@@ -627,6 +954,23 @@ class MainWindow(QMainWindow):
                     play=100,
                     engine_adapter=self.engine_adapter,
                 )
+
+            # Wire keyboard shortcut bindings (runtime only).
+            # Do this every time in case the dialog already existed.
+            try:
+                tab = getattr(self._settings_dialog, "keyboard_shortcuts_tab", None)
+                if tab is not None:
+                    try:
+                        tab.shortcuts_changed.disconnect(self._on_keyboard_shortcuts_changed)
+                    except Exception:
+                        pass
+                    tab.shortcuts_changed.connect(self._on_keyboard_shortcuts_changed)
+
+                    init = getattr(tab, "get_bindings", None)
+                    if callable(init):
+                        self._on_keyboard_shortcuts_changed(init())
+            except Exception:
+                pass
             self._settings_dialog.show()
             try:
                 self._settings_dialog.raise_()
@@ -635,6 +979,235 @@ class MainWindow(QMainWindow):
                 pass
         except Exception:
             pass
+
+    def _on_keyboard_shortcuts_changed(self, bindings: list) -> None:
+        """Receive updated shortcut bindings from SettingsWindow (runtime only)."""
+        mapping: dict[int, str] = {}
+        try:
+            for b in bindings or []:
+                if not isinstance(b, dict):
+                    continue
+                key_val = b.get("key")
+                action = b.get("action")
+                try:
+                    key_val = int(key_val)
+                except Exception:
+                    continue
+                if not isinstance(action, str) or not action:
+                    continue
+                mapping[key_val] = action
+        except Exception:
+            mapping = {}
+        self._keyboard_shortcuts = mapping
+        try:
+            self._rebuild_qshortcuts()
+        except Exception:
+            pass
+
+    def _rebuild_qshortcuts(self) -> None:
+        """Create QShortcut objects for configured bindings.
+
+        This acts as a robust fallback when QApplication-level event filtering is unreliable.
+        We intentionally skip the "Trigger fade" action here because it needs key-release
+        handling (hold modifier semantics).
+        """
+        try:
+            for sc in list(self._qshortcuts or []):
+                try:
+                    sc.setEnabled(False)
+                except Exception:
+                    pass
+                try:
+                    sc.deleteLater()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        self._qshortcuts = []
+
+        created = 0
+        for key_val, action in (self._keyboard_shortcuts or {}).items():
+            try:
+                if str(action).strip().lower() == 'trigger fade':
+                    continue
+            except Exception:
+                continue
+
+            try:
+                seq = QKeySequence(int(key_val))
+            except Exception:
+                continue
+
+            try:
+                sc = QShortcut(seq, self)
+                sc.setContext(Qt.ShortcutContext.ApplicationShortcut)
+                sc.activated.connect(lambda a=str(action): self._on_qshortcut_activated(a))
+                self._qshortcuts.append(sc)
+                created += 1
+            except Exception:
+                continue
+
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                self._shortcut_debug(f'qshortcut_rebuild count={created}')
+        except Exception:
+            pass
+
+    def _on_qshortcut_activated(self, action: str) -> None:
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                self._shortcut_debug(f'qshortcut_activated action={action}')
+        except Exception:
+            pass
+        try:
+            handled = self._run_keyboard_shortcut_action(action)
+        except Exception:
+            handled = False
+        try:
+            if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                self._shortcut_debug(f'qshortcut_handled action={action} handled={bool(handled)}')
+        except Exception:
+            pass
+
+    def keyPressEvent(self, event):
+        # Prefer the global eventFilter path; keep this as a fallback.
+        try:
+            if self._handle_global_shortcut_keypress(event):
+                return
+        except Exception:
+            pass
+        return super().keyPressEvent(event)
+
+    def _run_keyboard_shortcut_action(self, action: str) -> bool:
+        """Execute a configured action. Returns True if handled."""
+        try:
+            action = str(action)
+        except Exception:
+            return False
+
+        # Bank selection (GUI-visible bank) - also syncs StreamDeck display in SYNC mode.
+        if action.lower().startswith("select bank") and "streamdeck" in action.lower():
+            try:
+                # Format: "Select bank {n} on streamdeck"
+                parts = action.split()
+                bank_idx = int(parts[2])
+            except Exception:
+                return False
+
+            try:
+                if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                    self._shortcut_debug(f"bank_switch_request idx={bank_idx}")
+            except Exception:
+                pass
+            # If StreamDeck bridge is present and in INDEPENDENT mode, switch the
+            # StreamDeck's displayed bank without forcing the GUI to switch.
+            try:
+                sd = getattr(self, "_streamdeck", None)
+                mode = str(getattr(sd, "_mode", "")) if sd is not None else ""
+                if sd is not None and mode == "independent":
+                    try:
+                        fn = getattr(sd, "set_display_bank_index", None)
+                        if callable(fn):
+                            fn(int(bank_idx))
+                            try:
+                                if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                                    self._shortcut_debug("bank_switch_path=streamdeck_independent")
+                            except Exception:
+                                pass
+                            return True
+                    except Exception:
+                        pass
+            except Exception:
+                pass
+
+            # SYNC (default): switching GUI bank updates StreamDeck too.
+            try:
+                self.bank.set_current_bank(int(bank_idx))
+                try:
+                    if os.environ.get('STEPD_SHORTCUT_DEBUG'):
+                        self._shortcut_debug("bank_switch_path=gui_bank")
+                except Exception:
+                    pass
+                return True
+            except Exception:
+                return False
+
+        # Trigger fade: fade out the most recently started cue in the visible bank.
+        if action.strip().lower() == "trigger fade":
+            return self._trigger_fade_for_visible_bank()
+
+        # Transport controls (engine-level).
+        if action == "Transport Play":
+            try:
+                self.engine_adapter.transport_play()
+                return True
+            except Exception:
+                return False
+
+        if action == "Transport Pause":
+            try:
+                self.engine_adapter.transport_pause()
+                return True
+            except Exception:
+                return False
+
+        if action == "Transport Stop":
+            try:
+                self.engine_adapter.transport_stop()
+                return True
+            except Exception:
+                return False
+
+        # Bank-level helper: advance to next cue.
+        if action == "Next cue":
+            try:
+                self.bank.transport_next()
+                return True
+            except Exception:
+                return False
+
+        return False
+
+    def _trigger_fade_for_visible_bank(self) -> bool:
+        """Best-effort: fade out the last-started button in the visible bank."""
+        try:
+            bank_widget = self.bank.current_bank()
+        except Exception:
+            return False
+
+        # Prefer last-started index (matches user expectation for a single "fade" command).
+        try:
+            idx = getattr(bank_widget, "_last_started_button_index", None)
+        except Exception:
+            idx = None
+
+        try:
+            buttons = list(getattr(bank_widget, "buttons", []) or [])
+        except Exception:
+            buttons = []
+
+        if isinstance(idx, int) and 0 <= idx < len(buttons):
+            btn = buttons[idx]
+            try:
+                fade_fn = getattr(btn, "_fade_out", None)
+                if callable(fade_fn):
+                    fade_fn()
+                    return True
+            except Exception:
+                pass
+
+        # Fallback: fade the first playing button in the visible bank.
+        for btn in buttons:
+            try:
+                if getattr(btn, "is_playing", False):
+                    fade_fn = getattr(btn, "_fade_out", None)
+                    if callable(fade_fn):
+                        fade_fn()
+                        return True
+            except Exception:
+                continue
+
+        return False
     
     def _on_log_entry_added(self, log_data: dict) -> None:
         """Refresh the logging dialog when a new entry is logged to Excel."""
