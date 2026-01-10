@@ -7,6 +7,8 @@ def main() -> int:
     import faulthandler
     import os
 
+    from log.service_log import coerce_log_path
+
     import multiprocessing as mp
     # Set spawn method BEFORE importing anything that uses multiprocessing
     # This must be done in the main thread before any subprocess creation
@@ -18,8 +20,8 @@ def main() -> int:
 
     # If the GUI crashes during startup, write a traceback to disk so we don't
     # end up with a silent failure + orphaned audio subprocess printing logs.
-    crash_path = Path("last_gui_crash.txt")
-    hang_path = Path("last_gui_hang.txt")
+    crash_path = coerce_log_path(env_value=None, default_filename="last_gui_crash.txt")
+    hang_path = coerce_log_path(env_value=None, default_filename="last_gui_hang.txt")
 
     def _write_crash(exc: BaseException) -> None:
         try:

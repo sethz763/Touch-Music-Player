@@ -4,6 +4,13 @@ venv/
 # Ignore the assets directory
 assets/
 
+# Ignore service logs
+service_log/
+
+# Ignore dist and build
+dist/
+build/
+
 # Ignore compressed archives
 *.zip
 *.7z

@@ -56,6 +56,7 @@ from engine.processes.decode_process_pooled import decode_process_main, DecodeSt
 from engine.processes.output_process import output_process_main, OutputConfig, OutputStartCue, OutputStopCue
 import sounddevice as sd
 from log.log_manager import LogManager
+from log.service_log import coerce_log_path
 
 class AudioEngine:
     def __init__(self, *, sample_rate: int = 48000, channels: int = 2, block_frames: int = 1024, fade_in_ms: int = 100, fade_out_ms: int = 1000, fade_curve: str = "equal_power", auto_fade_on_new: bool = True) -> None:
@@ -69,7 +70,11 @@ class AudioEngine:
         self.log = LogManager()
         self._debug_prints = os.environ.get("STEPD_ENGINE_DEBUG_PRINTS", "0").strip().lower() in ("1", "true", "yes", "on")
         # Dedicated debug log for high-signal engine diagnostics (separate from the user XLSX cue log)
-        self._engine_debug_log_path = Path.cwd() / "engine_debug.log"
+        self._engine_debug_log_path = coerce_log_path(
+            env_value=os.environ.get("STEPD_ENGINE_DEBUG_LOG_PATH"),
+            default_filename="engine_debug.log",
+            allow_absolute_outside_service_dir=False,
+        )
         # Heartbeat mirroring into engine_debug.log can generate large files quickly.
         # Default behavior: only mirror *warning/suspicious* heartbeats.
         # Set STEPD_ENGINE_DEBUG_HEARTBEAT=1 to mirror all heartbeats.

@@ -13,6 +13,8 @@ from logging.handlers import RotatingFileHandler
 from pathlib import Path
 from typing import Any, Optional
 
+from log.service_log import coerce_log_path
+
 import multiprocessing as mp
 import multiprocessing.connection as mp_connection
 
@@ -134,34 +136,22 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
     """Create a rotating file logger for the editor.
 
     Uses a single shared log file by default so UI + backend logs land together.
-    Override with STEPD_EDITOR_LOG_PATH.
+    Override with STEPD_EDITOR_LOG_PATH (will still be coerced into service_log/).
     """
 
     # Default to a stable file in the repo root (not dependent on CWD).
     # Use per-component files so the UI process and backend process don't rotate the same file.
     # Override with `STEPD_EDITOR_LOG_PATH` if you want a different location.
-    log_path_env = os.environ.get("STEPD_EDITOR_LOG_PATH")
-    log_path = None
-    if log_path_env:
-        try:
-            safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
-            p = Path(str(log_path_env))
-            # Treat as directory if it exists as a dir, or if it ends with a separator.
-            if (p.exists() and p.is_dir()) or str(log_path_env).endswith(("/", "\\")):
-                log_path = str((p / f"audio_editor_{safe_component}.log").resolve())
-            else:
-                log_path = str(p)
-        except Exception:
-            log_path = str(log_path_env)
 
-    if not log_path:
-        try:
-            root_dir = Path(__file__).resolve().parents[1]
-            safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
-            log_path = str((root_dir / f"audio_editor_{safe_component}.log").resolve())
-        except Exception:
-            safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
-            log_path = f"audio_editor_{safe_component}.log"
+    safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "backend"
+    log_path_env = os.environ.get("STEPD_EDITOR_LOG_PATH")
+    log_path = str(
+        coerce_log_path(
+            env_value=log_path_env,
+            default_filename=f"audio_editor_{safe_component}.log",
+            allow_absolute_outside_service_dir=False,
+        )
+    )
 
     name = f"stepd.editor.{component}"
     logger = logging.getLogger(name)
@@ -193,7 +183,7 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
     except Exception as e:
         # Last-ditch visibility: write setup failure to a simple text file.
         try:
-            err_path = Path(__file__).resolve().parents[1] / "audio_editor_logging_errors.txt"
+            err_path = coerce_log_path(env_value=None, default_filename="audio_editor_logging_errors.txt")
             err_path.write_text(f"Backend logger setup failed for {log_path}: {type(e).__name__}: {e}\n", encoding="utf-8")
         except Exception:
             pass

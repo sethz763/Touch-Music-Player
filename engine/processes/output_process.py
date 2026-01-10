@@ -229,6 +229,7 @@ class _Ring:
 
 def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, event_q: mp.Queue, decode_cmd_q:mp.Queue) -> None:
     import sounddevice as sd
+    from log.service_log import coerce_log_path
 
     rings: Dict[str, _Ring] = {}
     gains: Dict[str, float] = {}
@@ -419,12 +420,96 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
         except Exception:
             pass
     
-    # Open file logger for ticking diagnosis
+    debug_log_path = None
     debug_log_file = None
     try:
-        debug_log_file = open("output_process_debug.log", "w", buffering=1)
+        debug_log_path = coerce_log_path(
+            env_value=os.environ.get("STEPD_OUTPUT_DEBUG_LOG_PATH"),
+            default_filename="output_process_debug.log",
+            allow_absolute_outside_service_dir=False,
+        )
     except Exception:
-        pass
+        debug_log_path = None
+
+    # Bound log growth in production.
+    try:
+        _debug_log_max_bytes = int(float(os.environ.get("STEPD_OUTPUT_DEBUG_LOG_MAX_MB", "5")) * 1024 * 1024)
+    except Exception:
+        _debug_log_max_bytes = 5 * 1024 * 1024
+    try:
+        _debug_log_backups = int(os.environ.get("STEPD_OUTPUT_DEBUG_LOG_BACKUPS", "2"))
+    except Exception:
+        _debug_log_backups = 2
+    if _debug_log_backups < 0:
+        _debug_log_backups = 0
+
+    _last_debug_rotate_check = 0.0
+    _debug_rotate_check_interval_s = 0.5
+
+    def _rotate_debug_log_if_needed() -> None:
+        nonlocal debug_log_file, _last_debug_rotate_check
+        if debug_log_path is None:
+            return
+        if _debug_log_max_bytes <= 0:
+            return
+
+        now = time.time()
+        if (now - _last_debug_rotate_check) < _debug_rotate_check_interval_s:
+            return
+        _last_debug_rotate_check = now
+
+        try:
+            if not debug_log_path.exists():
+                return
+            if debug_log_path.stat().st_size <= _debug_log_max_bytes:
+                return
+
+            try:
+                if debug_log_file:
+                    debug_log_file.flush()
+                    debug_log_file.close()
+            except Exception:
+                pass
+            debug_log_file = None
+
+            if _debug_log_backups <= 0:
+                try:
+                    debug_log_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+                return
+
+            from pathlib import Path
+
+            base = debug_log_path.with_suffix("")
+            suffix = debug_log_path.suffix
+
+            for i in range(_debug_log_backups, 1, -1):
+                src = Path(f"{base}.{i-1}{suffix}")
+                dst = Path(f"{base}.{i}{suffix}")
+                try:
+                    if src.exists():
+                        os.replace(src, dst)
+                except Exception:
+                    pass
+
+            try:
+                os.replace(debug_log_path, Path(f"{base}.1{suffix}"))
+            except Exception:
+                try:
+                    debug_log_path.unlink(missing_ok=True)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+    # Open file logger for ticking diagnosis
+    try:
+        if debug_log_path is not None:
+            debug_log_path.parent.mkdir(parents=True, exist_ok=True)
+            debug_log_file = open(str(debug_log_path), "a", buffering=1, encoding="utf-8")
+    except Exception:
+        debug_log_file = None
 
     def _send_debug_payload(payload: str) -> bool:
         """Best-effort enqueue of a preformatted debug payload to the engine."""
@@ -436,6 +521,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
 
     def _write_debug_file(payload: str) -> None:
         try:
+            _rotate_debug_log_if_needed()
             if debug_log_file:
                 debug_log_file.write(f"{payload}\n")
         except Exception:

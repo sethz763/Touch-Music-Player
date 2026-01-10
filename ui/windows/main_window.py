@@ -32,6 +32,8 @@ from log.log import Log
 import datetime
 from persistence.SaveSettings import SaveSettings
 
+from log.service_log import coerce_log_path
+
 from ui.services.keyboard_capture_service import (
     KeyboardCaptureService,
     KeyboardCaptureMode,
@@ -888,22 +890,25 @@ class MainWindow(QMainWindow):
     def _shortcut_debug_path(self) -> pathlib.Path:
         """Return the debug log file path.
 
-        Defaults to `cwd/keyboard_shortcuts_debug.log`, but can be overridden with
-        `STEPD_SHORTCUT_DEBUG_LOG_PATH`.
+        Defaults under `service_log/`, but can be overridden with
+        `STEPD_SHORTCUT_DEBUG_LOG_PATH` (still coerced into `service_log/`).
         """
         try:
             override = os.environ.get('STEPD_SHORTCUT_DEBUG_LOG_PATH')
         except Exception:
             override = None
-        if override:
-            try:
-                p = pathlib.Path(str(override))
-                if not p.is_absolute():
-                    p = (pathlib.Path.cwd() / p)
-                return p
-            except Exception:
-                pass
-        return pathlib.Path.cwd() / 'keyboard_shortcuts_debug.log'
+        try:
+            return pathlib.Path(
+                str(
+                    coerce_log_path(
+                        env_value=override,
+                        default_filename='keyboard_shortcuts_debug.log',
+                        allow_absolute_outside_service_dir=False,
+                    )
+                )
+            )
+        except Exception:
+            return pathlib.Path.cwd() / 'keyboard_shortcuts_debug.log'
 
     def _load_keyboard_shortcuts_from_qsettings(self) -> dict[int, str]:
         mapping: dict[int, str] = {}
