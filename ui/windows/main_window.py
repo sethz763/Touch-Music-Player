@@ -347,7 +347,7 @@ class MainWindow(QMainWindow):
         self.play_controls.transport_pause.connect(self.engine_adapter.transport_pause)
         self.play_controls.transport_stop.connect(self.engine_adapter.transport_stop)
         # Next is a GUI concern (button grid context), not an engine concern
-        self.play_controls.transport_next.connect(self.bank.transport_next)
+        self.play_controls.transport_next.connect(self._on_transport_next)
         # Loop + override: global loop state always goes to engine; per-cue updates only when override is OFF
         self.play_controls.loop_enabled_toggled.connect(self._on_loop_button_toggled)
         self.play_controls.loop_override_toggled.connect(self._on_loop_override_toggled)
@@ -375,6 +375,29 @@ class MainWindow(QMainWindow):
         self.engine_adapter.cue_finished.connect(self._on_cue_finished)
         self.engine_adapter.cue_time.connect(self._on_master_time_update)
         self.engine_adapter.master_levels.connect(self._on_master_levels_update)
+
+    def _on_transport_next(self) -> None:
+        """Advance to the next cue.
+
+        When global auto-fade is enabled, fade out all currently playing cues
+        before starting the next one.
+        """
+        try:
+            if bool(getattr(self, "_auto_fade_enabled", False)):
+                # Best-effort: fade everything that is currently playing.
+                # This uses UI-tracked cue_ids across all banks, which is more
+                # reliable than assuming the engine still has all cues registered.
+                try:
+                    self._fade_all_active_cues_batch()
+                except Exception:
+                    pass
+        except Exception:
+            pass
+
+        try:
+            self.bank.transport_next()
+        except Exception:
+            pass
         
     def _start_streamdeck(self) -> None:
         """Start or restart the Streamdeck bridge based on current settings."""
@@ -967,8 +990,8 @@ class MainWindow(QMainWindow):
     def _shortcut_debug_path(self) -> pathlib.Path:
         """Return the debug log file path.
 
-        Defaults under `service_log/`, but can be overridden with
-        `STEPD_SHORTCUT_DEBUG_LOG_PATH` (still coerced into `service_log/`).
+        Defaults under `service_logs/`, but can be overridden with
+        `STEPD_SHORTCUT_DEBUG_LOG_PATH` (still coerced into `service_logs/`).
         """
         try:
             override = os.environ.get('STEPD_SHORTCUT_DEBUG_LOG_PATH')

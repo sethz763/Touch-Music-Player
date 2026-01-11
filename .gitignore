@@ -6,6 +6,7 @@ assets/
 
 # Ignore service logs
 service_log/
+service_logs/
 
 # Ignore dist and build
 dist/

@@ -136,7 +136,7 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
     """Create a rotating file logger for the editor.
 
     Uses a single shared log file by default so UI + backend logs land together.
-    Override with STEPD_EDITOR_LOG_PATH (will still be coerced into service_log/).
+    Override with STEPD_EDITOR_LOG_PATH (will still be coerced into service_logs/).
     """
 
     # Default to a stable file in the repo root (not dependent on CWD).

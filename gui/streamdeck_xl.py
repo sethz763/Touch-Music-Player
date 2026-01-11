@@ -86,6 +86,7 @@ class StreamDeckXLBridge(QObject):
         self._decks: dict[str, object] = {}
         self._device_banks: dict[str, int] = {}
         self._device_display_banks: dict[str, int] = {}
+        self._device_modes: dict[str, str] = {}
         # Protects access to the StreamDeck device handle.
         # Without this, stop() can close the device while the IO thread is mid-write,
         # which can trigger hidapi/ctypes-level access violations on Windows.
@@ -410,6 +411,7 @@ class StreamDeckXLBridge(QObject):
                                 bank_index = len(self._device_banks)
                                 self._device_banks[device_id] = bank_index
                                 self._device_display_banks[device_id] = bank_index
+                                self._device_modes[device_id] = self.BankMode.SYNC
                         except Exception:
                             pass
                     else:
@@ -798,8 +800,28 @@ class StreamDeckXLBridge(QObject):
                 except Exception:
                     continue
 
-    def _sync_display_bank_from_gui(self, *, initial: bool) -> None:
-        if self._mode != self.BankMode.SYNC:
+    def _sync_display_bank_from_gui(self, *, initial: bool, device_id: Optional[str] = None) -> None:
+        if device_id is None:
+            # Legacy behavior for single device
+            if self._mode != self.BankMode.SYNC:
+                return
+            idx = 0
+            try:
+                idx_fn: Optional[Callable[[], int]] = getattr(self._bank_selector, "current_bank_index", None)
+                if callable(idx_fn):
+                    idx = int(idx_fn())
+                else:
+                    idx = int(getattr(self._bank_selector, "_current_bank_index", 0))
+            except Exception:
+                idx = 0
+            self._display_bank_index = max(0, idx)
+            if not initial:
+                self._force_full_redraw = True
+            return
+
+        # Per-device sync
+        mode = self._device_modes.get(device_id, self.BankMode.SYNC)
+        if mode != self.BankMode.SYNC:
             return
         idx = 0
         try:
@@ -810,23 +832,28 @@ class StreamDeckXLBridge(QObject):
                 idx = int(getattr(self._bank_selector, "_current_bank_index", 0))
         except Exception:
             idx = 0
-        self._display_bank_index = max(0, idx)
+        self._device_display_banks[device_id] = max(0, idx)
         if not initial:
             self._force_full_redraw = True
 
     @Slot(int)
     def _on_gui_bank_changed(self, index: int) -> None:
-        if self._mode != self.BankMode.SYNC:
-            return
         try:
-            self._display_bank_index = int(index)
+            gui_bank_index = int(index)
         except Exception:
-            self._display_bank_index = 0
+            gui_bank_index = 0
+
+        # Update all devices that are in SYNC mode
+        for device_id, mode in self._device_modes.items():
+            if mode == self.BankMode.SYNC:
+                self._device_display_banks[device_id] = gui_bank_index
+
+        self._force_full_redraw = True
+
         try:
             self._rewire_button_state_signals()
         except Exception:
             pass
-        self._force_full_redraw = True
 
     @Slot(object)
     def _on_any_button_state_changed(self, _payload: object) -> None:
@@ -996,21 +1023,69 @@ class StreamDeckXLBridge(QObject):
 
         # Bottom row controls
         if key == 24 or key == 25:
-            try:
-                banks = int(getattr(self._bank_selector, "banks", 10))
-            except Exception:
-                banks = 10
-            max_idx = max(0, banks - 1)
-
-            try:
-                current_bank = int(self._device_display_banks.get(device_id, 0))
-            except Exception:
-                current_bank = 0
-            delta = -1 if key == 24 else 1
-            new_bank = max(0, min(max_idx, current_bank + delta))
-            self._device_display_banks[device_id] = int(new_bank)
-            self._force_full_redraw = True
-            self._render_for_bank(int(new_bank), device_id)
+            print(f"Bottom row control key pressed: {key}")
+            mode = self._device_modes.get(device_id, self.BankMode.SYNC)
+            if mode == self.BankMode.SYNC:
+                # SYNC: change GUI bank and update all SYNC devices
+                try:
+                    banks = int(getattr(self._bank_selector, "banks", 10))
+                except Exception:
+                    banks = 10
+                try:
+                    # Check if current_bank_index is callable (a method) or a property
+                    idx_fn: Optional[Callable[[], int]] = getattr(self._bank_selector, "current_bank_index", None)
+                    if callable(idx_fn):
+                        current_gui_bank = int(idx_fn())
+                    else:
+                        current_gui_bank = int(getattr(self._bank_selector, "_current_bank_index", 0))
+                except Exception:
+                    current_gui_bank = 0
+                delta = -1 if key == 24 else 1
+                print('Changing GUI bank:',current_gui_bank, delta)
+                new_bank = max(0, min(banks - 1, current_gui_bank + delta))
+                
+                # Update the GUI's internal current bank index
+                try:
+                    self._bank_selector.set_current_bank(int(new_bank))
+                except Exception:
+                    pass
+                
+                # Trigger the bank change handler which updates all SYNC devices
+                self._on_gui_bank_changed(int(new_bank))
+                
+                # Click the bank widget to update GUI visuals and emit proper signals
+                try:
+                    bank_widgets = getattr(self._bank_selector, "_bank_widgets", None) or []
+                    if 0 <= new_bank < len(bank_widgets):
+                        target_widget = bank_widgets[int(new_bank)]
+                        # Try to click the bank widget
+                        click_method = getattr(target_widget, "click", None)
+                        if callable(click_method):
+                            click_method()
+                        else:
+                            # Fallback: try to trigger clicked signal
+                            try:
+                                target_widget.clicked.emit()
+                            except Exception:
+                                pass
+                except Exception:
+                    pass
+            else:
+                # INDEPENDENT: change device bank only (no GUI change)
+                try:
+                    banks = int(getattr(self._bank_selector, "banks", 10))
+                except Exception:
+                    banks = 10
+                max_idx = max(0, banks - 1)
+                try:
+                    current_bank = int(self._device_display_banks.get(device_id, 0))
+                except Exception:
+                    current_bank = 0
+                delta = -1 if key == 24 else 1
+                new_bank = max(0, min(max_idx, current_bank + delta))
+                self._device_display_banks[device_id] = int(new_bank)
+                self._force_full_redraw = True
+                self._render_for_bank(int(new_bank), device_id)
             return
         if key == 26:
             try:
@@ -1071,40 +1146,17 @@ class StreamDeckXLBridge(QObject):
             return
 
         if key == 31:
-            # GUI Sync toggle: switch between SYNC and INDEPENDENT modes.
+            # GUI Sync toggle: switch between SYNC and INDEPENDENT modes for this device.
             try:
-                if self._mode == self.BankMode.SYNC:
-                    self.set_mode(self.BankMode.INDEPENDENT)
-                else:
-                    self.set_mode(self.BankMode.SYNC)
+                current_mode = self._device_modes.get(device_id, self.BankMode.SYNC)
+                new_mode = self.BankMode.INDEPENDENT if current_mode == self.BankMode.SYNC else self.BankMode.SYNC
+                self._device_modes[device_id] = new_mode
                 self._force_full_redraw = True
+                self._render_for_bank(self._device_display_banks.get(device_id, 0), device_id)
             except Exception:
                 return
             return
 
-    def _bank_nav(self, delta: int) -> None:
-        try:
-            banks = int(getattr(self._bank_selector, "banks", 10))
-        except Exception:
-            banks = 10
-
-        new_idx = int(self._display_bank_index) + int(delta)
-        new_idx = max(0, min(banks - 1, new_idx))
-
-        if self._mode == self.BankMode.SYNC:
-            # Drive GUI; we'll follow via bank_changed.
-            try:
-                self._bank_selector.set_current_bank(int(new_idx))
-            except Exception:
-                self._display_bank_index = int(new_idx)
-        else:
-            self._display_bank_index = int(new_idx)
-            try:
-                self._rewire_button_state_signals()
-            except Exception:
-                pass
-
-        self._force_full_redraw = True
 
     def _ensure_all_banks_restored_best_effort(self) -> None:
         try:
@@ -1494,7 +1546,7 @@ class StreamDeckXLBridge(QObject):
             pause_selected = False
 
         # In sync mode, stay aligned even if bank_changed signal wasn't available.
-        self._sync_display_bank_from_gui(initial=False)
+        self._sync_display_bank_from_gui(initial=False, device_id=device_id)
 
         now = time.monotonic()
         phase = 0.0
@@ -1713,7 +1765,7 @@ class StreamDeckXLBridge(QObject):
             self._last_snapshot[30] = (loop_text, loop_on)
 
         # Key 31: gui sync mode (dynamic)
-        sync_on = self._mode == self.BankMode.SYNC
+        sync_on = self._device_modes.get(device_id, self.BankMode.SYNC) == self.BankMode.SYNC
         sync_text = "GUI\nSYNC\nON" if sync_on else "GUI\nSYNC\nOFF"
         prev = self._last_snapshot.get(31)
         if self._force_full_redraw or prev is None or prev[0] != sync_text:

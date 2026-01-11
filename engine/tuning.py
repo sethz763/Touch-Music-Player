@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import json
 import os
+import sys
 from dataclasses import dataclass
 from pathlib import Path
 from typing import Any
@@ -55,14 +56,114 @@ def _repo_root() -> Path:
     return Path(__file__).resolve().parents[1]
 
 
+def _is_frozen() -> bool:
+    # PyInstaller sets sys.frozen and sys._MEIPASS.
+    return bool(getattr(sys, "frozen", False))
+
+
+def _exe_dir() -> Path | None:
+    if not _is_frozen():
+        return None
+    try:
+        return Path(sys.executable).resolve().parent
+    except Exception:
+        return None
+
+
+def _meipass_dir() -> Path | None:
+    base = getattr(sys, "_MEIPASS", None)
+    if not base:
+        return None
+    try:
+        return Path(base).resolve()
+    except Exception:
+        return None
+
+
+def _autocreate_enabled() -> bool:
+    # Default to enabled for frozen builds; allow disabling via env var.
+    raw = (os.environ.get("STEPD_ENGINE_TUNING_AUTOCREATE") or "1").strip()
+    try:
+        return bool(int(raw or "1"))
+    except Exception:
+        return True
+
+
+def _ensure_default_tuning_next_to_exe() -> Path | None:
+    """Create engine_tuning.json next to the EXE (frozen builds only).
+
+    This is best-effort: failures (e.g. no write permission) are ignored.
+    """
+
+    if not _is_frozen() or not _autocreate_enabled():
+        return None
+
+    exe_dir = _exe_dir()
+    if exe_dir is None:
+        return None
+
+    dst = exe_dir / "engine_tuning.json"
+    if dst.exists():
+        return dst
+
+    src_dir = _meipass_dir()
+    if src_dir is None:
+        return None
+    src = src_dir / "engine_tuning.json"
+    if not src.exists():
+        return None
+
+    try:
+        # Avoid partial writes: write then replace.
+        tmp = dst.with_suffix(".json.tmp")
+        tmp.write_text(src.read_text(encoding="utf-8"), encoding="utf-8")
+        tmp.replace(dst)
+        return dst
+    except Exception:
+        return None
+
+
+def _base_dir_for_relative_paths() -> Path:
+    # For a frozen app, relative paths should resolve next to the executable
+    # so you can drop in an engine_tuning.json beside the EXE.
+    return _exe_dir() or _repo_root()
+
+
 def _tuning_path() -> Path:
     root = _repo_root()
     env = (os.environ.get("STEPD_ENGINE_TUNING_PATH") or "").strip()
     if env:
         p = Path(env)
         if not p.is_absolute():
-            p = root / p
+            p = _base_dir_for_relative_paths() / p
         return p
+
+    # Default resolution order:
+    # 1) If frozen: allow overriding by placing engine_tuning.json next to the EXE
+    # 2) If frozen: fall back to the bundled copy in _MEIPASS (if included as data)
+    # 3) Dev: repo root
+    if _is_frozen():
+        # If possible, materialize a default config next to the EXE.
+        created = _ensure_default_tuning_next_to_exe()
+        if created is not None:
+            return created
+
+        exe_dir = _exe_dir()
+        if exe_dir is not None:
+            candidate = exe_dir / "engine_tuning.json"
+            if candidate.exists():
+                return candidate
+
+        mei_dir = _meipass_dir()
+        if mei_dir is not None:
+            candidate = mei_dir / "engine_tuning.json"
+            if candidate.exists():
+                return candidate
+
+        # If neither exists, return the expected external location for diagnostics.
+        if exe_dir is not None:
+            return exe_dir / "engine_tuning.json"
+
     return root / "engine_tuning.json"
 
 

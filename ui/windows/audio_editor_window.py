@@ -151,8 +151,8 @@ class ZoomableScrollArea(QScrollArea):
 def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
 	"""Create a rotating log file for the editor UI.
 
-	Default log path is under `service_log/`.
-	Override with `STEPD_EDITOR_LOG_PATH` (will still be coerced into `service_log/`).
+	Default log path is under `service_logs/`.
+	Override with `STEPD_EDITOR_LOG_PATH` (will still be coerced into `service_logs/`).
 	"""
 
 	safe_component = "".join(ch for ch in str(component) if ch.isalnum() or ch in ("_", "-")) or "ui"

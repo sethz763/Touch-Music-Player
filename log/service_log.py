@@ -1,6 +1,7 @@
 from __future__ import annotations
 
 import os
+import sys
 from pathlib import Path
 from typing import Optional
 
@@ -16,10 +17,25 @@ def get_repo_root() -> Path:
         return Path.cwd()
 
 
+def get_runtime_root() -> Path:
+    """Return the runtime base directory.
+
+    - In PyInstaller/frozen builds: directory containing the executable
+    - In normal dev runs: repo root
+    """
+    try:
+        if bool(getattr(sys, "frozen", False)):
+            return Path(sys.executable).resolve().parent
+    except Exception:
+        pass
+    return get_repo_root()
+
+
 def get_service_log_dir() -> Path:
     """Return the directory where all service logs should be written.
 
-    Defaults to <repo_root>/service_log.
+    Defaults to <exe_dir>/service_logs when frozen (PyInstaller),
+    otherwise <repo_root>/service_logs.
     Override with STEPD_SERVICE_LOG_DIR.
     """
     override = None
@@ -33,11 +49,11 @@ def get_service_log_dir() -> Path:
         try:
             base = Path(str(override))
             if not base.is_absolute():
-                base = (get_repo_root() / base)
+                base = (get_runtime_root() / base)
         except Exception:
-            base = get_repo_root() / "service_log"
+            base = get_runtime_root() / "service_logs"
     else:
-        base = get_repo_root() / "service_log"
+        base = get_runtime_root() / "service_logs"
 
     try:
         base.mkdir(parents=True, exist_ok=True)
@@ -69,15 +85,15 @@ def coerce_log_path(
     default_filename: str,
     allow_absolute_outside_service_dir: bool = False,
 ) -> Path:
-    """Compute a log file path that lives under service_log/ by default.
+    """Compute a log file path that lives under service_logs/ by default.
 
     Rules:
-    - If env_value is empty: <service_log>/<default_filename>
-    - If env_value is relative: <service_log>/<env_value>
+        - If env_value is empty: <service_logs>/<default_filename>
+        - If env_value is relative: <service_logs>/<env_value>
     - If env_value points to a directory (existing dir or ends with / or \\):
-      <that_dir>/<default_filename> (dir is relative to service_log if not absolute)
+            <that_dir>/<default_filename> (dir is relative to service_logs if not absolute)
     - If env_value is absolute: use it ONLY if allow_absolute_outside_service_dir is True,
-      otherwise force it under service_log using its basename.
+            otherwise force it under service_logs using its basename.
 
     This keeps production behavior predictable while still allowing dev overrides.
     """
@@ -92,7 +108,7 @@ def coerce_log_path(
     except Exception:
         return (base / _safe_filename(default_filename)).resolve()
 
-    # Normalize relative to service_log.
+    # Normalize relative to service_logs.
     if not p.is_absolute():
         p = base / p
 
@@ -103,7 +119,7 @@ def coerce_log_path(
     except Exception:
         pass
 
-    # Enforce service_log containment unless explicitly allowed.
+    # Enforce service_logs containment unless explicitly allowed.
     if not allow_absolute_outside_service_dir:
         try:
             candidate = p.resolve()

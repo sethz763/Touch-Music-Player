@@ -8,15 +8,15 @@
   "output": {
     "target_blocks": 16,
     "low_water_blocks": 8,
-    "min_target_blocks": 8,
-    "min_low_water_blocks": 3,
+    "min_target_blocks": 10,
+    "min_low_water_blocks": 6,
     "starve_warn_frames": 512
   },
   "decode": {
     "chunk_frames": null,
     "min_chunk_frames": 512,
     "default_chunk_min_frames": 512,
-    "chunk_multiplier": 16,
+    "chunk_multiplier": 8,
     "slice_max_frames": 512
   }
 }

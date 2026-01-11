@@ -11,6 +11,8 @@ a = Analysis(
     datas=[
         ('../venv/Lib/site-packages/fleep/data.json', 'fleep'),  # Include fleep's data.json
         ('../Assets', 'Assets'),  # Include Assets directory for button icons
+        ('../service_log', 'service_log'),  # Include service_log directory for logs
+        ('../engine_tuning.json', '.'),  # Bundle default tuning (EXE-adjacent file still overrides)
     ],
     hiddenimports=[
         'StreamDeck',
