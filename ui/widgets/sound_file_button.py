@@ -41,6 +41,8 @@ import uuid
 from typing import Optional, TYPE_CHECKING, Callable
 import threading
 import os
+import queue
+import weakref
 
 import numpy as np
 
@@ -73,6 +75,77 @@ from ui.widgets.AudioLevelMeter import AudioLevelMeter
 
 if TYPE_CHECKING:
     from gui.engine_adapter import EngineAdapter
+
+
+# ---------------------------------------------------------------------------
+# Background file probing worker pool
+#
+# When restoring/probing many buttons at once (e.g., restoring all banks on
+# launch), spawning one thread per button can create hundreds of threads.
+# Instead, route probe work through a small daemon worker pool.
+# ---------------------------------------------------------------------------
+
+try:
+    from shiboken6 import isValid as _qt_is_valid  # type: ignore
+except Exception:
+
+    def _qt_is_valid(_obj: object) -> bool:
+        return True
+
+
+_PROBE_QUEUE: "queue.Queue[tuple[weakref.ReferenceType, str]]" = queue.Queue()
+_PROBE_WORKERS_STARTED: bool = False
+_PROBE_WORKERS_LOCK = threading.Lock()
+
+
+def _probe_worker_main() -> None:
+    while True:
+        btn_ref, path = _PROBE_QUEUE.get()
+        try:
+            btn = btn_ref()
+            if btn is None:
+                continue
+            try:
+                if not _qt_is_valid(btn):
+                    continue
+            except Exception:
+                pass
+
+            # Private method, but this module owns it.
+            try:
+                btn._probe_file_in_thread(path)
+            except Exception:
+                pass
+        finally:
+            try:
+                _PROBE_QUEUE.task_done()
+            except Exception:
+                pass
+
+
+def _ensure_probe_workers_started() -> None:
+    global _PROBE_WORKERS_STARTED
+    if _PROBE_WORKERS_STARTED:
+        return
+    with _PROBE_WORKERS_LOCK:
+        if _PROBE_WORKERS_STARTED:
+            return
+
+        try:
+            max_workers = int(os.environ.get("STEPD_PROBE_WORKERS", "4") or "4")
+        except Exception:
+            max_workers = 4
+        max_workers = max(1, min(16, max_workers))
+
+        for i in range(max_workers):
+            t = threading.Thread(
+                target=_probe_worker_main,
+                name=f"stepd-probe-worker-{i}",
+                daemon=True,
+            )
+            t.start()
+
+        _PROBE_WORKERS_STARTED = True
 
 
 class FadeButton(QPushButton):
@@ -479,6 +552,10 @@ class SoundFileButton(QPushButton):
                         self.file_path = fp
                         try:
                             self._refresh_label()
+                        except Exception:
+                            pass
+                        try:
+                            self._probe_file_async(fp)
                         except Exception:
                             pass
             else:
@@ -943,10 +1020,14 @@ class SoundFileButton(QPushButton):
             painter.setFont(font)
             painter.setPen(self.palette().color(self.foregroundRole()))
 
-            if self.remaining_seconds >= 0:
-                pos_w = self.width() - 45
-                pos_h = 16
-                painter.drawText(pos_w, pos_h, self._format_duration(self.remaining_seconds))
+            try:
+                rs = getattr(self, "remaining_seconds", None)
+                if isinstance(rs, (int, float)) and rs >= 0:
+                    pos_w = self.width() - 45
+                    pos_h = 16
+                    painter.drawText(pos_w, pos_h, self._format_duration(float(rs)))
+            except Exception:
+                pass
 
             # Draw loop indicator
             if self.loop_enabled:
@@ -1543,13 +1624,19 @@ class SoundFileButton(QPushButton):
         Runs in a background thread to avoid blocking the GUI.
         Starts a worker thread that probes the file and updates button UI when done.
         """
-        # Start probing in a background thread to keep GUI responsive
-        probe_thread = threading.Thread(
-            target=self._probe_file_in_thread,
-            args=(path,),
-            daemon=True  # Daemon thread won't prevent app exit
-        )
-        probe_thread.start()
+        # Queue probe onto shared worker pool to avoid spawning one thread per button.
+        try:
+            _ensure_probe_workers_started()
+            _PROBE_QUEUE.put((weakref.ref(self), str(path)))
+            return
+        except Exception:
+            # Fall back to one-off thread if the pool isn't available.
+            probe_thread = threading.Thread(
+                target=self._probe_file_in_thread,
+                args=(path,),
+                daemon=True,
+            )
+            probe_thread.start()
     
     def _probe_file_in_thread(self, path: str) -> None:
         """

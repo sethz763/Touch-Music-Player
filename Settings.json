@@ -12,9 +12,9 @@
         48000.0
     ],
     "fade_in_duration": 1,
-    "fade_out_duration": 122,
+    "fade_out_duration": 1,
     "play_fade_dur": 1,
-    "pause_fade_dur": 122,
+    "pause_fade_dur": 1,
     "rows": 3,
     "columns": 8
 }

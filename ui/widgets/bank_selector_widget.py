@@ -106,10 +106,61 @@ class BankSelectorWidget(QWidget):
 			self._ensure_all_buttons_persisted()
 		except Exception:
 			pass
+		# Restore all banks on launch so every button can kick off probing immediately.
+		# Run this incrementally on the event loop to keep the window responsive.
+		try:
+			self._restore_all_banks_async(reason="startup")
+		except Exception:
+			pass
 		try:
 			self._refresh_visible_bank()
 		except Exception:
 			pass
+
+	def _restore_all_banks_async(self, reason: str = "") -> None:
+		"""Ensure every bank is restored (and thus probes start) without freezing the UI."""
+		# Coalesce repeated calls.
+		if getattr(self, "_restore_all_banks_in_progress", False):
+			return
+		self._restore_all_banks_in_progress = True
+		self._restore_all_banks_index = 0
+
+		def _step() -> None:
+			idx = int(getattr(self, "_restore_all_banks_index", 0) or 0)
+			if idx >= len(self._bank_widgets):
+				self._restore_all_banks_in_progress = False
+				return
+
+			bank = self._bank_widgets[idx]
+			try:
+				ensure = getattr(bank, "ensure_restored", None)
+				if callable(ensure):
+					ensure()
+			except Exception:
+				pass
+
+			# Best-effort: refresh labels now (probing continues async).
+			for btn in getattr(bank, "buttons", []) or []:
+				try:
+					btn._refresh_label()
+				except Exception:
+					pass
+				try:
+					btn.update()
+				except Exception:
+					pass
+
+			self._restore_all_banks_index = idx + 1
+			try:
+				# Small delay yields to paint/input and avoids a tight loop on slow disks.
+				QTimer.singleShot(1, _step)
+			except Exception:
+				_step()
+
+		try:
+			QTimer.singleShot(0, _step)
+		except Exception:
+			_step()
 
 	def _ensure_all_buttons_persisted(self) -> None:
 		"""Populate ButtonSettings.json with entries for all banks/buttons.
@@ -256,7 +307,7 @@ class BankSelectorWidget(QWidget):
 		except Exception:
 			return
 
-		# Lazy restore so we don't probe every bank's audio files on startup.
+		# Visible bank should always be restored.
 		try:
 			ensure = getattr(bank, "ensure_restored", None)
 			if callable(ensure):
@@ -308,6 +359,11 @@ class BankSelectorWidget(QWidget):
 			except Exception:
 				continue
 
+		# Restore all banks from the loaded project so probing starts immediately.
+		try:
+			self._restore_all_banks_async(reason="load_button_settings")
+		except Exception:
+			pass
 		self._refresh_visible_bank()
 
 	# ---------------------------------------------------------------------
