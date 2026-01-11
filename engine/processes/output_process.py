@@ -230,6 +230,13 @@ class _Ring:
 def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, event_q: mp.Queue, decode_cmd_q:mp.Queue) -> None:
     import sounddevice as sd
     from log.service_log import coerce_log_path
+    from engine.tuning import (
+        DEFAULT_OUTPUT_LOW_WATER_BLOCKS,
+        DEFAULT_OUTPUT_MIN_LOW_WATER_BLOCKS,
+        DEFAULT_OUTPUT_MIN_TARGET_BLOCKS,
+        DEFAULT_OUTPUT_STARVE_WARN_FRAMES,
+        DEFAULT_OUTPUT_TARGET_BLOCKS,
+    )
 
     rings: Dict[str, _Ring] = {}
     gains: Dict[str, float] = {}
@@ -391,7 +398,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                 else:
                     if produced_gap_ms > (expected_gap_ms + 250.0):
                         suspicious = True
-            if ring.frames < 2048:
+            if ring.frames < starve_warn_frames:
                 suspicious = True
 
             if not suspicious:
@@ -535,6 +542,42 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
         payload = f"[{ts:.3f}] {msg}"
         _send_debug_payload(payload)
         _write_debug_file(payload)
+
+    # --- Tuning diagnostics (must happen after _log is available) ---
+    # Ensure tuning defaults are available in this process even when the engine
+    # is used outside the GUI (env vars override tuning values unless overwrite is enabled).
+    try:
+        from pathlib import Path
+        from engine.tuning import apply_engine_tuning_to_env, load_engine_tuning, resolve_engine_tuning_path
+
+        _keys = (
+            "STEPD_ENGINE_TUNING_PATH",
+            "STEPD_ENGINE_TUNING_OVERWRITE",
+            "STEPD_OUTPUT_TARGET_BLOCKS",
+            "STEPD_OUTPUT_LOW_WATER_BLOCKS",
+            "STEPD_OUTPUT_STARVE_WARN_FRAMES",
+            "STEPD_OUTPUT_MIN_TARGET_BLOCKS",
+            "STEPD_OUTPUT_MIN_LOW_WATER_BLOCKS",
+        )
+        env_before = {k: (os.environ.get(k) or "") for k in _keys}
+        tuning_path = resolve_engine_tuning_path()
+        tuning_loaded = load_engine_tuning()
+        apply_engine_tuning_to_env()
+        env_after = {k: (os.environ.get(k) or "") for k in _keys}
+
+        _log(
+            "[TUNING] "
+            f"pid={os.getpid()} "
+            f"path={str(tuning_path)} exists={int(Path(tuning_path).exists())} "
+            f"json_output={{target={tuning_loaded.output_target_blocks} low_water={tuning_loaded.output_low_water_blocks} starve_warn={tuning_loaded.output_starve_warn_frames}}} "
+            f"env_before={{target='{env_before['STEPD_OUTPUT_TARGET_BLOCKS']}' low_water='{env_before['STEPD_OUTPUT_LOW_WATER_BLOCKS']}' starve_warn='{env_before['STEPD_OUTPUT_STARVE_WARN_FRAMES']}' min_target='{env_before['STEPD_OUTPUT_MIN_TARGET_BLOCKS']}' min_low_water='{env_before['STEPD_OUTPUT_MIN_LOW_WATER_BLOCKS']}' overwrite='{env_before['STEPD_ENGINE_TUNING_OVERWRITE']}'}} "
+            f"env_after={{target='{env_after['STEPD_OUTPUT_TARGET_BLOCKS']}' low_water='{env_after['STEPD_OUTPUT_LOW_WATER_BLOCKS']}' starve_warn='{env_after['STEPD_OUTPUT_STARVE_WARN_FRAMES']}' min_target='{env_after['STEPD_OUTPUT_MIN_TARGET_BLOCKS']}' min_low_water='{env_after['STEPD_OUTPUT_MIN_LOW_WATER_BLOCKS']}' overwrite='{env_after['STEPD_ENGINE_TUNING_OVERWRITE']}'}}"
+        )
+    except Exception as ex:
+        try:
+            _log(f"[TUNING-ERROR] {type(ex).__name__}: {ex}")
+        except Exception:
+            pass
 
     def _flush_probe_logs(force: bool = False) -> None:
         """Emit probe summaries without losing them when the event queue is full.
@@ -752,7 +795,7 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
                     old_frames = ring.frames - frames_in_chunk  # what it was before push
                     # Only treat this as starvation if we had already started playing this cue.
                     # For the first PCM arrival, old_frames is expected to be 0.
-                    if was_started and old_frames < 2048:  # Less than ~42ms of audio at 48kHz
+                    if was_started and old_frames < starve_warn_frames:
                         _log(
                             f"[BUFFER-STARVING] cue={pcm.cue_id[:8]} CRITICAL: buffer was at {old_frames}fr before receiving {frames_in_chunk}fr chunk! This may cause ticking."
                             f"{_format_hb_snapshot(pcm.cue_id)}"
@@ -1232,23 +1275,83 @@ def output_process_main(cfg: OutputConfig, cmd_q: mp.Queue, pcm_q: mp.Queue, eve
 
     # Buffer sizing (in units of output blocks). Defaults are conservative to hide
     # occasional multi-second decoder gaps without adding excessive memory use.
-    # - Target 192 blocks ~= 4 seconds at 48kHz, 2ch, block=2048 (when "frames" means interleaved samples)
+    # - Target 192 blocks ~= 4 seconds at 48kHz, 2ch, block=2048
     # - Low-water 96 blocks ~= 2 seconds
     try:
-        target_blocks = int(os.environ.get("STEPD_OUTPUT_TARGET_BLOCKS", "192"))
+        _target_blocks_raw = os.environ.get("STEPD_OUTPUT_TARGET_BLOCKS", str(DEFAULT_OUTPUT_TARGET_BLOCKS))
+        target_blocks = int(_target_blocks_raw)
     except Exception:
-        target_blocks = 192
+        target_blocks = int(DEFAULT_OUTPUT_TARGET_BLOCKS)
     try:
-        low_water_blocks = int(os.environ.get("STEPD_OUTPUT_LOW_WATER_BLOCKS", "96"))
+        _low_water_blocks_raw = os.environ.get("STEPD_OUTPUT_LOW_WATER_BLOCKS", str(DEFAULT_OUTPUT_LOW_WATER_BLOCKS))
+        low_water_blocks = int(_low_water_blocks_raw)
     except Exception:
-        low_water_blocks = 96
+        low_water_blocks = int(DEFAULT_OUTPUT_LOW_WATER_BLOCKS)
+
+    # Clamp mins are themselves tunable (useful for low-latency profiles).
+    try:
+        min_target_blocks = int(os.environ.get("STEPD_OUTPUT_MIN_TARGET_BLOCKS", str(DEFAULT_OUTPUT_MIN_TARGET_BLOCKS)).strip() or str(DEFAULT_OUTPUT_MIN_TARGET_BLOCKS))
+    except Exception:
+        min_target_blocks = int(DEFAULT_OUTPUT_MIN_TARGET_BLOCKS)
+    try:
+        min_low_water_blocks = int(os.environ.get("STEPD_OUTPUT_MIN_LOW_WATER_BLOCKS", str(DEFAULT_OUTPUT_MIN_LOW_WATER_BLOCKS)).strip() or str(DEFAULT_OUTPUT_MIN_LOW_WATER_BLOCKS))
+    except Exception:
+        min_low_water_blocks = int(DEFAULT_OUTPUT_MIN_LOW_WATER_BLOCKS)
+
+    if min_target_blocks < 1:
+        min_target_blocks = 1
+    if min_low_water_blocks < 1:
+        min_low_water_blocks = 1
+
+    _pre_clamp_target_blocks = int(target_blocks)
+    _pre_clamp_low_water_blocks = int(low_water_blocks)
     # Keep sane ordering.
-    if target_blocks < 24:
-        target_blocks = 24
-    if low_water_blocks < 12:
-        low_water_blocks = 12
+    if target_blocks < min_target_blocks:
+        target_blocks = int(min_target_blocks)
+    if low_water_blocks < min_low_water_blocks:
+        low_water_blocks = int(min_low_water_blocks)
     if low_water_blocks >= target_blocks:
-        low_water_blocks = max(12, target_blocks // 2)
+        low_water_blocks = max(int(min_low_water_blocks), target_blocks // 2)
+
+    # Threshold (in frames) used for non-RT diagnostics to flag starvation risk.
+    # Defaults to 2048 frames but can be tuned via STEPD_OUTPUT_STARVE_WARN_FRAMES.
+    try:
+        starve_warn_frames = int(
+            os.environ.get("STEPD_OUTPUT_STARVE_WARN_FRAMES", str(DEFAULT_OUTPUT_STARVE_WARN_FRAMES)).strip()
+            or str(DEFAULT_OUTPUT_STARVE_WARN_FRAMES)
+        )
+    except Exception:
+        starve_warn_frames = int(DEFAULT_OUTPUT_STARVE_WARN_FRAMES)
+    # Keep it at least one block.
+    try:
+        starve_warn_frames = max(int(cfg.block_frames), int(starve_warn_frames))
+    except Exception:
+        starve_warn_frames = max(int(cfg.block_frames), int(DEFAULT_OUTPUT_STARVE_WARN_FRAMES))
+
+    if _pre_clamp_target_blocks != target_blocks or _pre_clamp_low_water_blocks != low_water_blocks:
+        try:
+            _log(
+                "[BUFFER-CONFIG] "
+                f"block_frames={cfg.block_frames} "
+                f"target_blocks={target_blocks} (raw={_pre_clamp_target_blocks}) "
+                f"low_water_blocks={low_water_blocks} (raw={_pre_clamp_low_water_blocks}) "
+                f"min_target_blocks={min_target_blocks} min_low_water_blocks={min_low_water_blocks} "
+                f"starve_warn_frames={starve_warn_frames}"
+            )
+        except Exception:
+            pass
+    else:
+        try:
+            _log(
+                "[BUFFER-CONFIG] "
+                f"block_frames={cfg.block_frames} "
+                f"target_blocks={target_blocks} "
+                f"low_water_blocks={low_water_blocks} "
+                f"min_target_blocks={min_target_blocks} min_low_water_blocks={min_low_water_blocks} "
+                f"starve_warn_frames={starve_warn_frames}"
+            )
+        except Exception:
+            pass
 
     # Non-RT diagnostics: log status changes immediately, and also re-log notable
     # (under/over/xrun) statuses periodically so repeated underruns remain visible.

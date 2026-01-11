@@ -143,6 +143,7 @@ class AudioLevelMeterHorizontal(QtWidgets.QWidget):
         self._bg_cache_size = size
 
     def paintEvent(self, e):
+        painter = None
         try:
             painter = QtGui.QPainter(self)
             d_height = painter.device().height()
@@ -184,6 +185,12 @@ class AudioLevelMeterHorizontal(QtWidgets.QWidget):
             painter.fillRect(rect, self._bar_qcolors[peak_bar])
         except Exception as err:
             print("meter error" + str(err))
+        finally:
+            try:
+                if painter is not None:
+                    painter.end()
+            except Exception:
+                pass
 
        
 

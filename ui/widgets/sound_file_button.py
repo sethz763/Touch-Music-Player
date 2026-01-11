@@ -84,34 +84,37 @@ class FadeButton(QPushButton):
         
     def paintEvent(self, event):
         painter = QPainter(self)
-        painter.setRenderHint(QPainter.RenderHint.Antialiasing)
-        
-        
-        bkgd = QColor(127, 127, 127, 127)
-        color = QColor(0, 0, 127, 127)
+        try:
+            painter.setRenderHint(QPainter.RenderHint.Antialiasing)
 
-        painter.fillRect(self.rect(), bkgd)
-        
-        bars = 4
-        
-        for i in range(bars):
-            h_step = int(self.height() / bars)
-            w_bar = int(self.width() / (bars * 2))
-            h = self.height()
-            angle = int(self.height() / bars)
-            
-            ii = i * 2
-            tl = QPoint(0 + (ii * w_bar), 0 + i * h_step)
-            tr = QPoint(w_bar + (ii * w_bar), angle + i * h_step)
-            br = QPoint(w_bar + (ii * w_bar), h)
-            bl = QPoint(0 + (ii * w_bar), h) 
-            
-            bar_1 = QPolygon([tl, tr, br, bl])
-        
-            painter.setBrush(color) 
-            painter.drawPolygon(bar_1)
-        
-        painter.end()
+            bkgd = QColor(127, 127, 127, 127)
+            color = QColor(0, 0, 127, 127)
+
+            painter.fillRect(self.rect(), bkgd)
+
+            bars = 4
+
+            for i in range(bars):
+                h_step = int(self.height() / bars)
+                w_bar = int(self.width() / (bars * 2))
+                h = self.height()
+                angle = int(self.height() / bars)
+
+                ii = i * 2
+                tl = QPoint(0 + (ii * w_bar), 0 + i * h_step)
+                tr = QPoint(w_bar + (ii * w_bar), angle + i * h_step)
+                br = QPoint(w_bar + (ii * w_bar), h)
+                bl = QPoint(0 + (ii * w_bar), h)
+
+                bar_1 = QPolygon([tl, tr, br, bl])
+
+                painter.setBrush(color)
+                painter.drawPolygon(bar_1)
+        finally:
+            try:
+                painter.end()
+            except Exception:
+                pass
 
 
 class SoundFileButton(QPushButton):
@@ -214,6 +217,13 @@ class SoundFileButton(QPushButton):
         self.channels: Optional[int] = None
         self.song_title: Optional[str] = None  # Extracted from file metadata
         self.song_artist: Optional[str] = None  # Extracted from file metadata
+
+        # Cached file probe data (persisted via ButtonSettings.json).
+        # This is used to reduce cue-start latency by avoiding redundant PyAV probing
+        # in the engine/decoder.
+        self._file_probe_cache: Optional[dict] = None
+        self._file_metadata_cache: Optional[dict] = None
+        self._decoder_probe_cache: Optional[dict] = None
         
         # Drag and drop tracking
         self._drag_start_pos: Optional[QPoint] = None
@@ -405,6 +415,8 @@ class SoundFileButton(QPushButton):
 
             return {
                 "file_path": self.file_path,
+                # Optional cached probe payload (duration/metadata/decoder stream selection).
+                "file_probe": getattr(self, "_file_probe_cache", None),
                 "custom_text": getattr(self, "custom_text", None),
                 "in_frame": int(getattr(self, "in_frame", 0) or 0),
                 "out_frame": getattr(self, "out_frame", None),
@@ -444,16 +456,31 @@ class SoundFileButton(QPushButton):
                 self.custom_text = None
 
             fp = state.get("file_path")
+            cached_probe = None
+            try:
+                cached_probe = state.get("file_probe")
+            except Exception:
+                cached_probe = None
             if fp:
+                # Try to restore cached probe data to avoid re-probing on startup.
+                restored_from_cache = False
                 try:
-                    self._set_new_file(fp)
+                    if isinstance(cached_probe, dict) and self._probe_cache_matches_file(fp, cached_probe):
+                        self._apply_cached_probe(fp, cached_probe)
+                        restored_from_cache = True
                 except Exception:
-                    # As a fallback, set file_path directly.
-                    self.file_path = fp
+                    restored_from_cache = False
+
+                if not restored_from_cache:
                     try:
-                        self._refresh_label()
+                        self._set_new_file(fp)
                     except Exception:
-                        pass
+                        # As a fallback, set file_path directly.
+                        self.file_path = fp
+                        try:
+                            self._refresh_label()
+                        except Exception:
+                            pass
             else:
                 try:
                     self._clear_button()
@@ -525,6 +552,86 @@ class SoundFileButton(QPushButton):
                 pass
         finally:
             self._restoring = False
+
+    # ------------------------------------------------------------------
+    # Probe cache helpers
+    # ------------------------------------------------------------------
+
+    def _file_signature(self, path: str) -> dict:
+        """Return a lightweight signature used to validate cached probe results."""
+        p = str(path)
+        try:
+            st = os.stat(p)
+            return {
+                "path": os.path.abspath(p),
+                "size": int(getattr(st, "st_size", 0) or 0),
+                "mtime_ns": int(getattr(st, "st_mtime_ns", int(getattr(st, "st_mtime", 0) * 1e9)) or 0),
+            }
+        except Exception:
+            return {"path": os.path.abspath(p)}
+
+    def _probe_cache_matches_file(self, path: str, cached_probe: dict) -> bool:
+        try:
+            sig = cached_probe.get("sig") if isinstance(cached_probe, dict) else None
+            if not isinstance(sig, dict):
+                return False
+            cur = self._file_signature(path)
+            # Require size+mtime match when present in both.
+            for k in ("size", "mtime_ns"):
+                if k in sig and k in cur and sig.get(k) != cur.get(k):
+                    return False
+            # Path mismatch isn't fatal (can move settings between machines), but if it exists, it should match.
+            try:
+                if sig.get("path") and os.path.abspath(str(sig.get("path"))) != os.path.abspath(str(path)):
+                    return False
+            except Exception:
+                pass
+            return True
+        except Exception:
+            return False
+
+    def _apply_cached_probe(self, file_path: str, cached_probe: dict) -> None:
+        """Apply cached probe results without starting a new probe thread."""
+        self.file_path = file_path
+        self._file_probe_cache = cached_probe
+
+        try:
+            self.duration_seconds = cached_probe.get("duration_seconds")
+        except Exception:
+            self.duration_seconds = None
+        try:
+            self.sample_rate = cached_probe.get("sample_rate")
+        except Exception:
+            self.sample_rate = None
+        try:
+            self.channels = cached_probe.get("channels")
+        except Exception:
+            self.channels = None
+
+        try:
+            self.song_title = cached_probe.get("title")
+        except Exception:
+            self.song_title = None
+        try:
+            self.song_artist = cached_probe.get("artist")
+        except Exception:
+            self.song_artist = None
+
+        try:
+            md = cached_probe.get("metadata")
+            self._file_metadata_cache = md if isinstance(md, dict) else None
+        except Exception:
+            self._file_metadata_cache = None
+        try:
+            dp = cached_probe.get("decoder_probe")
+            self._decoder_probe_cache = dp if isinstance(dp, dict) else None
+        except Exception:
+            self._decoder_probe_cache = None
+
+        try:
+            self._refresh_label()
+        except Exception:
+            pass
 
     def _label_text_for_display(self) -> str:
         """Return the base label text (no auto-wrapping/newlines)."""
@@ -737,116 +844,119 @@ class SoundFileButton(QPushButton):
         """Custom paint event showing playing indicator and button metadata."""
         super().paintEvent(event)
         painter = QPainter(self)
-
-        # Ensure we have the background image loaded if configured.
         try:
-            self._ensure_background_pixmap_loaded()
-        except Exception:
-            pass
 
-        # Determine the interior/content rect for background drawing.
-        try:
-            opt = QStyleOptionButton()
-            self.initStyleOption(opt)
-            content_rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, opt, self)
-        except Exception:
-            opt = None
-            content_rect = self.rect()
+            # Ensure we have the background image loaded if configured.
+            try:
+                self._ensure_background_pixmap_loaded()
+            except Exception:
+                pass
 
-        # Draw background image first (crop-to-fill), if present.
-        try:
-            pm = self._background_pixmap
-            if pm is not None and (not pm.isNull()):
-                key = (getattr(self, "background_asset_path", None), int(content_rect.width()), int(content_rect.height()))
-                if key != self._background_scaled_key or self._background_scaled_pixmap is None:
-                    scaled = pm.scaled(
-                        content_rect.size(),
-                        Qt.AspectRatioMode.KeepAspectRatioByExpanding,
-                        Qt.TransformationMode.SmoothTransformation,
-                    )
-                    self._background_scaled_pixmap = scaled
-                    self._background_scaled_key = key
-                scaled = self._background_scaled_pixmap
-                if scaled is not None and (not scaled.isNull()):
-                    x = int(content_rect.x() + (content_rect.width() - scaled.width()) / 2)
-                    y = int(content_rect.y() + (content_rect.height() - scaled.height()) / 2)
-                    painter.drawPixmap(x, y, scaled)
-        except Exception:
-            pass
-
-        # Flash overlay (above background image but below text/labels).
-        try:
-            if getattr(self, "is_playing", False) and self._flash_overlay_color is not None:
-                overlay = QColor(self._flash_overlay_color)
-                overlay.setAlpha(80)
-                painter.fillRect(content_rect, overlay)
-        except Exception:
-            pass
-
-        # Redraw the button label on top (so it isn't covered by the image).
-        try:
-            if opt is None:
+            # Determine the interior/content rect for background drawing.
+            try:
                 opt = QStyleOptionButton()
                 self.initStyleOption(opt)
-            self.style().drawControl(QStyle.ControlElement.CE_PushButtonLabel, opt, painter, self)
-        except Exception:
-            pass
+                content_rect = self.style().subElementRect(QStyle.SubElement.SE_PushButtonContents, opt, self)
+            except Exception:
+                opt = None
+                content_rect = self.rect()
 
-        # Draw bank/button index in upper-left corner (e.g., "0-1" .. "9-24")
-        try:
-            bank_index = getattr(self, "bank_index", None)
-            index_in_bank = getattr(self, "index_in_bank", None)
-            if index_in_bank is not None:
-                label = f"{bank_index}-{index_in_bank}" if bank_index is not None else f"{index_in_bank}"
-                corner_font = QFont("Arial", 9)
-                corner_font.setBold(True)
-                painter.setFont(corner_font)
-                painter.setPen(QColor(0, 0, 0, 180))
-                painter.drawText(5, 13, label)
-                painter.setPen(QColor(255, 255, 255, 230))
-                painter.drawText(4, 12, label)
-        except Exception:
-            pass
+            # Draw background image first (crop-to-fill), if present.
+            try:
+                pm = self._background_pixmap
+                if pm is not None and (not pm.isNull()):
+                    key = (getattr(self, "background_asset_path", None), int(content_rect.width()), int(content_rect.height()))
+                    if key != self._background_scaled_key or self._background_scaled_pixmap is None:
+                        scaled = pm.scaled(
+                            content_rect.size(),
+                            Qt.AspectRatioMode.KeepAspectRatioByExpanding,
+                            Qt.TransformationMode.SmoothTransformation,
+                        )
+                        self._background_scaled_pixmap = scaled
+                        self._background_scaled_key = key
+                    scaled = self._background_scaled_pixmap
+                    if scaled is not None and (not scaled.isNull()):
+                        x = int(content_rect.x() + (content_rect.width() - scaled.width()) / 2)
+                        y = int(content_rect.y() + (content_rect.height() - scaled.height()) / 2)
+                        painter.drawPixmap(x, y, scaled)
+            except Exception:
+                pass
 
-        height = painter.device().height()
-        width = painter.device().width()
-        
-        # Draw playing indicator (circular gradient)
-        rect = QRect(0, 0, 15, 15)
-        rect.moveTo(QPoint(int(width / 2) - 7, 4))
-        
-        ctr = QPointF((width / 2), 12)
-        
-        if self.is_playing:
-            gradient = QRadialGradient(ctr, 12, ctr) 
-            gradient.setColorAt(0, QColor(255, 255, 255)) 
-            gradient.setColorAt(1, QColor(0, int(self.light_level), 0))
-        else:
-            gradient = QRadialGradient(ctr, 4, ctr) 
-            gradient.setColorAt(0, QColor(180, 180, 180)) 
-            gradient.setColorAt(1, QColor(0, 0, 0))
-              
-        painter.setBrush(QBrush(gradient))
-        painter.drawEllipse(rect)
+            # Flash overlay (above background image but below text/labels).
+            try:
+                if getattr(self, "is_playing", False) and self._flash_overlay_color is not None:
+                    overlay = QColor(self._flash_overlay_color)
+                    overlay.setAlpha(80)
+                    painter.fillRect(content_rect, overlay)
+            except Exception:
+                pass
 
-        # Draw time remaining
-        painter.setOpacity(1.0)
-        font = QFont("Arial", 12)
-        painter.setFont(font)
-        painter.setPen(self.palette().color(self.foregroundRole()))
-        
-        
-        if self.remaining_seconds >= 0:
-            pos_w = self.width() - 45
-            pos_h = 16
-            painter.drawText(pos_w, pos_h, self._format_duration(self.remaining_seconds))
+            # Redraw the button label on top (so it isn't covered by the image).
+            try:
+                if opt is None:
+                    opt = QStyleOptionButton()
+                    self.initStyleOption(opt)
+                self.style().drawControl(QStyle.ControlElement.CE_PushButtonLabel, opt, painter, self)
+            except Exception:
+                pass
 
-        # Draw loop indicator
-        if self.loop_enabled:
+            # Draw bank/button index in upper-left corner (e.g., "0-1" .. "9-24")
+            try:
+                bank_index = getattr(self, "bank_index", None)
+                index_in_bank = getattr(self, "index_in_bank", None)
+                if index_in_bank is not None:
+                    label = f"{bank_index}-{index_in_bank}" if bank_index is not None else f"{index_in_bank}"
+                    corner_font = QFont("Arial", 9)
+                    corner_font.setBold(True)
+                    painter.setFont(corner_font)
+                    painter.setPen(QColor(0, 0, 0, 180))
+                    painter.drawText(5, 13, label)
+                    painter.setPen(QColor(255, 255, 255, 230))
+                    painter.drawText(4, 12, label)
+            except Exception:
+                pass
+
+            height = painter.device().height()
             width = painter.device().width()
-            painter.drawText((width - 40), height - 5, 'LOOP')
-        
-        painter.end()
+
+            # Draw playing indicator (circular gradient)
+            rect = QRect(0, 0, 15, 15)
+            rect.moveTo(QPoint(int(width / 2) - 7, 4))
+
+            ctr = QPointF((width / 2), 12)
+
+            if self.is_playing:
+                gradient = QRadialGradient(ctr, 12, ctr)
+                gradient.setColorAt(0, QColor(255, 255, 255))
+                gradient.setColorAt(1, QColor(0, int(self.light_level), 0))
+            else:
+                gradient = QRadialGradient(ctr, 4, ctr)
+                gradient.setColorAt(0, QColor(180, 180, 180))
+                gradient.setColorAt(1, QColor(0, 0, 0))
+
+            painter.setBrush(QBrush(gradient))
+            painter.drawEllipse(rect)
+
+            # Draw time remaining
+            painter.setOpacity(1.0)
+            font = QFont("Arial", 12)
+            painter.setFont(font)
+            painter.setPen(self.palette().color(self.foregroundRole()))
+
+            if self.remaining_seconds >= 0:
+                pos_w = self.width() - 45
+                pos_h = 16
+                painter.drawText(pos_w, pos_h, self._format_duration(self.remaining_seconds))
+
+            # Draw loop indicator
+            if self.loop_enabled:
+                width = painter.device().width()
+                painter.drawText((width - 40), height - 5, 'LOOP')
+        finally:
+            try:
+                painter.end()
+            except Exception:
+                pass
 
     # ==========================================================================
     # UI UPDATES
@@ -1308,6 +1418,10 @@ class SoundFileButton(QPushButton):
         self.song_title = None
         self.song_artist = None
 
+        self._file_probe_cache = None
+        self._file_metadata_cache = None
+        self._decoder_probe_cache = None
+
         # Reset edit points to safe defaults for the new file.
         self.in_frame = 0
         self.out_frame = None
@@ -1445,15 +1559,43 @@ class SoundFileButton(QPushButton):
         since all we're doing is setting text on the button.
         """
         try:
-            duration, sr, ch, title, artist = self._probe_file(path)
-            # Update button attributes (thread-safe for simple attribute assignment)
-            self.duration_seconds = duration
-            self.sample_rate = sr
-            self.channels = ch
-            self.song_title = title
-            self.song_artist = artist
-            # Trigger UI refresh on main thread via QTimer
-            QTimer.singleShot(0, self._refresh_label)
+            duration, sr, ch, title, artist, metadata, decoder_probe = self._probe_file(path)
+            sig = self._file_signature(path)
+            cache = {
+                "sig": sig,
+                "duration_seconds": duration,
+                "sample_rate": sr,
+                "channels": ch,
+                "title": title,
+                "artist": artist,
+                "metadata": metadata,
+                "decoder_probe": decoder_probe,
+            }
+
+            def _apply() -> None:
+                # Apply results on the GUI thread.
+                try:
+                    self.duration_seconds = duration
+                    self.sample_rate = sr
+                    self.channels = ch
+                    self.song_title = title
+                    self.song_artist = artist
+                    self._file_probe_cache = cache
+                    self._file_metadata_cache = metadata if isinstance(metadata, dict) else None
+                    self._decoder_probe_cache = decoder_probe if isinstance(decoder_probe, dict) else None
+                except Exception:
+                    pass
+                try:
+                    self._refresh_label()
+                except Exception:
+                    pass
+                # Persist probe results for next startup and for cue-start optimization.
+                try:
+                    self._notify_state_changed()
+                except Exception:
+                    pass
+
+            QTimer.singleShot(0, _apply)
         except Exception as e:
             print(f"[SoundFileButton._probe_file_in_thread] Error: {e}")
             self.duration_seconds = None
@@ -1461,24 +1603,37 @@ class SoundFileButton(QPushButton):
             self.song_artist = None
     
     @staticmethod
-    def _probe_file(path: str) -> tuple[Optional[float], Optional[int], Optional[int], Optional[str], Optional[str]]:
+    def _probe_file(path: str) -> tuple[Optional[float], Optional[int], Optional[int], Optional[str], Optional[str], dict, dict]:
         """
         Best-effort probe: try PyAV, fall back to wave for WAV files.
         
         Returns:
-            (duration_seconds, sample_rate, channels, song_title, song_artist)
+            (duration_seconds, sample_rate, channels, song_title, song_artist, metadata, decoder_probe)
         """
         # Try PyAV (fast metadata read)
         try:
             import av
             container = av.open(path)
-            stream = next((s for s in container.streams if s.type == "audio"), None)
+
+            stream = None
+            audio_stream_index = None
+            try:
+                for i, s in enumerate(list(container.streams)):
+                    if getattr(s, "type", None) == "audio":
+                        stream = s
+                        audio_stream_index = int(i)
+                        break
+            except Exception:
+                stream = next((s for s in container.streams if s.type == "audio"), None)
+                audio_stream_index = None
             
-            total_seconds = None
-            sr = None
-            ch = None
-            title = None
-            artist = None
+            total_seconds: Optional[float] = None
+            sr: Optional[int] = None
+            ch: Optional[int] = None
+            title: Optional[str] = None
+            artist: Optional[str] = None
+            metadata: dict = {}
+            decoder_probe: dict = {}
             
             if stream is not None:
                 # Extract duration
@@ -1492,28 +1647,82 @@ class SoundFileButton(QPushButton):
                 # Extract channels
                 if getattr(stream, "channels", None):
                     ch = int(stream.channels)
+
+                # Decoder probe fields (serializable)
+                if audio_stream_index is not None:
+                    decoder_probe["audio_stream_index"] = int(audio_stream_index)
+                try:
+                    tb = getattr(stream, "time_base", None)
+                    if tb is not None:
+                        num = getattr(tb, "numerator", None)
+                        den = getattr(tb, "denominator", None)
+                        if num is not None and den is not None:
+                            decoder_probe["time_base_num"] = int(num)
+                            decoder_probe["time_base_den"] = int(den)
+                except Exception:
+                    pass
+                try:
+                    if getattr(stream, "duration", None) is not None:
+                        decoder_probe["stream_duration"] = int(stream.duration)
+                except Exception:
+                    pass
+                try:
+                    if sr is not None:
+                        decoder_probe["stream_rate"] = int(sr)
+                except Exception:
+                    pass
+                try:
+                    if ch is not None:
+                        decoder_probe["stream_channels"] = int(ch)
+                except Exception:
+                    pass
+
+                # Include duration seconds for downstream consumers.
+                if total_seconds is not None:
+                    decoder_probe["duration_seconds"] = float(total_seconds)
             
             # Extract metadata from container level
             if container.metadata:
                 try:
-                    metadata_dict = dict(container.metadata)
-                    title = metadata_dict.get(b"title", metadata_dict.get("title"))
-                    artist = metadata_dict.get(b"artist", metadata_dict.get("artist"))
-                    
-                    # Decode bytes if necessary
-                    if isinstance(title, bytes):
-                        title = title.decode("utf-8", errors="replace")
-                    if isinstance(artist, bytes):
-                        artist = artist.decode("utf-8", errors="replace")
+                    for k, v in dict(container.metadata).items():
+                        try:
+                            kk = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+                            vv = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+                            metadata[str(kk)] = str(vv)
+                        except Exception:
+                            pass
                 except Exception:
                     pass
+
+            # Merge stream-level metadata
+            try:
+                if stream is not None and getattr(stream, "metadata", None):
+                    for k, v in dict(stream.metadata).items():
+                        try:
+                            kk = k.decode("utf-8", errors="replace") if isinstance(k, bytes) else str(k)
+                            vv = v.decode("utf-8", errors="replace") if isinstance(v, bytes) else str(v)
+                            metadata[str(kk)] = str(vv)
+                        except Exception:
+                            pass
+            except Exception:
+                pass
+
+            # Title/artist convenience (best-effort)
+            try:
+                title = metadata.get("title") or metadata.get("TITLE") or metadata.get("Title")
+            except Exception:
+                title = None
+            try:
+                artist = metadata.get("artist") or metadata.get("ARTIST") or metadata.get("Artist")
+            except Exception:
+                artist = None
             
             try:
                 container.close()
             except Exception:
                 pass
             
-            return (total_seconds, sr, ch, title, artist)
+            return (total_seconds, sr, ch, title, artist, metadata, decoder_probe)
         
         except Exception:
             pass
@@ -1523,13 +1732,21 @@ class SoundFileButton(QPushButton):
             import wave
             with wave.open(path, "rb") as w:
                 frames = w.getnframes()
-                sr = w.getframerate()
-                ch = w.getnchannels()
-                return (frames / float(sr) if sr else None, sr, ch, None, None)
+                rate = w.getframerate()
+                channels = w.getnchannels()
+                total_seconds = frames / float(rate) if rate else None
+                sr = int(rate) if rate else None
+                ch = int(channels) if channels else None
+                decoder_probe = {
+                    "duration_seconds": float(total_seconds) if total_seconds is not None else None,
+                    "stream_rate": int(rate) if rate else None,
+                    "stream_channels": int(channels) if channels else None,
+                }
+                return (total_seconds, sr, ch, None, None, {}, decoder_probe)
         except Exception:
             pass
-        
-        return (None, None, None, None, None)
+
+        return (None, None, None, None, None, {}, {})
 
     # ==========================================================================
     # CLIP EDITING DIALOGS
@@ -1788,6 +2005,10 @@ class SoundFileButton(QPushButton):
             # and suppress that global behavior.
             "layered": False,
             "total_seconds": self.duration_seconds,
+            # Cached probe payloads (optional). These are JSON-serializable dicts.
+            # The engine/decoder can use them to avoid redundant PyAV metadata probing.
+            "file_metadata": getattr(self, "_file_metadata_cache", None),
+            "decoder_probe": getattr(self, "_decoder_probe_cache", None),
         }
         
         self.request_play.emit(self.file_path, params)

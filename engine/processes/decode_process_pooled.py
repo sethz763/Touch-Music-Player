@@ -19,6 +19,12 @@ import numpy as np
 import av
 
 from engine.commands import UpdateCueCommand
+from engine.tuning import (
+    DEFAULT_DECODE_CHUNK_MIN_FRAMES,
+    DEFAULT_DECODE_CHUNK_MULT,
+    DEFAULT_DECODE_DEFAULT_CHUNK_MIN_FRAMES,
+    DEFAULT_DECODE_SLICE_MAX_FRAMES,
+)
 
 
 def _out_send(out_chan: object, msg: object, lock: threading.Lock | None) -> None:
@@ -50,6 +56,7 @@ class DecodeStart:
     target_sample_rate: int
     target_channels: int
     block_frames: int
+    decoder_probe: Optional[dict] = None
 
 @dataclass(frozen=True, slots=True)
 class DecodeStop:
@@ -177,7 +184,21 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                 
                 try:
                     container = av.open(cmd.file_path)
-                    stream = next((s for s in container.streams if s.type == "audio"), None)
+                    stream = None
+                    try:
+                        probe = getattr(cmd, "decoder_probe", None)
+                        if isinstance(probe, dict):
+                            idx = probe.get("audio_stream_index")
+                            if isinstance(idx, int) and idx >= 0:
+                                streams = list(container.streams)
+                                if idx < len(streams):
+                                    cand = streams[idx]
+                                    if getattr(cand, "type", None) == "audio":
+                                        stream = cand
+                    except Exception:
+                        stream = None
+                    if stream is None:
+                        stream = next((s for s in container.streams if s.type == "audio"), None)
                     if not stream:
                         out_q.put(DecodeError(cmd.cue_id, cmd.track_id, cmd.file_path, "No audio stream"))
                         continue
@@ -263,7 +284,18 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                         # Decode a chunk for this job
                         try:
                             frames_out = 0
-                            decode_target = min(job.credit_frames, 4096)
+                            try:
+                                slice_max_frames = int(
+                                    os.environ.get(
+                                        "STEPD_DECODE_SLICE_MAX_FRAMES",
+                                        str(DEFAULT_DECODE_SLICE_MAX_FRAMES),
+                                    ).strip()
+                                    or str(DEFAULT_DECODE_SLICE_MAX_FRAMES)
+                                )
+                            except Exception:
+                                slice_max_frames = int(DEFAULT_DECODE_SLICE_MAX_FRAMES)
+                            slice_max_frames = max(256, int(slice_max_frames))
+                            decode_target = min(job.credit_frames, slice_max_frames)
                             pcm_chunks = []
 
                             work_start = time.monotonic()
@@ -422,7 +454,7 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                     pcm_chunks.append(pcm)
 
                                     # Send immediately when we reach decode_target
-                                    if frames_out >= decode_target or (frames_out >= 4096 and not job.eof):
+                                    if frames_out >= decode_target:
                                         reached_target = True
                                         break
 
@@ -497,7 +529,21 @@ def _decode_worker_thread(
     container = None
     try:
         container = av.open(start_cmd.file_path)
-        stream = next((s for s in container.streams if s.type == "audio"), None)
+        stream = None
+        try:
+            probe = getattr(start_cmd, "decoder_probe", None)
+            if isinstance(probe, dict):
+                idx = probe.get("audio_stream_index")
+                if isinstance(idx, int) and idx >= 0:
+                    streams = list(container.streams)
+                    if idx < len(streams):
+                        cand = streams[idx]
+                        if getattr(cand, "type", None) == "audio":
+                            stream = cand
+        except Exception:
+            stream = None
+        if stream is None:
+            stream = next((s for s in container.streams if s.type == "audio"), None)
         if not stream:
             _out_send(out_q, DecodeError(cue_id, start_cmd.track_id, start_cmd.file_path, "No audio stream"), out_lock)
             return
@@ -528,12 +574,41 @@ def _decode_worker_thread(
 
         # Larger chunks reduce IPC/message overhead under high concurrency.
         # Keep configurable so we can tune fairness vs overhead.
-        default_chunk_frames = max(4096, int(start_cmd.block_frames) * 16)  # e.g. 1024*16=16384
+        try:
+            chunk_mult = int(os.environ.get("STEPD_DECODE_CHUNK_MULT", str(DEFAULT_DECODE_CHUNK_MULT)).strip() or str(DEFAULT_DECODE_CHUNK_MULT))
+        except Exception:
+            chunk_mult = int(DEFAULT_DECODE_CHUNK_MULT)
+        chunk_mult = max(1, min(256, int(chunk_mult)))
+        try:
+            default_chunk_min_frames = int(
+                os.environ.get(
+                    "STEPD_DECODE_DEFAULT_CHUNK_MIN_FRAMES",
+                    str(DEFAULT_DECODE_DEFAULT_CHUNK_MIN_FRAMES),
+                ).strip()
+                or str(DEFAULT_DECODE_DEFAULT_CHUNK_MIN_FRAMES)
+            )
+        except Exception:
+            default_chunk_min_frames = int(DEFAULT_DECODE_DEFAULT_CHUNK_MIN_FRAMES)
+        default_chunk_min_frames = max(256, int(default_chunk_min_frames))
+
+        default_chunk_frames = max(default_chunk_min_frames, int(start_cmd.block_frames) * chunk_mult)  # e.g. 1024*16=16384
         try:
             chunk_frames = int(os.environ.get("STEPD_DECODE_CHUNK_FRAMES", str(default_chunk_frames)).strip())
         except Exception:
             chunk_frames = default_chunk_frames
-        chunk_frames = max(1024, int(chunk_frames))
+        try:
+            min_chunk_frames = int(
+                os.environ.get(
+                    "STEPD_DECODE_CHUNK_MIN_FRAMES",
+                    str(DEFAULT_DECODE_CHUNK_MIN_FRAMES),
+                ).strip()
+                or str(DEFAULT_DECODE_CHUNK_MIN_FRAMES)
+            )
+        except Exception:
+            min_chunk_frames = int(DEFAULT_DECODE_CHUNK_MIN_FRAMES)
+        min_chunk_frames = max(256, int(min_chunk_frames))
+
+        chunk_frames = max(min_chunk_frames, int(chunk_frames))
         stopping = False
 
         try:
@@ -873,6 +948,15 @@ def decode_process_main(cmd_q: mp.Queue, out_q: mp.Queue, event_q: mp.Queue) -> 
     container/stream/resampler, which avoids unsafe sharing and eliminates
     multi-cue interleaving inside a single worker.
     """
+    # Ensure tuning defaults are available in this process even when the engine
+    # is used outside the GUI (env vars override tuning values).
+    try:
+        from engine.tuning import apply_engine_tuning_to_env
+
+        apply_engine_tuning_to_env()
+    except Exception:
+        pass
+
     threads: Dict[str, threading.Thread] = {}
     thread_queues: Dict[str, "queue.Queue[object]"] = {}
     cue_cmd_map: Dict[str, DecodeStart] = {}

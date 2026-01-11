@@ -392,6 +392,8 @@ class EngineAdapter(QObject):
         loop_enabled: bool = False,
         layered: bool = False,
         total_seconds: Optional[float] = None,
+        file_metadata: Optional[dict] = None,
+        decoder_probe: Optional[dict] = None,
         logging_required: bool = False,
     ) -> None:
         """
@@ -423,6 +425,8 @@ class EngineAdapter(QObject):
                 loop_enabled=loop_enabled,
                 layered=layered,
                 total_seconds=total_seconds,
+                file_metadata=file_metadata,
+                decoder_probe=decoder_probe,
                 logging_required=bool(logging_required),
             )
             

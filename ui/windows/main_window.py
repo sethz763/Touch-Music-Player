@@ -21,6 +21,7 @@ from ui.widgets.bank_selector_widget import BankSelectorWidget
 from ui.widgets.AudioLevelMeterHorizontal_LR import AudioLevelMeterHorizontal
 from ui.widgets.PlayControls import PlayControls
 from engine.audio_service import audio_service_main, AudioServiceConfig
+from engine.tuning import apply_engine_tuning_to_env
 from engine.commands import StopCueCommand
 from gui.engine_adapter import EngineAdapter
 
@@ -165,11 +166,28 @@ class MainWindow(QMainWindow):
                 fade_out_ms = int(app_settings["fade_out_duration"])
         except Exception:
             pass
+
+        # Apply engine tuning (latency/buffering). Existing env vars override JSON defaults.
+        tuned_block_frames = 2048
+        try:
+            tuning = apply_engine_tuning_to_env()
+            if tuning.audio_service_block_frames is not None:
+                tuned_block_frames = int(tuning.audio_service_block_frames)
+        except Exception:
+            tuned_block_frames = 2048
+        # Enforce a sane power-of-two block size.
+        try:
+            bf = int(tuned_block_frames)
+            if bf <= 0 or (bf & (bf - 1)) != 0:
+                bf = 2048
+            tuned_block_frames = bf
+        except Exception:
+            tuned_block_frames = 2048
         
         audio_config = AudioServiceConfig(
             sample_rate=48000,
             channels=2,
-            block_frames=2048,
+            block_frames=int(tuned_block_frames),
             fade_in_ms=fade_in_ms,
             fade_out_ms=fade_out_ms,
             fade_curve="equal_power",
@@ -199,13 +217,13 @@ class MainWindow(QMainWindow):
                     device_index = main_out[0]
                     sample_rate = int(main_out[3])
                     self.engine_adapter.set_output_device(device_index)
-                    self.engine_adapter.set_output_config(sample_rate=sample_rate, channels=2, block_frames=2048)
+                    self.engine_adapter.set_output_config(sample_rate=sample_rate, channels=2, block_frames=int(tuned_block_frames))
                 # old schema: [name, hostapi, sample_rate]
                 elif len(main_out) >= 3:
                     device_name = main_out[0]
                     sample_rate = int(main_out[2])
                     self.engine_adapter.set_output_device(device_name)
-                    self.engine_adapter.set_output_config(sample_rate=sample_rate, channels=2, block_frames=2048)
+                    self.engine_adapter.set_output_config(sample_rate=sample_rate, channels=2, block_frames=int(tuned_block_frames))
         except Exception:
             pass
         

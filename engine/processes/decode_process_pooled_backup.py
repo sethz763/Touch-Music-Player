@@ -209,7 +209,12 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                         # Decode a chunk for this job
                         try:
                             frames_out = 0
-                            decode_target = min(job.credit_frames, 4096)
+                            try:
+                                slice_max_frames = int(os.environ.get("STEPD_DECODE_SLICE_MAX_FRAMES", "4096").strip() or "4096")
+                            except Exception:
+                                slice_max_frames = 4096
+                            slice_max_frames = max(256, int(slice_max_frames))
+                            decode_target = min(job.credit_frames, slice_max_frames)
                             pcm_chunks = []
                             
                             while frames_out < decode_target and job.credit_frames > 0:
@@ -278,7 +283,7 @@ def _decode_worker_pool(worker_id: int, cmd_q: mp.Queue, out_q: mp.Queue) -> Non
                                     pcm_chunks.append(pcm)
                                     
                                     # Send immediately when we reach decode_target
-                                    if frames_out >= decode_target or (frames_out >= 4096 and not job.eof):
+                                    if frames_out >= decode_target:
                                         break
                             
                             if pcm_chunks:

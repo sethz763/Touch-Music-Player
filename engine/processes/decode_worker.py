@@ -9,6 +9,7 @@ from dataclasses import dataclass
 from typing import Optional
 import queue
 import time
+import os
 
 import numpy as np
 import av
@@ -108,7 +109,12 @@ def decode_worker(cue_id: str, cmd_q: mp.Queue, out_q: mp.Queue):
             if msg and credit_frames > 0 and not eof and not stopping:
                 try:
                     # Decode up to TARGET_CHUNK_SIZE before sending
-                    TARGET_CHUNK_SIZE = msg.block_frames * 16
+                    try:
+                        chunk_mult = int(os.environ.get("STEPD_DECODE_CHUNK_MULT", "16").strip() or "16")
+                    except Exception:
+                        chunk_mult = 16
+                    chunk_mult = max(1, min(256, int(chunk_mult)))
+                    TARGET_CHUNK_SIZE = int(msg.block_frames) * int(chunk_mult)
                     chunks = []
                     frames_out = 0
                     

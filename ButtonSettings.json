@@ -139,8 +139,9 @@
             },
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Easy Rider.mp3",
+                "file_probe": null,
                 "custom_text": "",
-                "in_frame": 989842,
+                "in_frame": 994352,
                 "out_frame": 12446457,
                 "loop_enabled": false,
                 "logging_required": false,

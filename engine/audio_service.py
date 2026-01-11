@@ -46,6 +46,8 @@ from engine.messages.events import (
     CueTimeEvent
 )
 
+from engine.tuning import apply_engine_tuning_to_env
+
 
 @dataclass(frozen=True, slots=True)
 class AudioServiceConfig:
@@ -84,6 +86,13 @@ def audio_service_main(
     Stops when cmd_q receives None.
     """
     try:
+        try:
+            # Ensure tuning defaults are applied in this process too (useful when
+            # audio_service_main is launched directly in isolation).
+            apply_engine_tuning_to_env()
+        except Exception:
+            pass
+
         # Capture the parent PID (GUI) and watch it so we can self-terminate
         # if the GUI process crashes or is killed.
         parent_pid = int(config.parent_pid) if config.parent_pid else int(os.getppid())

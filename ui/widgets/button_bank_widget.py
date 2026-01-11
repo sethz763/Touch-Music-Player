@@ -125,29 +125,33 @@ class _DragSelectOverlay(QWidget):
         # Intentionally do not call super().paintEvent(event) to avoid background fills.
         painter = QPainter(self)
         try:
-            painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
-        except Exception:
-            pass
+            try:
+                painter.setRenderHint(QPainter.RenderHint.Antialiasing, True)
+            except Exception:
+                pass
 
-        # Rubber-band during drag.
-        if self._active and not self._rect.isNull():
-            r = self._rect.normalized()
-            painter.setPen(Qt.PenStyle.DashLine)
-            painter.setBrush(QColor(40, 120, 255, 35))
-            painter.drawRect(r)
+            # Rubber-band during drag.
+            if self._active and not self._rect.isNull():
+                r = self._rect.normalized()
+                painter.setPen(Qt.PenStyle.DashLine)
+                painter.setBrush(QColor(40, 120, 255, 35))
+                painter.drawRect(r)
 
-        # Selection highlights (stronger than before so it's obvious).
-        if self._selected:
-            painter.setPen(QColor(40, 120, 255, 255))
-            painter.setBrush(QColor(40, 120, 255, 70))
-            for btn in self._selected:
-                try:
-                    g = btn.geometry()
-                    painter.drawRect(g)
-                except Exception:
-                    continue
-
-        painter.end()
+            # Selection highlights (stronger than before so it's obvious).
+            if self._selected:
+                painter.setPen(QColor(40, 120, 255, 255))
+                painter.setBrush(QColor(40, 120, 255, 70))
+                for btn in self._selected:
+                    try:
+                        g = btn.geometry()
+                        painter.drawRect(g)
+                    except Exception:
+                        continue
+        finally:
+            try:
+                painter.end()
+            except Exception:
+                pass
 
 
 class ButtonBankWidget(QWidget):
@@ -763,6 +767,8 @@ class ButtonBankWidget(QWidget):
                     loop_enabled=cmd.loop_enabled,
                     layered=cmd.layered,
                     total_seconds=cmd.total_seconds,
+                    file_metadata=getattr(cmd, "file_metadata", None),
+                    decoder_probe=getattr(cmd, "decoder_probe", None),
                     logging_required=getattr(cmd, "logging_required", False),
                 )
             elif isinstance(cmd, StopCueCommand):
@@ -812,6 +818,8 @@ class ButtonBankWidget(QWidget):
             loop_enabled=params.get('loop_enabled', False),
             layered=params.get('layered', False),
             total_seconds=params.get('total_seconds'),
+            file_metadata=params.get('file_metadata'),
+            decoder_probe=params.get('decoder_probe'),
             logging_required=bool(params.get('logging_required', False)),
         )
 

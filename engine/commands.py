@@ -25,7 +25,7 @@ Architecture:
 from __future__ import annotations
 
 from dataclasses import dataclass
-from typing import Optional
+from typing import Optional, Any
 
 API_VERSION = "1.0"
 
@@ -111,6 +111,8 @@ class PlayCueCommand:
         layered (bool): If True, don't auto-fade existing cues.
         total_seconds (float or None): Pre-computed duration in seconds (optional).
         logging_required (bool): If True, cue will be logged to CSV/Excel on finish.
+        file_metadata (dict or None): Pre-probed metadata (e.g. Title/Artist) to avoid probing in engine.
+        decoder_probe (dict or None): Pre-probed decoder-relevant info (e.g. audio stream index).
     """
     cue_id: str
     file_path: str
@@ -125,6 +127,8 @@ class PlayCueCommand:
     layered: bool = False
     total_seconds: Optional[float] = None
     logging_required: bool = False
+    file_metadata: Optional[dict[str, Any]] = None
+    decoder_probe: Optional[dict[str, Any]] = None
 
 
 @dataclass(frozen=True, slots=True)

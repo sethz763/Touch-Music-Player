@@ -152,12 +152,13 @@ class StreamDeckXLBridge(QObject):
         self._health_timer.setInterval(1000)
         self._health_timer.timeout.connect(self._health_tick)
 
+        self.poll_refresh_interval_ms = 3
         self._poll_timer = QTimer(self)
-        self._poll_timer.setInterval(10)
+        self._poll_timer.setInterval(self.poll_refresh_interval_ms)
         self._poll_timer.timeout.connect(self._drain_key_events)
 
         self._worker_evt_timer = QTimer(self)
-        self._worker_evt_timer.setInterval(10)
+        self._worker_evt_timer.setInterval(self.poll_refresh_interval_ms)
         self._worker_evt_timer.timeout.connect(self._drain_worker_events)
 
         self._render_timer = QTimer(self)

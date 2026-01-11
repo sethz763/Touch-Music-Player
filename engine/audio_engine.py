@@ -252,6 +252,15 @@ class AudioEngine:
         if self._decode_proc or self._out_proc:
             return
 
+        # Apply tuning defaults (engine_tuning.json) so spawned child processes inherit
+        # env-based latency/buffering knobs even when the engine is used directly.
+        try:
+            from engine.tuning import apply_engine_tuning_to_env
+
+            apply_engine_tuning_to_env()
+        except Exception:
+            pass
+
         # Record the active decode transport (queue vs pipe) for run-to-run comparisons.
         self._append_engine_debug(
             level="info",
@@ -596,49 +605,71 @@ class AudioEngine:
         out_frame_val = getattr(cmd, "out_frame", None)
         total_seconds = getattr(cmd, "total_seconds", None)
         file_metadata = {}  # Will hold Artist, Title, etc. from the file
-        
-        # Always try to probe the file for metadata (independent of duration/out_frame)
-        # Done synchronously since audio_engine runs in a separate process (won't block GUI)
+
+        # If GUI provided cached metadata/probe, prefer it and skip synchronous probing.
         try:
-            import av
-            try:
-                container = av.open(cmd.file_path)
-                
-                # Extract metadata from container level
-                if container.metadata:
-                    try:
-                        file_metadata.update(dict(container.metadata))
-                    except Exception:
-                        pass
-                
-                # Find audio stream and extract its metadata too
-                stream = next((s for s in container.streams if s.type == "audio"), None)
-                
-                if stream is not None:
-                    # Try stream-level metadata
-                    if stream.metadata:
-                        try:
-                            stream_meta = dict(stream.metadata)
-                            file_metadata.update(stream_meta)
-                        except Exception:
-                            pass
-                    
-                    # Extract duration from stream if we need it
-                    if (out_frame_val is None or out_frame_val <= 0) and total_seconds is None:
-                        if getattr(stream, "duration", None) is not None and getattr(stream, "time_base", None) is not None:
-                            dur = float(stream.duration * stream.time_base)
-                            total_seconds = dur
-                            out_frame_val = int(dur * float(self.sample_rate))
-                
-                try:
-                    container.close()
-                except Exception:
-                    pass
-            except Exception:
-                pass
-            
+            provided_md = getattr(cmd, "file_metadata", None)
+            if isinstance(provided_md, dict) and provided_md:
+                file_metadata.update(provided_md)
         except Exception:
             pass
+
+        try:
+            provided_probe = getattr(cmd, "decoder_probe", None)
+            if total_seconds is None and isinstance(provided_probe, dict):
+                dur = provided_probe.get("duration_seconds")
+                if dur is not None:
+                    try:
+                        total_seconds = float(dur)
+                    except Exception:
+                        pass
+        except Exception:
+            pass
+        
+        # Only probe synchronously if we don't already have cached metadata.
+        if not file_metadata:
+            # Always try to probe the file for metadata (independent of duration/out_frame)
+            # Done synchronously since audio_engine runs in a separate process (won't block GUI)
+            try:
+                import av
+                try:
+                    container = av.open(cmd.file_path)
+
+                    # Extract metadata from container level
+                    if container.metadata:
+                        try:
+                            file_metadata.update(dict(container.metadata))
+                        except Exception:
+                            pass
+
+                    # Find audio stream and extract its metadata too
+                    stream = next((s for s in container.streams if s.type == "audio"), None)
+
+                    if stream is not None:
+                        # Try stream-level metadata
+                        if stream.metadata:
+                            try:
+                                stream_meta = dict(stream.metadata)
+                                file_metadata.update(stream_meta)
+                            except Exception:
+                                pass
+
+                        # Extract duration from stream if we need it
+                        if (out_frame_val is None or out_frame_val <= 0) and total_seconds is None:
+                            if getattr(stream, "duration", None) is not None and getattr(stream, "time_base", None) is not None:
+                                dur = float(stream.duration * stream.time_base)
+                                total_seconds = dur
+                                out_frame_val = int(dur * float(self.sample_rate))
+
+                    try:
+                        container.close()
+                    except Exception:
+                        pass
+                except Exception:
+                    pass
+
+            except Exception:
+                pass
         
         # Now handle duration/out_frame_val if still needed
         if out_frame_val is None or out_frame_val <= 0:
@@ -736,17 +767,28 @@ class AudioEngine:
 
         # CRITICAL: Send DecodeStart FIRST so decoder is ready before output process sends BufferRequest
         self._dbg_print(f"[ENGINE-PLAY-CUE] cue={cue.cue_id[:8]} sending DecodeStart")
+
+        # Tune decoder-side chunking contract. Historically this was hardcoded to
+        # `self.block_frames * 4`.
+        try:
+            decode_start_block_mult = int(os.environ.get("STEPD_DECODE_START_BLOCK_MULT", "4").strip() or "4")
+        except Exception:
+            decode_start_block_mult = 4
+        decode_start_block_mult = max(1, min(64, int(decode_start_block_mult)))
+        decode_start_block_frames = int(self.block_frames) * int(decode_start_block_mult)
+
         self._decode_cmd_q.put(DecodeStart(
             cue_id=cue.cue_id,
             track_id=cue.track.track_id,
             file_path=cmd.file_path,
             in_frame=cmd.in_frame,
-            out_frame=cmd.out_frame,
+            out_frame=(out_frame_val if out_frame_val is not None else None),
             gain_db=cmd.gain_db,
             loop_enabled=self._effective_loop_enabled(bool(cmd.loop_enabled)),
             target_sample_rate=self.sample_rate,
             target_channels=self.channels,
-            block_frames=self.block_frames * 4,
+            block_frames=decode_start_block_frames,
+            decoder_probe=getattr(cmd, "decoder_probe", None),
         ))
         
         # CRITICAL FIX: Send OutputStartCue immediately instead of waiting for first DecodedChunk.

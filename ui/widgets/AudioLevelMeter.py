@@ -141,7 +141,7 @@ class AudioLevelMeter(QtWidgets.QWidget):
         self._bg_cache_size = size
             
     def paintEvent(self,e):
-
+        painter = None
         try:
             painter = QtGui.QPainter(self)
             d_height = painter.device().height()
@@ -179,10 +179,14 @@ class AudioLevelMeter(QtWidgets.QWidget):
             color_factor = peak_bar_y / max(1, d_height)
             idx = min(int(round(color_factor * self._colors_len)), self._colors_len - 1)
             painter.fillRect(rect2, self._colors[(self._colors_len - 1) - idx])
-
-            painter.end()
         except Exception as err:
             print('meter error' + str(err))
+        finally:
+            try:
+                if painter is not None:
+                    painter.end()
+            except Exception:
+                pass
 
        
 
