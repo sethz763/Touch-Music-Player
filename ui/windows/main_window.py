@@ -2,6 +2,7 @@ from __future__ import annotations
 
 import multiprocessing as mp
 import os
+import sys
 import time
 import pathlib
 import datetime
@@ -366,20 +367,8 @@ class MainWindow(QMainWindow):
 
         # Optional Stream Deck XL integration (hardware I/O stays off the Qt thread).
         self._streamdeck = None
-        try:
-            from gui.streamdeck_xl import StreamDeckXLBridge
-
-            self._streamdeck = StreamDeckXLBridge(
-                bank_selector=self.bank,
-                engine_adapter=self.engine_adapter,
-                play_controls=self.play_controls,
-                mode=StreamDeckXLBridge.BankMode.SYNC,
-                parent=self,
-            )
-            self._streamdeck._show_corner_label = True
-            self._streamdeck.start()
-        except Exception:
-            self._streamdeck = None
+        self._streamdeck_restart_timer: QTimer | None = None
+        self._start_streamdeck()
 
         # Connect to engine adapter signals instead of polling queue directly
         # (EngineAdapter handles all event routing via Qt signals)
@@ -387,29 +376,99 @@ class MainWindow(QMainWindow):
         self.engine_adapter.cue_time.connect(self._on_master_time_update)
         self.engine_adapter.master_levels.connect(self._on_master_levels_update)
         
-        # Menus
-        file_menu = self.menuBar().addMenu("File")
-        save_project_action = QAction("Save Project...", self)
-        save_project_action.triggered.connect(self.save_project)
-        file_menu.addAction(save_project_action)
+    def _start_streamdeck(self) -> None:
+        """Start or restart the Streamdeck bridge based on current settings."""
+        # Stop any existing bridge
+        if self._streamdeck is not None:
+            try:
+                self._streamdeck.stop()
+            except Exception:
+                pass
+            self._streamdeck = None
 
-        load_project_action = QAction("Load Project...", self)
-        load_project_action.triggered.connect(self.load_project)
-        file_menu.addAction(load_project_action)
+        try:
+            # Check if Streamdeck is globally enabled
+            settings = QSettings('StepD', 'TouchMusicPlayer')
+            streamdeck_enabled = settings.value('streamdeck/enabled', True, type=bool)
+            if not streamdeck_enabled:
+                print("StreamDeck integration disabled by user setting", file=sys.stderr)
+                return
 
-        log_action = QAction("Logging Settings", self)
-        log_action.triggered.connect(self.open_logging_dialog)
-        self.menuBar().addAction(log_action)
+            from gui.streamdeck_xl import StreamDeckXLBridge
 
-        setting_action = QAction("Settings", self)
-        setting_action.triggered.connect(self.open_settings_dialog)
-        self.menuBar().addAction(setting_action)
+            # If the user has per-device settings, honor them.
+            preferred_ids = []
+            any_device_setting = False
+            try:
+                settings.beginGroup('streamdeck/devices')
+                try:
+                    device_groups = settings.childGroups() or []
+                except Exception:
+                    device_groups = []
+                for dev_id in device_groups:
+                    any_device_setting = True
+                    try:
+                        enabled = settings.value(f'{dev_id}/enabled', True, type=bool)
+                    except Exception:
+                        enabled = True
+                    if bool(enabled):
+                        preferred_ids.append(str(dev_id))
+            finally:
+                try:
+                    settings.endGroup()
+                except Exception:
+                    pass
 
-        designer_action = QAction("Button Image Designer", self)
-        designer_action.triggered.connect(self.open_button_image_designer)
-        self.menuBar().addAction(designer_action)
+            # If we have device settings and none are enabled, do not start the
+            # bridge. We already stopped any existing bridge at the top of this
+            # method, so the device is freed for other apps.
+            if any_device_setting and not preferred_ids:
+                print("StreamDeck not started (all devices disabled)", file=sys.stderr)
+                return
 
-        self._button_image_designer = None
+            # Test that we can actually instantiate it (checks for hidapi.dll availability)
+            test_deck = StreamDeckXLBridge(
+                bank_selector=self.bank,
+                engine_adapter=self.engine_adapter,
+                play_controls=self.play_controls,
+                mode=StreamDeckXLBridge.BankMode.SYNC,
+                parent=self,
+                preferred_device_ids=preferred_ids or None,
+            )
+            # If we get here, StreamDeck is working
+            self._streamdeck = test_deck
+            self._streamdeck._show_corner_label = True
+            self._streamdeck.start()
+        except Exception as e:
+            print(f"StreamDeck integration disabled: {e}", file=sys.stderr)
+            self._streamdeck = None
+
+        # Menus: build once (refresh/restart should not duplicate actions).
+        if not bool(getattr(self, "_menus_built", False)):
+            self._menus_built = True
+
+            file_menu = self.menuBar().addMenu("File")
+            save_project_action = QAction("Save Project...", self)
+            save_project_action.triggered.connect(self.save_project)
+            file_menu.addAction(save_project_action)
+
+            load_project_action = QAction("Load Project...", self)
+            load_project_action.triggered.connect(self.load_project)
+            file_menu.addAction(load_project_action)
+
+            log_action = QAction("Logging Settings", self)
+            log_action.triggered.connect(self.open_logging_dialog)
+            self.menuBar().addAction(log_action)
+
+            setting_action = QAction("Settings", self)
+            setting_action.triggered.connect(self.open_settings_dialog)
+            self.menuBar().addAction(setting_action)
+
+            designer_action = QAction("Button Image Designer", self)
+            designer_action.triggered.connect(self.open_button_image_designer)
+            self.menuBar().addAction(designer_action)
+
+            self._button_image_designer = None
 
     def open_button_image_designer(self) -> None:
         """Open the in-app Button Image Designer window (best-effort)."""
@@ -1214,6 +1273,30 @@ class MainWindow(QMainWindow):
                         self._on_keyboard_shortcuts_changed(init())
             except Exception:
                 pass
+
+            # Wire Streamdeck settings.
+            try:
+                tab = getattr(self._settings_dialog, "streamdeck_tab", None)
+                if tab is not None:
+                    # Global Streamdeck enable/disable toggle.
+                    try:
+                        tab.streamdeck_enabled_changed.connect(self._on_streamdeck_enabled_changed, Qt.ConnectionType.UniqueConnection)
+                    except Exception:
+                        pass
+
+                    # Device enable/disable changes.
+                    try:
+                        tab.device_enabled_changed.connect(self._on_streamdeck_device_enabled_changed, Qt.ConnectionType.UniqueConnection)
+                    except Exception:
+                        pass
+
+                    # Refresh request (restarts bridge).
+                    try:
+                        tab.streamdeck_refresh_requested.connect(self._on_streamdeck_refresh_requested, Qt.ConnectionType.UniqueConnection)
+                    except Exception:
+                        pass
+            except Exception:
+                pass
             self._settings_dialog.show()
             try:
                 self._settings_dialog.raise_()
@@ -1280,6 +1363,72 @@ class MainWindow(QMainWindow):
             mapping = {}
         self._keyboard_shortcuts = mapping
         # Shortcut activation is handled by KeyboardCaptureService.
+
+    def _on_streamdeck_enabled_changed(self, enabled: bool) -> None:
+        """Handle global Streamdeck enable/disable toggle."""
+        try:
+            # Save the setting
+            settings = QSettings('StepD', 'TouchMusicPlayer')
+            settings.setValue('streamdeck/enabled', enabled)
+        except Exception:
+            pass
+
+        # If disabling, stop any active Streamdeck
+        if not enabled:
+            try:
+                if self._streamdeck is not None:
+                    self._streamdeck.stop()
+                    self._streamdeck = None
+            except Exception:
+                pass
+        else:
+            # If enabling, start Streamdeck now
+            self._start_streamdeck()
+
+    def _on_streamdeck_device_enabled_changed(self, device_id: str, enabled: bool) -> None:
+        """Handle individual Streamdeck device enable/disable toggle."""
+        try:
+            # Save the device-specific setting
+            settings = QSettings('StepD', 'TouchMusicPlayer')
+            settings.setValue(f'streamdeck/devices/{device_id}/enabled', enabled)
+        except Exception:
+            pass
+
+        # Restart the bridge to apply the new device selection.
+        # Debounced to avoid rapid stop/start churn when toggling repeatedly.
+        self._request_streamdeck_restart(immediate_stop=True)
+
+    def _on_streamdeck_refresh_requested(self) -> None:
+        """Handle refresh request from settings tab."""
+        self._request_streamdeck_restart(immediate_stop=True)
+
+    def _request_streamdeck_restart(self, *, immediate_stop: bool = False) -> None:
+        """Debounced StreamDeck restart.
+
+        Rapid enable/disable operations can otherwise create overlapping worker
+        lifecycles and increase the chance of HID/libusb instability.
+        """
+        if immediate_stop:
+            try:
+                if self._streamdeck is not None:
+                    self._streamdeck.stop()
+                    self._streamdeck = None
+            except Exception:
+                self._streamdeck = None
+
+        try:
+            if self._streamdeck_restart_timer is None:
+                self._streamdeck_restart_timer = QTimer(self)
+                self._streamdeck_restart_timer.setSingleShot(True)
+                self._streamdeck_restart_timer.timeout.connect(self._start_streamdeck)
+            # Restart shortly after the last request.
+            self._streamdeck_restart_timer.start(250)
+        except Exception:
+            # Fall back to immediate start if timer setup fails.
+            try:
+                self._start_streamdeck()
+            except Exception:
+                pass
 
     def _rebuild_qshortcuts(self) -> None:
         """Create QShortcut objects for configured bindings.

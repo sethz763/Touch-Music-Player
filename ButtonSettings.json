@@ -475,10 +475,12 @@
             },
             "10": {
                 "file_path": "C:/Users/Seth Zwiebel/Music/Me Name Jr. Gong.mp3",
+                "file_probe": null,
                 "custom_text": null,
                 "in_frame": 0,
                 "out_frame": 11071280,
                 "loop_enabled": false,
+                "logging_required": false,
                 "auto_fade_enabled": false,
                 "gain_db": 0.0,
                 "fade_in_ms": 100,

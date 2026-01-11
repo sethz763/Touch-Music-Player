@@ -180,6 +180,11 @@ def _setup_editor_logging(component: str) -> tuple[logging.Logger, str]:
         )
         logger.addHandler(handler)
         configured = True
+        # Ensure the log file exists by touching it
+        try:
+            Path(log_path).touch(exist_ok=True)
+        except Exception:
+            pass
     except Exception as e:
         # Last-ditch visibility: write setup failure to a simple text file.
         try:

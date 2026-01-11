@@ -1351,6 +1351,12 @@ class SoundFileButton(QPushButton):
     def _show_context_menu(self, pos) -> None:
         """Display context menu with clip options."""
         menu = QMenu(self)
+
+        # Prevent inheriting per-button user colors (this QMenu is parented to the button).
+        try:
+            self._apply_dark_menu_theme(menu)
+        except Exception:
+            pass
         
         # File management
         choose_file = menu.addAction("Select Track")
@@ -1450,6 +1456,41 @@ class SoundFileButton(QPushButton):
         elif fade_out is not None and action == fade_out and self.is_playing:
             for cue_id in list(self._active_cue_ids):
                 self.request_fade.emit(cue_id, -120.0, 500)
+
+    @staticmethod
+    def _apply_dark_menu_theme(menu: QMenu) -> None:
+        """Apply a consistent dark theme to context menus.
+
+        QMenu inherits styles from parent widgets when using Qt stylesheets.
+        Since SoundFileButton supports user-set colors, we hard-override the
+        menu so it stays readable.
+        """
+
+        menu.setStyleSheet(
+            ""
+            "QMenu {"
+            "  background-color: #202020;"
+            "  color: #EBEBEB;"
+            "  border: 1px solid #444444;"
+            "}"
+            "QMenu::item {"
+            "  padding: 6px 18px;"
+            "  background-color: transparent;"
+            "}"
+            "QMenu::item:selected {"
+            "  background-color: #2A82DA;"
+            "  color: #FFFFFF;"
+            "}"
+            "QMenu::item:disabled {"
+            "  color: #777777;"
+            "}"
+            "QMenu::separator {"
+            "  height: 1px;"
+            "  background: #444444;"
+            "  margin: 4px 8px;"
+            "}"
+            ""
+        )
     
     def _get_loop_status(self) -> str:
         """Return human-readable loop status."""

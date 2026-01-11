@@ -1,6 +1,9 @@
 #settings
 from __future__ import annotations
 
+import sys
+import multiprocessing as mp
+from pathlib import Path
 from typing import Optional
 
 from PySide6.QtWidgets import QPushButton, QVBoxLayout, QWidget, QHBoxLayout, QSpacerItem, QRadioButton, QSlider, QLabel, QComboBox, QMainWindow, QLineEdit, QSpinBox, QMessageBox, QCheckBox, QTabWidget, QTableWidget, QTableWidgetItem, QAbstractItemView, QHeaderView, QDialog, QListWidget, QListWidgetItem
@@ -20,6 +23,154 @@ from gui.engine_adapter import EngineAdapter
 import sounddevice as sd
 
 from inspect import currentframe, getframeinfo
+
+
+def _probe_streamdeck_devices_subprocess(out_q) -> None:
+    """Enumerate StreamDeck devices in a separate process.
+
+    Rationale: The underlying HID stack (hidapi/libusb) can crash the process
+    during repeated open/close operations. Running probing in a subprocess
+    isolates the GUI from native crashes.
+    """
+    import hashlib
+
+    def _safe_call(fn, default=None):
+        try:
+            if callable(fn):
+                return fn()
+            return fn
+        except Exception:
+            return default
+
+    try:
+        repo_root = Path(__file__).resolve().parents[2]
+        sp = repo_root / "venv" / "Lib" / "site-packages"
+        if sp.exists() and sp.is_dir():
+            sys.path.insert(0, str(sp))
+    except Exception:
+        pass
+
+    try:
+        from StreamDeck.DeviceManager import DeviceManager
+    except Exception as e:
+        try:
+            out_q.put_nowait(([], False, f"StreamDeck import failed: {type(e).__name__}: {e}"))
+        except Exception:
+            pass
+        return
+
+    devices_out: list[dict] = []
+    try:
+        decks = DeviceManager().enumerate() or []
+    except Exception as e:
+        try:
+            out_q.put_nowait(([], False, f"DeviceManager.enumerate failed: {type(e).__name__}: {e}"))
+        except Exception:
+            pass
+        return
+
+    for idx, deck in enumerate(decks):
+        try:
+            deck_type = _safe_call(getattr(deck, "deck_type", None), "Unknown")
+            hwid = _safe_call(getattr(deck, "id", None), None)
+            if not hwid:
+                hwid = f"deck_{idx}"
+            hwid = str(hwid)
+
+            available = False
+            busy_reason = ""
+            serial_number = ""
+
+            is_open = bool(_safe_call(getattr(deck, "is_open", None), False))
+            if is_open:
+                available = False
+                busy_reason = "in use (opened)"
+            else:
+                try:
+                    deck.open()
+                    available = True
+                    try:
+                        serial_number = str(_safe_call(getattr(deck, "get_serial_number", None), "") or "")
+                    except Exception:
+                        serial_number = ""
+                except Exception as open_exc:
+                    available = False
+                    busy_reason = f"unavailable ({type(open_exc).__name__})"
+                finally:
+                    try:
+                        if bool(_safe_call(getattr(deck, "is_open", None), False)):
+                            deck.close()
+                    except Exception:
+                        pass
+
+            serial_number = str(serial_number or "").strip()
+            if serial_number:
+                device_key = serial_number
+            else:
+                digest = hashlib.sha1(hwid.encode("utf-8", errors="ignore")).hexdigest()[:12]
+                device_key = f"hid_{digest}"
+                if not serial_number:
+                    serial_number = "Unknown"
+
+            devices_out.append(
+                {
+                    "id": str(device_key),
+                    "type": str(deck_type),
+                    "serial": str(serial_number),
+                    "hwid": str(hwid),
+                    "available": bool(available),
+                    "busy_reason": str(busy_reason),
+                }
+            )
+        except Exception:
+            continue
+
+    try:
+        out_q.put_nowait((devices_out, True, ""))
+    except Exception:
+        pass
+
+
+class _StreamdeckRefreshWorker(QObject):
+    """Background worker to enumerate StreamDeck devices without blocking the UI."""
+
+    done = Signal(list, bool, str)  # devices, ok, err
+
+    def __init__(self):
+        super().__init__()
+
+    @QtCore.Slot()
+    def run(self) -> None:
+        # Run probing in a subprocess so native HID crashes don't take down the UI.
+        try:
+            ctx = mp.get_context("spawn")
+            out_q = ctx.Queue()
+            proc = ctx.Process(target=_probe_streamdeck_devices_subprocess, args=(out_q,), daemon=True)
+            proc.start()
+        except Exception as e:
+            self.done.emit([], False, f"StreamDeck probe spawn failed: {type(e).__name__}: {e}")
+            return
+
+        try:
+            devices_out, ok, err = out_q.get(timeout=4.0)
+        except Exception as e:
+            try:
+                if proc.is_alive():
+                    proc.terminate()
+            except Exception:
+                pass
+            self.done.emit([], False, f"StreamDeck probe timeout: {type(e).__name__}: {e}")
+            return
+        finally:
+            try:
+                proc.join(timeout=0.5)
+            except Exception:
+                pass
+
+        try:
+            self.done.emit(list(devices_out or []), bool(ok), str(err or ""))
+        except Exception:
+            self.done.emit([], False, "StreamDeck probe failed")
 
 
 class _DeviceRefreshWorker(QObject):
@@ -665,6 +816,328 @@ class _ActionPickerDialog(QDialog):
         return self._selected_action
 
 
+class StreamdeckTab(QWidget):
+    """Tab for configuring Streamdeck device support."""
+
+    streamdeck_enabled_changed = Signal(bool)
+    device_enabled_changed = Signal(str, bool)  # device_id, enabled
+    streamdeck_refresh_requested = Signal()
+
+    def __init__(self, parent: QWidget | None = None):
+        super().__init__(parent)
+
+        layout = QVBoxLayout()
+        self.setLayout(layout)
+
+        title = QLabel('Streamdeck Configuration')
+        layout.addWidget(title)
+
+        # Global Streamdeck enable/disable checkbox
+        self.global_enable_checkbox = QCheckBox('Enable Streamdeck support')
+        self.global_enable_help = QLabel('Enable or disable Streamdeck integration globally')
+        self.global_enable_help.setStyleSheet('color: gray;')
+        layout.addWidget(self.global_enable_checkbox)
+        layout.addWidget(self.global_enable_help)
+
+        try:
+            self._load_persisted_global_enable()
+        except Exception:
+            pass
+        self.global_enable_checkbox.toggled.connect(self._on_global_enable_toggled)
+
+        # Device list section
+        device_section_label = QLabel('Available Devices')
+        device_section_label.setStyleSheet('font-weight: bold; margin-top: 10px;')
+        layout.addWidget(device_section_label)
+
+        self.device_list_widget = QWidget()
+        self.device_list_layout = QVBoxLayout()
+        self.device_list_widget.setLayout(self.device_list_layout)
+        layout.addWidget(self.device_list_widget)
+
+        # Refresh button
+        self.refresh_button = QPushButton('Refresh Device List')
+        self.refresh_button.clicked.connect(self._on_refresh_button_clicked)
+        layout.addWidget(self.refresh_button)
+
+        # Spacer to push everything to the top
+        layout.addItem(QSpacerItem(10, 10, QtWidgets.QSizePolicy.Policy.Minimum, QtWidgets.QSizePolicy.Policy.Expanding))
+
+        # Initialize device list
+        self._device_checkboxes = {}
+
+        self._refresh_thread: QThread | None = None
+        self._refresh_worker: _StreamdeckRefreshWorker | None = None
+
+        # Ensure we never leave a QThread running during widget destruction.
+        try:
+            self.destroyed.connect(lambda *_: self._shutdown_refresh_thread())
+        except Exception:
+            pass
+
+        # Apply global enable state to UI elements.
+        try:
+            self._apply_global_enabled_to_ui(bool(self.global_enable_checkbox.isChecked()))
+        except Exception:
+            pass
+
+        self._refresh_devices()
+
+    def _on_refresh_button_clicked(self) -> None:
+        """Handle refresh button click: request bridge restart and refresh device list."""
+        # If Streamdeck support is enabled, request a bridge restart so any
+        # newly-enabled devices can be adopted. If disabled, we still refresh the
+        # device list so the UI reflects what is plugged in.
+        try:
+            enabled = bool(self.global_enable_checkbox.isChecked())
+        except Exception:
+            enabled = True
+
+        if enabled:
+            try:
+                self.streamdeck_refresh_requested.emit()
+            except Exception:
+                pass
+            # Refresh the list after a delay to allow bridge restart.
+            try:
+                from PySide6.QtCore import QTimer
+                QTimer.singleShot(1500, self._refresh_devices)
+                return
+            except Exception:
+                pass
+
+        # Disabled: refresh immediately (no bridge restart).
+        self._refresh_devices()
+
+    def _shutdown_refresh_thread(self) -> None:
+        """Best-effort shutdown of the background refresh thread."""
+        thr = getattr(self, "_refresh_thread", None)
+        if thr is None:
+            return
+        try:
+            if thr.isRunning():
+                try:
+                    thr.quit()
+                except Exception:
+                    pass
+                try:
+                    thr.wait(1500)
+                except Exception:
+                    pass
+        except Exception:
+            pass
+        # References are cleared in _on_refresh_finished when possible.
+        try:
+            if not thr.isRunning():
+                self._refresh_worker = None
+                self._refresh_thread = None
+        except Exception:
+            self._refresh_worker = None
+            self._refresh_thread = None
+
+    def _load_persisted_global_enable(self) -> None:
+        """Load the global Streamdeck enable setting from QSettings."""
+        settings = QSettings('StepD', 'TouchMusicPlayer')
+        enabled = settings.value('streamdeck/enabled', True, type=bool)
+        self.global_enable_checkbox.setChecked(enabled)
+
+    def _save_persisted_global_enable(self) -> None:
+        """Save the global Streamdeck enable setting to QSettings."""
+        settings = QSettings('StepD', 'TouchMusicPlayer')
+        settings.setValue('streamdeck/enabled', self.global_enable_checkbox.isChecked())
+
+    def _on_global_enable_toggled(self, checked: bool) -> None:
+        """Handle global enable/disable toggle."""
+        try:
+            self._save_persisted_global_enable()
+        except Exception:
+            pass
+        try:
+            self._apply_global_enabled_to_ui(bool(checked))
+        except Exception:
+            pass
+        self.streamdeck_enabled_changed.emit(checked)
+
+    def _apply_global_enabled_to_ui(self, enabled: bool) -> None:
+        # Keep the list/refresh usable even when the service is disabled so the
+        # UI can show connected/disconnected devices and users can pre-configure
+        # per-device checkboxes.
+        try:
+            self.refresh_button.setEnabled(True)
+        except Exception:
+            pass
+        try:
+            self.device_list_widget.setEnabled(True)
+        except Exception:
+            pass
+
+    def _refresh_devices(self) -> None:
+        """Refresh the list of available Streamdeck devices (async)."""
+        # Always allow scanning so the list updates even when the service is
+        # disabled. We'll include a message when disabled.
+        try:
+            enabled = bool(self.global_enable_checkbox.isChecked())
+        except Exception:
+            enabled = True
+
+        # Avoid overlapping refresh operations.
+        try:
+            if self._refresh_thread is not None and self._refresh_thread.isRunning():
+                return
+        except Exception:
+            pass
+
+        # UI: show loading indicator.
+        msg = "Scanning Streamdeck devices..."
+        if not enabled:
+            msg = "Streamdeck support is disabled (service off). Scanning devices..."
+        self._render_streamdeck_devices([], ok=True, err=msg)
+        try:
+            self.refresh_button.setEnabled(False)
+        except Exception:
+            pass
+
+        # Create the worker thread with this widget as the parent so Qt owns it
+        # and it won't be destroyed early.
+        self._refresh_thread = QThread(self)
+        self._refresh_worker = _StreamdeckRefreshWorker()
+        self._refresh_worker.moveToThread(self._refresh_thread)
+        self._refresh_thread.started.connect(self._refresh_worker.run)
+        self._refresh_worker.done.connect(self._on_devices_refreshed)
+        self._refresh_worker.done.connect(self._refresh_thread.quit)
+        try:
+            self._refresh_thread.finished.connect(self._on_refresh_finished)
+        except Exception:
+            pass
+        try:
+            self._refresh_thread.finished.connect(self._refresh_thread.deleteLater)
+        except Exception:
+            pass
+        self._refresh_thread.start()
+
+    def _on_devices_refreshed(self, devices: list, ok: bool, err: str) -> None:
+        try:
+            self._render_streamdeck_devices(devices, ok=bool(ok), err=str(err or ""))
+        finally:
+            try:
+                self.refresh_button.setEnabled(bool(self.global_enable_checkbox.isChecked()))
+            except Exception:
+                pass
+
+    def _on_refresh_finished(self) -> None:
+        """Cleanup after the refresh thread exits."""
+        try:
+            if self._refresh_worker is not None:
+                try:
+                    self._refresh_worker.deleteLater()
+                except Exception:
+                    pass
+        finally:
+            self._refresh_worker = None
+            self._refresh_thread = None
+
+    def _render_streamdeck_devices(self, devices: list, ok: bool, err: str) -> None:
+        # Clear existing device checkboxes
+        for checkbox in self._device_checkboxes.values():
+            try:
+                checkbox.setParent(None)
+                checkbox.deleteLater()
+            except Exception:
+                pass
+        self._device_checkboxes.clear()
+
+        # Clear layout
+        while self.device_list_layout.count():
+            item = self.device_list_layout.takeAt(0)
+            if item.widget():
+                item.widget().setParent(None)
+
+        if err:
+            msg = QLabel(str(err))
+            msg.setStyleSheet('color: gray; font-style: italic;')
+            self.device_list_layout.addWidget(msg)
+            if not ok:
+                # No devices to render if probing failed.
+                return
+
+        if not devices:
+            if not err:
+                no_devices_label = QLabel('No Streamdeck devices found')
+                no_devices_label.setStyleSheet('color: gray; font-style: italic;')
+                self.device_list_layout.addWidget(no_devices_label)
+            return
+
+        for d in devices:
+            device_id = str(d.get('id') or '')
+            device_type = str(d.get('type') or 'Unknown')
+            serial = str(d.get('serial') or 'Unknown')
+            hwid = str(d.get('hwid') or '')
+            available = bool(d.get('available'))
+            busy_reason = str(d.get('busy_reason') or '')
+
+            # Create a horizontal layout for each device
+            device_layout = QHBoxLayout()
+
+            status_text = "Available" if available else (busy_reason or "Unavailable")
+            short_id = hwid or device_id
+            try:
+                if len(short_id) > 48:
+                    short_id = "…" + short_id[-48:]
+            except Exception:
+                short_id = hwid or device_id
+
+            device_info = f'{device_type} - Serial: {serial} [{status_text}]\nID: {device_id}    HWID: {short_id}'
+            device_label = QLabel(device_info)
+            try:
+                device_label.setToolTip(hwid or device_id)
+            except Exception:
+                pass
+            if not available:
+                device_label.setStyleSheet('color: orange;')
+            device_layout.addWidget(device_label)
+
+            enable_checkbox = QCheckBox('Enable')
+            try:
+                settings = QSettings('StepD', 'TouchMusicPlayer')
+                enabled = settings.value(f'streamdeck/devices/{device_id}/enabled', True, type=bool)
+                enable_checkbox.setChecked(bool(enabled))
+            except Exception:
+                enable_checkbox.setChecked(True)
+
+            if not available:
+                enable_checkbox.setChecked(False)
+                enable_checkbox.setEnabled(False)
+                enable_checkbox.setToolTip('Device is unavailable (possibly in use)')
+
+            enable_checkbox.toggled.connect(
+                lambda checked, dev_id=device_id: self._on_device_enable_toggled(dev_id, checked)
+            )
+            device_layout.addWidget(enable_checkbox)
+
+            device_layout.addItem(QSpacerItem(10, 10, QtWidgets.QSizePolicy.Policy.Expanding))
+
+            device_widget = QWidget()
+            device_widget.setLayout(device_layout)
+            self.device_list_layout.addWidget(device_widget)
+
+            self._device_checkboxes[device_id] = enable_checkbox
+
+    def _on_device_enable_toggled(self, device_id: str, checked: bool) -> None:
+        """Handle device enable/disable toggle."""
+        try:
+            settings = QSettings('StepD', 'TouchMusicPlayer')
+            settings.setValue(f'streamdeck/devices/{device_id}/enabled', checked)
+        except Exception:
+            pass
+        self.device_enabled_changed.emit(device_id, checked)
+        # Refresh the device list after a short delay to reflect any status changes (e.g., available -> in use).
+        try:
+            from PySide6.QtCore import QTimer
+            QTimer.singleShot(1000, self._refresh_devices)
+        except Exception:
+            pass
+
+
 class SettingsWindow(QWidget):
     restart_output_signal = Signal()
     refresh_sound_devices_signal = Signal()
@@ -743,6 +1216,11 @@ class SettingsWindow(QWidget):
             # Keyboard Shortcuts tab: UI-only display of mappings.
             self.keyboard_shortcuts_tab = KeyboardShortcutsTab(self)
             self.tabs.addTab(self.keyboard_shortcuts_tab, 'Keyboard Shortcuts')
+
+            # Streamdeck tab: configure Streamdeck device support.
+            self.streamdeck_tab = StreamdeckTab(self)
+            self.tabs.addTab(self.streamdeck_tab, 'Streamdeck')
+
             self.slider_layout = QHBoxLayout()
             self.v_layoutL = QVBoxLayout()
             self.v_layoutM = QVBoxLayout()
@@ -1559,9 +2037,20 @@ class SettingsWindow(QWidget):
 
         # Best-effort cleanup of refresh thread.
         try:
-            if self._device_refresh_thread is not None:
+            if self._device_refresh_thread is not None and self._device_refresh_thread.isRunning():
                 self._device_refresh_thread.quit()
-                self._device_refresh_thread.wait(250)
+                self._device_refresh_thread.wait(1500)
+        except Exception:
+            pass
+
+        # Best-effort cleanup of Streamdeck refresh thread.
+        try:
+            tab = getattr(self, 'streamdeck_tab', None)
+            if tab is not None:
+                try:
+                    tab._shutdown_refresh_thread()
+                except Exception:
+                    pass
         except Exception:
             pass
 

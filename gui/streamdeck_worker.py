@@ -559,7 +559,7 @@ def _render_key_image(msg: RenderMsg, key_size: tuple[int, int], icon_cache: dic
         return img.convert("RGB")
 
 
-def run_streamdeck_worker(cmd_q, evt_q, stop_event) -> None:
+def run_streamdeck_worker(cmd_q, evt_q, stop_event, preferred_device_ids=None) -> None:
     """Worker process that owns StreamDeck HID + rendering.
 
     Events pushed to evt_q:
@@ -575,6 +575,7 @@ def run_streamdeck_worker(cmd_q, evt_q, stop_event) -> None:
 
     deck = None
     key_size = (72, 72)
+    device_id = None
     last_connected = False
 
     icon_cache: dict[str, object] = {}
@@ -612,11 +613,60 @@ def run_streamdeck_worker(cmd_q, evt_q, stop_event) -> None:
             return None
         if not decks:
             return None
-        d = decks[0]
+
+        # If a preferred allowlist is provided, only open matching devices.
+        allow_set = None
         try:
-            d.open()
+            allow = preferred_device_ids
+            if isinstance(allow, (list, tuple)) and allow:
+                allow_set = {str(x) for x in allow if x}
         except Exception:
+            allow_set = None
+
+        # Try devices in order; if allowlist exists, accept only if HWID or serial matches.
+        for d in decks:
+            try:
+                d.open()
+            except Exception:
+                continue
+
+            try:
+                hwid = None
+                try:
+                    hwid = d.id()
+                except Exception:
+                    hwid = None
+
+                serial = None
+                try:
+                    serial = d.get_serial_number()
+                except Exception:
+                    serial = None
+
+                if allow_set is not None:
+                    if (hwid and str(hwid) in allow_set) or (serial and str(serial) in allow_set):
+                        # Keep it open; caller will configure it.
+                        pass
+                    else:
+                        # Not preferred; close and keep searching.
+                        try:
+                            d.close()
+                        except Exception:
+                            pass
+                        continue
+
+                # Found a usable deck.
+                device_id = hwid or serial or "unknown"
+                break
+            except Exception:
+                try:
+                    d.close()
+                except Exception:
+                    pass
+                continue
+        else:
             return None
+
         try:
             d.reset()
         except Exception:
@@ -629,16 +679,16 @@ def run_streamdeck_worker(cmd_q, evt_q, stop_event) -> None:
             fmt = d.key_image_format() or {}
             size = fmt.get("size")
             if isinstance(size, (list, tuple)) and len(size) == 2:
-                return d, (int(size[0]), int(size[1]))
+                return d, (int(size[0]), int(size[1])), device_id
         except Exception:
             pass
-        return d, (72, 72)
+        return d, (72, 72), device_id
 
     def _on_key_change(_deck, key: int, state: bool) -> None:
         if not bool(state):
             return
         try:
-            evt_q.put_nowait({"type": "key", "key": int(key)})
+            evt_q.put_nowait({"type": "key", "key": int(key), "device_id": device_id})
         except Exception:
             return
 
@@ -649,7 +699,7 @@ def run_streamdeck_worker(cmd_q, evt_q, stop_event) -> None:
             try:
                 opened = _try_open_first_deck()
                 if opened is not None:
-                    deck, key_size = opened
+                    deck, key_size, device_id = opened
                     try:
                         deck.set_key_callback(_on_key_change)
                     except Exception:
@@ -657,7 +707,7 @@ def run_streamdeck_worker(cmd_q, evt_q, stop_event) -> None:
                     else:
                         last_connected = True
                         try:
-                            evt_q.put_nowait({"type": "connected", "value": True, "key_size": key_size})
+                            evt_q.put_nowait({"type": "connected", "value": True, "key_size": key_size, "device_id": device_id})
                         except Exception:
                             pass
             except Exception as e:

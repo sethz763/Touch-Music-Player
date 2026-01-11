@@ -7,6 +7,9 @@ def main() -> int:
     import faulthandler
     import os
 
+    # Add the parent directory to sys.path so we can import from log/
+    sys.path.insert(0, str(Path(__file__).resolve().parent.parent))
+
     from log.service_log import coerce_log_path
 
     import multiprocessing as mp
@@ -16,12 +19,67 @@ def main() -> int:
     
     from PySide6.QtWidgets import QApplication
     from PySide6.QtCore import QTimer, Qt
+    from PySide6.QtGui import QColor, QPalette
     from ui.windows.main_window import MainWindow
+
+    def _apply_dark_theme(app: QApplication) -> None:
+        """Apply a dark theme to the whole app.
+
+        Note: individual widgets (like WaveformDisplay) may override their own
+        background via per-widget stylesheets. We intentionally avoid global
+        "setStyleSheet('* { background: ... }')" rules so those widgets can keep
+        their custom colors.
+        """
+
+        # Use Fusion so the palette behaves consistently across platforms.
+        try:
+            app.setStyle("Fusion")
+        except Exception:
+            pass
+
+        pal = QPalette()
+        pal.setColor(QPalette.ColorRole.Window, QColor(32, 32, 32))
+        pal.setColor(QPalette.ColorRole.WindowText, QColor(235, 235, 235))
+        pal.setColor(QPalette.ColorRole.Base, QColor(24, 24, 24))
+        pal.setColor(QPalette.ColorRole.AlternateBase, QColor(36, 36, 36))
+        pal.setColor(QPalette.ColorRole.ToolTipBase, QColor(24, 24, 24))
+        pal.setColor(QPalette.ColorRole.ToolTipText, QColor(235, 235, 235))
+        pal.setColor(QPalette.ColorRole.Text, QColor(235, 235, 235))
+        pal.setColor(QPalette.ColorRole.Button, QColor(45, 45, 45))
+        pal.setColor(QPalette.ColorRole.ButtonText, QColor(235, 235, 235))
+        pal.setColor(QPalette.ColorRole.BrightText, QColor(255, 0, 0))
+        pal.setColor(QPalette.ColorRole.Link, QColor(66, 160, 255))
+        pal.setColor(QPalette.ColorRole.Highlight, QColor(66, 160, 255))
+        pal.setColor(QPalette.ColorRole.HighlightedText, QColor(0, 0, 0))
+        try:
+            app.setPalette(pal)
+        except Exception:
+            pass
+
+        # Keep this tiny and targeted; avoid global QWidget/QLabel background rules.
+        try:
+            app.setStyleSheet(
+                "QToolTip { color: #EBEBEB; background-color: #202020; border: 1px solid #555555; }"
+            )
+        except Exception:
+            pass
 
     # If the GUI crashes during startup, write a traceback to disk so we don't
     # end up with a silent failure + orphaned audio subprocess printing logs.
     crash_path = coerce_log_path(env_value=None, default_filename="last_gui_crash.txt")
     hang_path = coerce_log_path(env_value=None, default_filename="last_gui_hang.txt")
+
+    # Ensure all log files exist at startup
+    try:
+        crash_path.touch(exist_ok=True)
+        hang_path.touch(exist_ok=True)
+        # Touch other potential log files
+        coerce_log_path(env_value=None, default_filename="audio_editor_logging_errors.txt").touch(exist_ok=True)
+        coerce_log_path(env_value=None, default_filename="engine_debug.log").touch(exist_ok=True)
+        coerce_log_path(env_value=None, default_filename="output_process_debug.log").touch(exist_ok=True)
+        coerce_log_path(env_value=None, default_filename="keyboard_shortcuts_debug.log").touch(exist_ok=True)
+    except Exception:
+        pass
 
     def _write_crash(exc: BaseException) -> None:
         try:
@@ -38,6 +96,11 @@ def main() -> int:
         app = QApplication([])
         try:
             print("[GUI] QApplication created")
+        except Exception:
+            pass
+
+        try:
+            _apply_dark_theme(app)
         except Exception:
             pass
 
@@ -122,4 +185,6 @@ def main() -> int:
         return 1
 
 if __name__ == "__main__":
+    import multiprocessing
+    multiprocessing.freeze_support()
     raise SystemExit(main())

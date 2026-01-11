@@ -1,7 +1,7 @@
 from __future__ import annotations
 
 from typing import TYPE_CHECKING, Dict, Optional
-from PySide6.QtWidgets import QWidget, QGridLayout, QMenu
+from PySide6.QtWidgets import QWidget, QGridLayout, QMenu, QSizePolicy
 from PySide6.QtCore import Signal, QTimer, Qt, QRect, QPoint
 from PySide6.QtGui import QPainter, QColor
 import time
@@ -194,7 +194,13 @@ class ButtonBankWidget(QWidget):
         self._settings_store = settings_store
         self._restored_from_disk = False
         self._last_started_button_index: int | None = None
-        self.setFixedHeight(500)
+        try:
+            self.setSizePolicy(
+                QSizePolicy.Policy.Expanding,
+                QSizePolicy.Policy.Expanding,
+            )
+        except Exception:
+            pass
         
         # Command batching state
         self._pending_commands: list = []
@@ -230,9 +236,23 @@ class ButtonBankWidget(QWidget):
         from ui.widgets.sound_file_button import SoundFileButton
         
         layout = QGridLayout(self)
+        self._grid_layout = layout
+        layout.setContentsMargins(0, 0, 0, 0)
         layout.setSpacing(6)
-        for r in range(rows):
-            for c in range(cols):
+
+        for r in range(self._rows):
+            try:
+                layout.setRowStretch(r, 1)
+            except Exception:
+                pass
+        for c in range(self._cols):
+            try:
+                layout.setColumnStretch(c, 1)
+            except Exception:
+                pass
+
+        for r in range(self._rows):
+            for c in range(self._cols):
                 btn: SoundFileButton = SoundFileButton()
                 # Upper-left index label support (set here so it survives repaints)
                 btn.bank_index = self.bank_index

@@ -22,6 +22,7 @@ class _KeyRender:
     bg_rgb: Optional[tuple[int, int, int]] = None
     fg_rgb: Optional[tuple[int, int, int]] = None
     corner_text: str = ""
+    device_id: str = ""
 
 
 class StreamDeckXLBridge(QObject):
@@ -54,7 +55,7 @@ class StreamDeckXLBridge(QObject):
         INDEPENDENT = "independent"
 
     connected_changed = Signal(bool)
-    _deck_key_pressed = Signal(int)
+    _deck_key_pressed = Signal(int, str)
     _deck_io_failed = Signal(str)
 
     def __init__(
@@ -68,6 +69,7 @@ class StreamDeckXLBridge(QObject):
         parent: Optional[QObject] = None,
         pulse_period_s: float = 1.2,
         pulse_fps: float = 30.0,
+        preferred_device_ids: Optional[list[str]] = None,
     ) -> None:
         super().__init__(parent)
         self._bank_selector = bank_selector
@@ -81,6 +83,9 @@ class StreamDeckXLBridge(QObject):
         self._pulse_interval_ms = int(max(33.0, 1000.0 / float(pulse_fps)))
 
         self._deck = None
+        self._decks: dict[str, object] = {}
+        self._device_banks: dict[str, int] = {}
+        self._device_display_banks: dict[str, int] = {}
         # Protects access to the StreamDeck device handle.
         # Without this, stop() can close the device while the IO thread is mid-write,
         # which can trigger hidapi/ctypes-level access violations on Windows.
@@ -90,12 +95,17 @@ class StreamDeckXLBridge(QObject):
         # Subprocess worker (owns StreamDeck HID + rendering). Keeping this out of
         # the main process isolates native crashes (HID stack / Pillow).
         self._worker_ctx = multiprocessing.get_context("spawn")
-        self._worker_cmd_q = None
-        self._worker_evt_q = None
-        self._worker_stop = None
-        self._worker_proc = None
+        self._worker_cmd_qs: dict[str, object] = {}
+        self._worker_evt_qs: dict[str, object] = {}
+        self._worker_stops: dict[str, object] = {}
+        self._worker_procs: dict[str, object] = {}
         self._worker_connected = False
         self._worker_last_error: Optional[str] = None
+
+        # Future: multi-device support.
+        # For now this is a selection hint for the worker process so we can
+        # choose a specific StreamDeck when multiple are connected.
+        self._preferred_device_ids: list[str] = [str(x) for x in (preferred_device_ids or []) if x]
 
         self._display_bank_index: int = 0
         self._force_full_redraw = True
@@ -163,7 +173,7 @@ class StreamDeckXLBridge(QObject):
 
         self._render_timer = QTimer(self)
         self._render_timer.setInterval(self._pulse_interval_ms)
-        self._render_timer.timeout.connect(self._render_tick)
+        self._render_timer.timeout.connect(self._render_all)
 
         # Thread-safe delivery: StreamDeck callbacks occur off the Qt thread.
         # Emitting a Qt signal here queues the call to the main thread.
@@ -269,64 +279,95 @@ class StreamDeckXLBridge(QObject):
             pass
 
     def _ensure_worker_running(self) -> None:
-        proc = getattr(self, "_worker_proc", None)
+        procs = getattr(self, "_worker_procs", {})
+        if not procs:
+            self._start_workers()
+            return
         try:
-            if proc is not None and proc.is_alive():
+            if all(proc.is_alive() for proc in procs.values() if proc is not None):
                 return
         except Exception:
             pass
-        self._start_worker()
+        self._start_workers()
 
-    def _start_worker(self) -> None:
+    def _start_workers(self) -> None:
         # Import here so Windows spawn can import cleanly.
         from gui.streamdeck_worker import run_streamdeck_worker
 
-        # Tear down any existing worker first.
+        # Tear down any existing workers first.
         try:
-            self._stop_worker()
+            self._stop_workers()
         except Exception:
             pass
 
-        self._worker_cmd_q = self._worker_ctx.Queue()
-        self._worker_evt_q = self._worker_ctx.Queue()
-        self._worker_stop = self._worker_ctx.Event()
-        self._worker_proc = self._worker_ctx.Process(
-            target=run_streamdeck_worker,
-            args=(self._worker_cmd_q, self._worker_evt_q, self._worker_stop),
-            name="streamdeck-worker",
-            daemon=True,
-        )
-        self._worker_proc.start()
+        # Determine device ids to start workers for.
+        # Empty/None means "any connected StreamDeck".
+        device_ids: list[object] = list(self._preferred_device_ids or [None])
+
+        for device_id in device_ids:
+            cmd_q = self._worker_ctx.Queue()
+            evt_q = self._worker_ctx.Queue()
+            stop_event = self._worker_ctx.Event()
+            preferred = [device_id] if device_id is not None else None
+            proc = self._worker_ctx.Process(
+                target=run_streamdeck_worker,
+                args=(cmd_q, evt_q, stop_event, preferred),
+                name=f"streamdeck-worker-{device_id or 'any'}",
+                daemon=True,
+            )
+            proc.start()
+
+            key = device_id or "any"
+            self._worker_cmd_qs[key] = cmd_q
+            self._worker_evt_qs[key] = evt_q
+            self._worker_stops[key] = stop_event
+            self._worker_procs[key] = proc
 
         self._worker_connected = False
         self._worker_last_error = None
         self._force_full_redraw = True
 
-    def _stop_worker(self) -> None:
-        proc = getattr(self, "_worker_proc", None)
-        if proc is None:
-            return
+    def _stop_workers(self) -> None:
+        procs = getattr(self, "_worker_procs", {})
+        cmd_qs = getattr(self, "_worker_cmd_qs", {})
+        stops = getattr(self, "_worker_stops", {})
+
+        for key, proc in procs.items():
+            if proc is None:
+                continue
+            try:
+                q = cmd_qs.get(key)
+                if q is not None:
+                    q.put_nowait({"type": "shutdown"})
+            except Exception:
+                pass
+            try:
+                ev = stops.get(key)
+                if ev is not None:
+                    ev.set()
+            except Exception:
+                pass
+
+            try:
+                proc.join(timeout=1.5)
+            except Exception:
+                pass
+            try:
+                if proc.is_alive():
+                    proc.terminate()
+            except Exception:
+                pass
 
         try:
-            q = getattr(self, "_worker_cmd_q", None)
-            if q is not None:
-                q.put_nowait({"type": "shutdown"})
-        except Exception:
-            pass
-        try:
-            ev = getattr(self, "_worker_stop", None)
-            if ev is not None:
-                ev.set()
+            self._worker_procs.clear()
+            self._worker_cmd_qs.clear()
+            self._worker_evt_qs.clear()
+            self._worker_stops.clear()
         except Exception:
             pass
 
         try:
-            proc.join(timeout=1.5)
-        except Exception:
-            pass
-        try:
-            if proc.is_alive():
-                proc.terminate()
+            self._decks.clear()
         except Exception:
             pass
 
@@ -335,57 +376,81 @@ class StreamDeckXLBridge(QObject):
 
     @Slot()
     def _drain_worker_events(self) -> None:
-        q = getattr(self, "_worker_evt_q", None)
-        if q is None:
+        evt_qs = getattr(self, "_worker_evt_qs", {})
+        if not evt_qs:
             return
 
         drained = 0
         connected_changed = False
-        while drained < 100:
-            drained += 1
-            try:
-                evt = q.get_nowait()
-            except Exception:
-                break
-
-            if not isinstance(evt, dict):
+        for device_id, q in evt_qs.items():
+            if q is None:
                 continue
+            while drained < 100:
+                drained += 1
+                try:
+                    evt = q.get_nowait()
+                except Exception:
+                    break
 
-            t = evt.get("type")
-            if t == "connected":
-                try:
-                    val = bool(evt.get("value"))
-                except Exception:
-                    val = False
-                if val != bool(self._worker_connected):
-                    self._worker_connected = val
-                    connected_changed = True
-                if val:
-                    try:
-                        ks = evt.get("key_size")
-                        if isinstance(ks, (list, tuple)) and len(ks) == 2:
-                            self._key_size = (int(ks[0]), int(ks[1]))
-                    except Exception:
-                        pass
-                    self._force_full_redraw = True
-                    try:
-                        self._render_tick()
-                    except Exception:
-                        pass
-            elif t == "key":
-                try:
-                    k = int(evt.get("key"))
-                except Exception:
+                if not isinstance(evt, dict):
                     continue
-                try:
-                    self._deck_key_pressed.emit(k)
-                except Exception:
-                    pass
-            elif t == "error":
-                try:
-                    self._worker_last_error = str(evt.get("detail") or "")
-                except Exception:
-                    self._worker_last_error = ""
+
+                t = evt.get("type")
+                if t == "connected":
+                    try:
+                        val = bool(evt.get("value"))
+                    except Exception:
+                        val = False
+                    if val:
+                        try:
+                            # The worker owns the physical HID handle; in this process
+                            # we track connected workers by their queue key (device_id).
+                            self._decks[device_id] = True
+                            if device_id not in self._device_banks:
+                                bank_index = len(self._device_banks)
+                                self._device_banks[device_id] = bank_index
+                                self._device_display_banks[device_id] = bank_index
+                        except Exception:
+                            pass
+                    else:
+                        try:
+                            self._decks.pop(device_id, None)
+                        except Exception:
+                            pass
+
+                    prev_connected = bool(self._worker_connected)
+                    try:
+                        self._worker_connected = bool(self._decks)
+                    except Exception:
+                        self._worker_connected = False
+                    if bool(self._worker_connected) != prev_connected:
+                        connected_changed = True
+                    if val:
+                        try:
+                            ks = evt.get("key_size")
+                            if isinstance(ks, (list, tuple)) and len(ks) == 2:
+                                self._key_size = (int(ks[0]), int(ks[1]))
+                        except Exception:
+                            pass
+                        self._force_full_redraw = True
+                        try:
+                            self._render_all()
+                        except Exception:
+                            pass
+                elif t == "key":
+                    try:
+                        k = int(evt.get("key"))
+                    except Exception:
+                        continue
+                    try:
+                        self._deck_key_pressed.emit(k, str(device_id))
+                    except Exception:
+                        pass
+                elif t == "error":
+                    try:
+                        self._worker_last_error = str(evt.get("detail") or "")
+                    except Exception:
+                        self._worker_last_error = ""
 
         if connected_changed:
             try:
@@ -438,7 +503,7 @@ class StreamDeckXLBridge(QObject):
         self._io_stop.set()
         try:
             # Unblock the IO thread promptly.
-            self._io_q.put_nowait(_KeyRender(key=-1, text="", active_level=0.0))
+            self._io_q.put_nowait(_KeyRender(device_id="", key=-1, text="", active_level=0.0))
         except Exception:
             pass
 
@@ -453,7 +518,7 @@ class StreamDeckXLBridge(QObject):
         self._close_deck_and_mark_disconnected("stop")
 
         try:
-            self._stop_worker()
+            self._stop_workers()
         except Exception:
             pass
 
@@ -541,11 +606,11 @@ class StreamDeckXLBridge(QObject):
         except Exception:
             pass
         try:
-            self._stop_worker()
+            self._stop_workers()
         except Exception:
             pass
         try:
-            self._start_worker()
+            self._start_workers()
         except Exception:
             pass
 
@@ -650,7 +715,7 @@ class StreamDeckXLBridge(QObject):
         # Use queued Qt signal for immediate main-thread handling.
         try:
             if bool(state):
-                self._deck_key_pressed.emit(int(key))
+                self._deck_key_pressed.emit(int(key), "local")
         except Exception:
             return
 
@@ -874,7 +939,7 @@ class StreamDeckXLBridge(QObject):
         drained = 0
         while drained < 50:
             try:
-                key, pressed = self._key_event_q.get_nowait()
+                event_type, key, pressed, device_id = self._key_event_q.get_nowait()
             except queue.Empty:
                 break
 
@@ -882,13 +947,14 @@ class StreamDeckXLBridge(QObject):
             if not pressed:
                 continue  # only on press
 
-            self._handle_key_press(int(key))
+            self._handle_key_press(int(key), device_id)
 
-    def _handle_key_press(self, key: int) -> None:
+    def _handle_key_press(self, key: int, device_id: str) -> None:
+        bank_index = self._device_display_banks.get(device_id, 0)
         # Cue grid keys
         if 0 <= key <= 23:
             idx_in_bank = key + 1
-            btn = self._get_button(self._display_bank_index, idx_in_bank)
+            btn = self._get_button(bank_index, idx_in_bank)
             if btn is None:
                 return
 
@@ -929,11 +995,22 @@ class StreamDeckXLBridge(QObject):
             return
 
         # Bottom row controls
-        if key == 24:
-            self._bank_nav(-1)
-            return
-        if key == 25:
-            self._bank_nav(+1)
+        if key == 24 or key == 25:
+            try:
+                banks = int(getattr(self._bank_selector, "banks", 10))
+            except Exception:
+                banks = 10
+            max_idx = max(0, banks - 1)
+
+            try:
+                current_bank = int(self._device_display_banks.get(device_id, 0))
+            except Exception:
+                current_bank = 0
+            delta = -1 if key == 24 else 1
+            new_bank = max(0, min(max_idx, current_bank + delta))
+            self._device_display_banks[device_id] = int(new_bank)
+            self._force_full_redraw = True
+            self._render_for_bank(int(new_bank), device_id)
             return
         if key == 26:
             try:
@@ -1280,7 +1357,7 @@ class StreamDeckXLBridge(QObject):
         pulse = 0.5 - 0.5 * math.cos(phase * 2.0 * math.pi)  # 0..1
 
         idx_in_bank = int(key) + 1
-        bank_idx = int(self._display_bank_index)
+        bank_idx = int(bank_index)
 
         if self._mode == self.BankMode.INDEPENDENT:
             # In independent mode, use cache for stable labels/colors (avoids
@@ -1398,7 +1475,7 @@ class StreamDeckXLBridge(QObject):
             return
 
     @Slot()
-    def _render_tick(self) -> None:
+    def _render_for_bank(self, bank_index: int, device_id: str) -> None:
         if not bool(getattr(self, "_worker_connected", False)):
             return
 
@@ -1428,7 +1505,7 @@ class StreamDeckXLBridge(QObject):
         # Render cue grid (24 keys)
         for key in range(24):
             idx_in_bank = key + 1
-            bank_idx = int(self._display_bank_index)
+            bank_idx = int(bank_index)
 
             if self._mode == self.BankMode.INDEPENDENT:
                 try:
@@ -1548,13 +1625,14 @@ class StreamDeckXLBridge(QObject):
                         bg_rgb=bg_rgb,
                         fg_rgb=fg_rgb,
                         corner_text=corner_text,
-                    )
+                    ),
+                    device_id=device_id
                 )
                 self._last_snapshot[key] = (text, active)
 
         # Bottom row labels
-        self._enqueue_render(_KeyRender(key=24, text="BANK -", active_level=0.0), force=self._force_full_redraw)
-        self._enqueue_render(_KeyRender(key=25, text="BANK +", active_level=0.0), force=self._force_full_redraw)
+        self._enqueue_render(_KeyRender(key=24, text="BANK -", active_level=0.0), force=self._force_full_redraw, device_id=device_id)
+        self._enqueue_render(_KeyRender(key=25, text="BANK +", active_level=0.0), force=self._force_full_redraw, device_id=device_id)
 
         transport_force = (
             self._force_full_redraw
@@ -1581,6 +1659,7 @@ class StreamDeckXLBridge(QObject):
                 bg_rgb=play_active if (play_should_highlight or self._transport_selected_key == 26) else play_inactive,
             ),
             force=transport_force,
+            device_id=device_id
         )
         self._enqueue_render(
             _KeyRender(
@@ -1591,6 +1670,7 @@ class StreamDeckXLBridge(QObject):
                 bg_rgb=pause_active if pause_selected else pause_inactive,
             ),
             force=transport_force,
+            device_id=device_id
         )
         self._enqueue_render(
             _KeyRender(
@@ -1601,9 +1681,10 @@ class StreamDeckXLBridge(QObject):
                 bg_rgb=stop_active if stop_selected else stop_inactive,
             ),
             force=transport_force,
+            device_id=device_id
         )
 
-        self._enqueue_render(_KeyRender(key=29, text="NEXT", active_level=0.0), force=self._force_full_redraw)
+        self._enqueue_render(_KeyRender(key=29, text="NEXT", active_level=0.0), force=self._force_full_redraw, device_id=device_id)
 
         # Key 30: loop state (dynamic)
         loop_on = False
@@ -1626,7 +1707,8 @@ class StreamDeckXLBridge(QObject):
                     active_level=0.6 if loop_on else 0.0,
                     icon_path=self._asset_path("loop_icon.png"),
                     bg_rgb=(25, 25, 25),
-                )
+                ),
+                device_id=device_id
             )
             self._last_snapshot[30] = (loop_text, loop_on)
 
@@ -1635,7 +1717,7 @@ class StreamDeckXLBridge(QObject):
         sync_text = "GUI\nSYNC\nON" if sync_on else "GUI\nSYNC\nOFF"
         prev = self._last_snapshot.get(31)
         if self._force_full_redraw or prev is None or prev[0] != sync_text:
-            self._enqueue_render(_KeyRender(key=31, text=sync_text, active_level=0.6 if sync_on else 0.0))
+            self._enqueue_render(_KeyRender(key=31, text=sync_text, active_level=0.6 if sync_on else 0.0), device_id=device_id)
             self._last_snapshot[31] = (sync_text, sync_on)
 
         self._force_full_redraw = False
@@ -1643,20 +1725,61 @@ class StreamDeckXLBridge(QObject):
         self._last_transport_selected_key = self._transport_selected_key
         self._last_play_highlight = bool(play_should_highlight)
 
-    def _enqueue_render(self, item: _KeyRender, *, force: bool = True) -> None:
+    def _render_all(self) -> None:
+        # Render only for connected worker keys.
+        for device_id in list(getattr(self, "_decks", {}).keys()):
+            try:
+                bank_index = int(self._device_display_banks.get(device_id, 0))
+            except Exception:
+                bank_index = 0
+            self._render_for_bank(bank_index, device_id)
+
+    def _enqueue_render(self, item: _KeyRender, *, force: bool = True, device_id: str | None = None) -> None:
         if not force:
             # For static labels, only enqueue when full redraw requested.
             return
         try:
-            self._io_q.put_nowait(item)
+            decks = getattr(self, "_decks", {})
+            device_ids = [device_id] if device_id else list(decks.keys())
+            for did in device_ids:
+                if did not in decks:
+                    continue
+                render_item = _KeyRender(
+                    device_id=did,
+                    key=item.key,
+                    text=item.text,
+                    active_level=item.active_level,
+                    icon_path=item.icon_path,
+                    bg_image_path=item.bg_image_path,
+                    bg_rgb=item.bg_rgb,
+                    fg_rgb=item.fg_rgb,
+                    corner_text=item.corner_text,
+                )
+                self._io_q.put_nowait(render_item)
         except Exception:
             # Drop frames if IO thread is backlogged.
             return
 
-    def _enqueue_render_priority(self, item: _KeyRender) -> None:
+    def _enqueue_render_priority(self, item: _KeyRender, device_id: str | None = None) -> None:
         """Enqueue a render and make room if the queue is full."""
         try:
-            self._io_q.put_nowait(item)
+            decks = getattr(self, "_decks", {})
+            device_ids = [device_id] if device_id else list(decks.keys())
+            for did in device_ids:
+                if did not in decks:
+                    continue
+                render_item = _KeyRender(
+                    device_id=did,
+                    key=item.key,
+                    text=item.text,
+                    active_level=item.active_level,
+                    icon_path=item.icon_path,
+                    bg_image_path=item.bg_image_path,
+                    bg_rgb=item.bg_rgb,
+                    fg_rgb=item.fg_rgb,
+                    corner_text=item.corner_text,
+                )
+                self._io_q.put_nowait(render_item)
             return
         except Exception:
             pass
@@ -1730,7 +1853,8 @@ class StreamDeckXLBridge(QObject):
                 if it is None:
                     continue
                 try:
-                    cmd_q = getattr(self, "_worker_cmd_q", None)
+                    cmd_qs = getattr(self, "_worker_cmd_qs", {})
+                    cmd_q = cmd_qs.get(it.device_id)
                     if cmd_q is None:
                         continue
                     cmd_q.put_nowait(

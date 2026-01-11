@@ -5,6 +5,17 @@ from PySide6 import QtCore, QtGui, QtWidgets
 
 from PySide6.QtCore import QUrl, QSize
 from PySide6.QtCore import QObject, Signal
+import os
+
+def resource_path(relative_path):
+    """Get absolute path to resource, works for dev and for PyInstaller"""
+    try:
+        # PyInstaller creates a temp folder and stores path in _MEIPASS
+        base_path = sys._MEIPASS
+    except Exception:
+        base_path = os.path.abspath(".")
+
+    return os.path.join(base_path, relative_path)
 
 class PlayControls(QWidget):
     transport_play = Signal()
@@ -45,10 +56,10 @@ class PlayControls(QWidget):
         self.next_button.setFixedSize(120,85)
         
 
-        self.play_icon = QIcon('assets\play_icon.png')
-        self.pause_icon = QIcon('assets\pause_icon.png')
-        self.loop_icon = QIcon('assets\loop_icon.png')
-        self.stop_icon = QIcon('assets\stop_icon.png')
+        self.play_icon = QIcon(resource_path('Assets/play_icon.png'))
+        self.pause_icon = QIcon(resource_path('Assets/pause_icon.png'))
+        self.loop_icon = QIcon(resource_path('Assets/loop_icon.png'))
+        self.stop_icon = QIcon(resource_path('Assets/stop_icon.png'))
 
         self.icon_size = QSize(90, 90)
 
@@ -77,7 +88,19 @@ class PlayControls(QWidget):
         self.play_button.setIcon(self.play_icon)
         self.pause_button.setIcon(self.pause_icon)
         self.loop_button.setIcon(self.loop_icon)
-
+        # Set stylesheets for toggle buttons to show sky blue when activated
+        self.loop_button.setStyleSheet("""
+            QPushButton:checked {
+                background-color: #87CEEB;
+                border: 2px solid #4682B4;
+            }
+        """)
+        self.cue_mode_button.setStyleSheet("""
+            QPushButton:checked {
+                background-color: #87CEEB;
+                border: 2px solid #4682B4;
+            }
+        """)
         self.layout.addWidget(self.stop_button)
         self.layout.addSpacerItem(self.spacer)
         self.layout.addWidget(self.cue_mode_button)
